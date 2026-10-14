@@ -611,9 +611,9 @@ export function BloodPressureApp() {
                   ticks={[75, 100, 125]}
                 />
                 <Tooltip
-                  content={({ active, payload }: { active?: boolean; payload?: Array<{ payload: (typeof chartData)[number] }> }) => {
+                  content={({ active, payload }: any) => {
                     if (!active || !payload || !payload.length) return null;
-                    const item = payload[0]!.payload;
+                    const item = payload[0].payload;
                     return (
                       <div className="bg-[#141A16] text-white rounded-[22px] px-4 py-3 shadow-lg">
                         <div className="text-sm text-[#A3ABA6] mb-0.5">
