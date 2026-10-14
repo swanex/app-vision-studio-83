@@ -322,9 +322,9 @@ export function BloodPressureApp() {
   const [dateInput, setDateInput] = useState('2026-10-14');
   const [timeInput, setTimeInput] = useState('09:30');
 
-  const sysRef = useRef(null);
-  const diaRef = useRef(null);
-  const pulseRef = useRef(null);
+  const sysRef = useRef<HTMLInputElement>(null);
+  const diaRef = useRef<HTMLInputElement>(null);
+  const pulseRef = useRef<HTMLInputElement>(null);
 
   const [importText, setImportText] = useState('');
 
@@ -367,7 +367,7 @@ export function BloodPressureApp() {
         if (d < cutoff) return false;
       }
       if (dayTimeFilter !== 'all') {
-        const hour = parseInt((r.time || '09:00').split(':')[0], 10);
+        const hour = parseInt((r.time || '09:00').split(':')[0] ?? '9', 10);
         if (dayTimeFilter === 'morning' && hour >= 13) return false;
         if (dayTimeFilter === 'evening' && hour < 13) return false;
       }
