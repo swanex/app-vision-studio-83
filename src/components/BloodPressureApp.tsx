@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useRef } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from "react";
 import {
   AreaChart,
   Area,
@@ -312,7 +312,7 @@ export function BloodPressureApp() {
   const [searchQuery, setSearchQuery] = useState('');
 
   // Bottom sheet state ('add' | 'data' | null)
-  const [activeSheet, setActiveSheet] = useState(null);
+  const [activeSheet, setActiveSheet] = useState<string | null>(null);
 
   // Quick numeric input state inside bottom sheet
   const [sysInput, setSysInput] = useState('');
@@ -415,7 +415,7 @@ export function BloodPressureApp() {
     };
   }, [filteredRecords, sortedRecords]);
 
-  const handleSysChange = (e) => {
+  const handleSysChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = e.target.value.replace(/\D/g, '').slice(0, 3);
     setSysInput(val);
     if (val.length === 3 || (val.length === 2 && parseInt(val, 10) >= 85 && parseInt(val, 10) <= 99)) {
@@ -423,7 +423,7 @@ export function BloodPressureApp() {
     }
   };
 
-  const handleDiaChange = (e) => {
+  const handleDiaChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = e.target.value.replace(/\D/g, '').slice(0, 3);
     setDiaInput(val);
     if (val.length === 2 && parseInt(val, 10) >= 45) {
@@ -431,12 +431,12 @@ export function BloodPressureApp() {
     }
   };
 
-  const handlePulseChange = (e) => {
+  const handlePulseChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = e.target.value.replace(/\D/g, '').slice(0, 3);
     setPulseInput(val);
   };
 
-  const handleSaveRecord = (e) => {
+  const handleSaveRecord = (e: React.FormEvent) => {
     e.preventDefault();
     const s = parseInt(sysInput, 10);
     const d = parseInt(diaInput, 10);
@@ -461,7 +461,7 @@ export function BloodPressureApp() {
     setActiveSheet(null);
   };
 
-  const handleDelete = (id) => {
+  const handleDelete = (id: string) => {
     setRecords((prev) => prev.filter((item) => item.id !== id));
   };
 
@@ -537,7 +537,7 @@ export function BloodPressureApp() {
             <input
               type="text"
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSearchQuery(e.target.value)}
               placeholder="Найти: кофе, трени, сахар, утро..."
               className="w-full bg-white rounded-[22px] px-5 py-4 text-base text-[#141A16] placeholder-[#858D88] focus:outline-none"
             />
@@ -899,14 +899,14 @@ export function BloodPressureApp() {
                   <input
                     type="text"
                     value={noteInput}
-                    onChange={(e) => setNoteInput(e.target.value)}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setNoteInput(e.target.value)}
                     placeholder="Комментарий (напр. сахар 5.4)"
                     className="flex-1 text-base text-[#141A16] placeholder-[#8F9691] focus:outline-none bg-transparent"
                   />
                   <input
                     type="time"
                     value={timeInput}
-                    onChange={(e) => setTimeInput(e.target.value)}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setTimeInput(e.target.value)}
                     className="text-base font-semibold text-[#141A16] bg-[#EFEFEF] rounded-full px-3 py-1 focus:outline-none"
                   />
                 </div>
@@ -953,7 +953,7 @@ export function BloodPressureApp() {
                 <textarea
                   rows={4}
                   value={importText}
-                  onChange={(e) => setImportText(e.target.value)}
+                  onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setImportText(e.target.value)}
                   placeholder="[15.10.2026 08:40] Roma Lebedev: 120/80 64 утро"
                   className="w-full bg-[#EFEFEF] rounded-[18px] p-3 text-sm text-[#141A16] focus:outline-none"
                 />
