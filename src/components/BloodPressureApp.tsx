@@ -1,5 +1,5 @@
 // @ts-nocheck
-import React, { useState, useMemo, useEffect, useRef } from "react";
+import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import {
   AreaChart,
   Area,
@@ -18,39 +18,47 @@ import {
   Download,
   Upload,
   RotateCcw,
-  Search
+  Search,
+  Cloud,
+  CloudOff,
+  RefreshCw,
+  Check
 } from 'lucide-react';
 
-// User's actual parsed dataset from [11.01.2026 1158] Roma Lebedev давл.txt
+// Твой актуальный Project URL и Publishable ключ Supabase
+const SUPABASE_URL = 'https://qgmnldmmhdtqbptbdmjm.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_klU9m95mg_Mags3ST_7WJA_FDTV5pWr';
+
+// Стартовая база замеров Романа (офлайн-резерв)
 const ROMA_INITIAL_RECORDS = [
   { id: 'r-1', date: '2026-01-11', time: '11:58', sys: 127, dia: 79, pulse: 65, note: 'После пробуждения и разминок' },
   { id: 'r-2', date: '2026-01-12', time: '12:27', sys: 117, dia: 78, pulse: null, note: 'Утром после завтрака' },
-  { id: 'r-3', date: '2026-01-21', time: '22:06', sys: 135, dia: 87, pulse: null, note: 'Вечером, повышенная тревожность (серия: 144/92 -> 134/89 -> 135/87)' },
-  { id: 'r-4', date: '2026-01-22', time: '15:05', sys: 122, dia: 85, pulse: 60, note: 'В спокойствии (серия: 128/89 -> 127/86 -> 122/85)' },
+  { id: 'r-3', date: '2026-01-21', time: '22:06', sys: 135, dia: 87, pulse: null, note: 'Вечером, повышенная тревожность (144/92 -> 134/89 -> 135/87)' },
+  { id: 'r-4', date: '2026-01-22', time: '15:05', sys: 122, dia: 85, pulse: 60, note: 'В спокойствии (128/89 -> 127/86 -> 122/85)' },
   { id: 'r-5', date: '2026-01-26', time: '16:36', sys: 121, dia: 83, pulse: 66, note: 'После трени, обеда, кофе' },
-  { id: 'r-6', date: '2026-02-09', time: '20:40', sys: 130, dia: 90, pulse: 75, note: 'Тревожность есть (серия: 130/89 -> 130/90)' },
+  { id: 'r-6', date: '2026-02-09', time: '20:40', sys: 130, dia: 90, pulse: 75, note: 'Тревожность есть (130/89 -> 130/90)' },
   { id: 'r-7a', date: '2026-02-10', time: '06:56', sys: 124, dia: 90, pulse: null, note: 'После пробуждения' },
   { id: 'r-7b', date: '2026-02-10', time: '21:00', sys: 124, dia: 91, pulse: 68, note: 'Вечером' },
-  { id: 'r-8', date: '2026-02-11', time: '19:30', sys: 127, dia: 87, pulse: 75, note: 'Вечер после прогулки (до прогулки 130/88). Днем было кардио!' },
-  { id: 'r-9a', date: '2026-02-12', time: '10:26', sys: 125, dia: 87, pulse: 67, note: 'Утро (до кофе)' },
+  { id: 'r-8', date: '2026-02-11', time: '19:30', sys: 127, dia: 87, pulse: 75, note: 'Вечер после прогулки (до 130/88). Днем кардио' },
+  { id: 'r-9a', date: '2026-02-12', time: '10:26', sys: 125, dia: 87, pulse: 67, note: 'Утро до кофе' },
   { id: 'r-9b', date: '2026-02-12', time: '12:30', sys: 128, dia: 82, pulse: 63, note: 'Полдень' },
   { id: 'r-10a', date: '2026-02-13', time: '13:00', sys: 126, dia: 86, pulse: 60, note: 'День' },
   { id: 'r-10b', date: '2026-02-13', time: '21:00', sys: 120, dia: 85, pulse: null, note: 'Вечер' },
   { id: 'r-11', date: '2026-02-14', time: '10:38', sys: 123, dia: 86, pulse: null, note: 'Утро' },
-  { id: 'r-12', date: '2026-02-14', time: '21:57', sys: 126, dia: 84, pulse: null, note: 'Вечер, без прогулки!' },
-  { id: 'r-13', date: '2026-02-15', time: '10:19', sys: 118, dia: 81, pulse: null, note: 'Утром после завтрака, выспавшись!' },
+  { id: 'r-12', date: '2026-02-14', time: '21:57', sys: 126, dia: 84, pulse: null, note: 'Вечер, без прогулки' },
+  { id: 'r-13', date: '2026-02-15', time: '10:19', sys: 118, dia: 81, pulse: null, note: 'Утром после завтрака, выспавшись' },
   { id: 'r-14', date: '2026-02-15', time: '21:30', sys: 117, dia: 82, pulse: 72, note: 'Вечером после прогулки' },
   { id: 'r-15', date: '2026-02-16', time: '21:41', sys: 123, dia: 86, pulse: 66, note: 'Вечером в день силовой' },
   { id: 'r-16a', date: '2026-02-17', time: '09:33', sys: 123, dia: 82, pulse: null, note: 'Утром' },
   { id: 'r-16b', date: '2026-02-17', time: '21:00', sys: 121, dia: 88, pulse: null, note: 'Вечером' },
-  { id: 'r-17', date: '2026-02-18', time: '11:34', sys: 108, dia: 72, pulse: null, note: 'Утром аномально низкое!' },
+  { id: 'r-17', date: '2026-02-18', time: '11:34', sys: 108, dia: 72, pulse: null, note: 'Утром низкое' },
   { id: 'r-18', date: '2026-02-18', time: '21:00', sys: 119, dia: 81, pulse: 72, note: 'Вечером после прогулки' },
   { id: 'r-19', date: '2026-02-22', time: '09:30', sys: 117, dia: 78, pulse: null, note: 'Утром после зарядки' },
   { id: 'r-20a', date: '2026-02-23', time: '08:54', sys: 117, dia: 76, pulse: null, note: 'Утро во время завтрака' },
   { id: 'r-20b', date: '2026-02-23', time: '21:00', sys: 110, dia: 76, pulse: null, note: 'Вечером после дня ног' },
-  { id: 'r-21', date: '2026-02-24', time: '22:29', sys: 113, dia: 80, pulse: 68, note: 'Вечером после прогулки (легкое ощущение тревожности)' },
+  { id: 'r-21', date: '2026-02-24', time: '22:29', sys: 113, dia: 80, pulse: 68, note: 'Вечером после прогулки' },
   { id: 'r-22', date: '2026-02-25', time: '07:35', sys: 115, dia: 78, pulse: null, note: 'Утро' },
-  { id: 'r-23', date: '2026-03-08', time: '22:38', sys: 117, dia: 78, pulse: null, note: 'Стабильно, и утром и вечером после прогулки' },
+  { id: 'r-23', date: '2026-03-08', time: '22:38', sys: 117, dia: 78, pulse: null, note: 'Стабильно утром и вечером после прогулки' },
   { id: 'r-24', date: '2026-03-09', time: '21:21', sys: 112, dia: 77, pulse: 65, note: 'После дня трени, вечером' },
   { id: 'r-25', date: '2026-03-10', time: '09:16', sys: 111, dia: 75, pulse: 65, note: 'Утро' },
   { id: 'r-26', date: '2026-03-16', time: '23:23', sys: 114, dia: 78, pulse: 65, note: 'Поздний вечер после трени' },
@@ -65,7 +73,7 @@ const ROMA_INITIAL_RECORDS = [
   { id: 'r-34', date: '2026-03-23', time: '20:57', sys: 123, dia: 84, pulse: 66, note: 'Вечер' },
   { id: 'r-35', date: '2026-03-24', time: '07:43', sys: 123, dia: 76, pulse: 71, note: 'Утро' },
   { id: 'r-36', date: '2026-03-27', time: '08:12', sys: 120, dia: 85, pulse: 75, note: 'Утро' },
-  { id: 'r-37', date: '2026-03-27', time: '23:07', sys: 127, dia: 89, pulse: 63, note: 'Вечер, день трени, сильно' },
+  { id: 'r-37', date: '2026-03-27', time: '23:07', sys: 127, dia: 89, pulse: 63, note: 'Вечер, день трени' },
   { id: 'r-38', date: '2026-03-28', time: '09:51', sys: 126, dia: 86, pulse: 75, note: 'Утром' },
   { id: 'r-39', date: '2026-03-30', time: '08:49', sys: 127, dia: 79, pulse: 75, note: 'Утро' },
   { id: 'r-40', date: '2026-04-03', time: '07:59', sys: 123, dia: 82, pulse: 75, note: 'Утро' },
@@ -86,21 +94,21 @@ const ROMA_INITIAL_RECORDS = [
   { id: 'r-54', date: '2026-04-30', time: '10:30', sys: 113, dia: 73, pulse: 66, note: 'Утро' },
   { id: 'r-55', date: '2026-05-01', time: '09:21', sys: 121, dia: 81, pulse: 66, note: 'Утро' },
   { id: 'r-56', date: '2026-05-06', time: '08:36', sys: 126, dia: 82, pulse: null, note: 'Утро' },
-  { id: 'r-57', date: '2026-05-07', time: '08:11', sys: 118, dia: 84, pulse: 70, note: 'Серия утром: 130/80 -> 123/85 -> 121/84 -> 118/84' },
-  { id: 'r-58', date: '2026-05-09', time: '19:25', sys: 129, dia: 89, pulse: 77, note: 'Вечером после прогулки (до прогулки 130/85)' },
+  { id: 'r-57', date: '2026-05-07', time: '08:11', sys: 118, dia: 84, pulse: 70, note: 'Серия утром: 130/80 -> 118/84' },
+  { id: 'r-58', date: '2026-05-09', time: '19:25', sys: 129, dia: 89, pulse: 77, note: 'Вечером после прогулки' },
   { id: 'r-59', date: '2026-05-10', time: '08:16', sys: 126, dia: 82, pulse: 70, note: 'Утро' },
   { id: 'r-60', date: '2026-05-11', time: '09:36', sys: 111, dia: 82, pulse: 64, note: 'Утро' },
   { id: 'r-61', date: '2026-05-12', time: '08:51', sys: 115, dia: 83, pulse: 69, note: 'Утро' },
   { id: 'r-62', date: '2026-05-13', time: '07:22', sys: 126, dia: 84, pulse: 69, note: 'Утро' },
-  { id: 'r-63', date: '2026-05-15', time: '08:31', sys: 118, dia: 79, pulse: 74, note: 'Утро (первый замер 125/82 75 -> 118/79 74)' },
+  { id: 'r-63', date: '2026-05-15', time: '08:31', sys: 118, dia: 79, pulse: 74, note: 'Утро (125/82 -> 118/79)' },
   { id: 'r-64', date: '2026-05-16', time: '08:28', sys: 125, dia: 75, pulse: 63, note: 'Утро' },
   { id: 'r-65', date: '2026-05-19', time: '08:41', sys: 116, dia: 84, pulse: 62, note: 'Утро' },
-  { id: 'r-66', date: '2026-05-20', time: '08:08', sys: 116, dia: 86, pulse: null, note: 'Серия: 120/86 -> 119/87 -> 111/88 -> 116/86' },
-  { id: 'r-67', date: '2026-05-21', time: '07:59', sys: 114, dia: 78, pulse: 64, note: 'Утро (122/80 64 -> 114/78)' },
-  { id: 'r-68', date: '2026-05-26', time: '09:37', sys: 118, dia: 84, pulse: 63, note: 'Утро (124/83 63 -> 118/84)' },
+  { id: 'r-66', date: '2026-05-20', time: '08:08', sys: 116, dia: 86, pulse: null, note: 'Серия: 120/86 -> 116/86' },
+  { id: 'r-67', date: '2026-05-21', time: '07:59', sys: 114, dia: 78, pulse: 64, note: 'Утро (122/80 -> 114/78)' },
+  { id: 'r-68', date: '2026-05-26', time: '09:37', sys: 118, dia: 84, pulse: 63, note: 'Утро (124/83 -> 118/84)' },
   { id: 'r-69', date: '2026-05-29', time: '08:34', sys: 116, dia: 84, pulse: 59, note: 'Утро' },
   { id: 'r-70', date: '2026-05-30', time: '08:53', sys: 112, dia: 82, pulse: 58, note: 'Утро' },
-  { id: 'r-71a', date: '2026-06-05', time: '08:47', sys: 119, dia: 81, pulse: 62, note: 'Утро (серия: 119/86 -> 120/83 -> 119/81)' },
+  { id: 'r-71a', date: '2026-06-05', time: '08:47', sys: 119, dia: 81, pulse: 62, note: 'Утро' },
   { id: 'r-71b', date: '2026-06-05', time: '11:00', sys: 118, dia: 84, pulse: 64, note: 'После кардио' },
   { id: 'r-72', date: '2026-06-07', time: '11:30', sys: 120, dia: 84, pulse: 63, note: 'Утро' },
   { id: 'r-73', date: '2026-06-12', time: '09:33', sys: 124, dia: 82, pulse: 71, note: 'Утро' },
@@ -110,19 +118,19 @@ const ROMA_INITIAL_RECORDS = [
   { id: 'r-77', date: '2026-06-18', time: '09:40', sys: 113, dia: 78, pulse: 67, note: 'Утро' },
   { id: 'r-78', date: '2026-06-23', time: '09:40', sys: 115, dia: 82, pulse: 64, note: 'Утро' },
   { id: 'r-79', date: '2026-06-24', time: '08:01', sys: 121, dia: 75, pulse: 66, note: 'Утро' },
-  { id: 'r-80', date: '2026-06-25', time: '09:05', sys: 126, dia: 85, pulse: 61, note: 'Утро (первый замер 130/86 -> 126/85)' },
+  { id: 'r-80', date: '2026-06-25', time: '09:05', sys: 126, dia: 85, pulse: 61, note: 'Утро (130/86 -> 126/85)' },
   { id: 'r-81', date: '2026-06-26', time: '08:47', sys: 129, dia: 83, pulse: 75, note: 'Утро' },
-  { id: 'r-82', date: '2026-06-28', time: '11:40', sys: 120, dia: 88, pulse: 66, note: 'Утро (123/88 65 -> 120/88 66)' },
+  { id: 'r-82', date: '2026-06-28', time: '11:40', sys: 120, dia: 88, pulse: 66, note: 'Утро' },
   { id: 'r-83', date: '2026-07-01', time: '08:49', sys: 115, dia: 84, pulse: 66, note: 'Утро' },
   { id: 'r-84', date: '2026-07-02', time: '08:51', sys: 116, dia: 80, pulse: 64, note: 'Утро' },
   { id: 'r-85', date: '2026-07-03', time: '08:31', sys: 119, dia: 81, pulse: 72, note: 'Утро' },
   { id: 'r-86', date: '2026-07-11', time: '09:36', sys: 124, dia: 79, pulse: 68, note: 'Утро' },
   { id: 'r-87', date: '2026-07-12', time: '12:48', sys: 120, dia: 84, pulse: 68, note: 'День' },
-  { id: 'r-88', date: '2026-07-13', time: '08:30', sys: 127, dia: 86, pulse: 65, note: 'Утро (125/87 -> 127/86)' },
+  { id: 'r-88', date: '2026-07-13', time: '08:30', sys: 127, dia: 86, pulse: 65, note: 'Утро' },
   { id: 'r-89', date: '2026-07-14', time: '11:08', sys: 126, dia: 78, pulse: 66, note: 'Утро' },
   { id: 'r-90', date: '2026-07-15', time: '09:03', sys: 124, dia: 74, pulse: 73, note: 'Утро' },
   { id: 'r-91', date: '2026-07-16', time: '09:40', sys: 127, dia: 79, pulse: 69, note: 'Утро' },
-  { id: 'r-92', date: '2026-07-17', time: '14:30', sys: 126, dia: 82, pulse: 82, note: 'Полдень (после кардио и обеда)' },
+  { id: 'r-92', date: '2026-07-17', time: '14:30', sys: 126, dia: 82, pulse: 82, note: 'Полдень, после кардио и обеда' },
   { id: 'r-93', date: '2026-07-18', time: '17:36', sys: 119, dia: 79, pulse: 68, note: 'Днем, под вечер' },
   { id: 'r-94', date: '2026-07-19', time: '10:16', sys: 118, dia: 77, pulse: 66, note: 'Утро' },
   { id: 'r-95', date: '2026-07-20', time: '10:00', sys: 117, dia: 80, pulse: 63, note: 'Утро' },
@@ -181,12 +189,12 @@ const ROMA_INITIAL_RECORDS = [
   { id: 'r-148', date: '2026-09-24', time: '09:01', sys: 115, dia: 78, pulse: 64, note: 'Утро' },
   { id: 'r-149', date: '2026-09-25', time: '09:16', sys: 117, dia: 76, pulse: 70, note: 'Утро' },
   { id: 'r-150', date: '2026-09-26', time: '11:46', sys: 120, dia: 82, pulse: 71, note: 'Утро' },
-  { id: 'r-151', date: '2026-09-27', time: '10:18', sys: 114, dia: 81, pulse: 66, note: 'Утро (110/80 63 -> 114/81 66)' },
+  { id: 'r-151', date: '2026-09-27', time: '10:18', sys: 114, dia: 81, pulse: 66, note: 'Утро (110/80 -> 114/81)' },
   { id: 'r-152', date: '2026-09-28', time: '09:20', sys: 118, dia: 81, pulse: 66, note: 'Утро' },
   { id: 'r-153', date: '2026-09-29', time: '09:48', sys: 118, dia: 79, pulse: 68, note: 'Утро' },
   { id: 'r-154', date: '2026-10-01', time: '09:28', sys: 116, dia: 81, pulse: 66, note: 'Утро' },
   { id: 'r-155', date: '2026-10-02', time: '08:29', sys: 114, dia: 81, pulse: 72, note: 'Утро' },
-  { id: 'r-156', date: '2026-10-04', time: '12:06', sys: 111, dia: 75, pulse: 61, note: 'До кофе (109/73 63 -> 111/75 61)' },
+  { id: 'r-156', date: '2026-10-04', time: '12:06', sys: 111, dia: 75, pulse: 61, note: 'До кофе' },
   { id: 'r-157', date: '2026-10-04', time: '13:03', sys: 131, dia: 85, pulse: 55, note: 'После кофе' },
   { id: 'r-158', date: '2026-10-04', time: '14:15', sys: 134, dia: 85, pulse: 56, note: 'Через час после кофе' },
   { id: 'r-159', date: '2026-10-05', time: '08:36', sys: 127, dia: 82, pulse: 63, note: 'Утро' },
@@ -196,14 +204,16 @@ const ROMA_INITIAL_RECORDS = [
   { id: 'r-163', date: '2026-10-07', time: '09:46', sys: 121, dia: 85, pulse: 61, note: 'После кофе' },
   { id: 'r-164', date: '2026-10-07', time: '13:21', sys: 128, dia: 87, pulse: 74, note: 'После кардио, сахар 6.2, сатурация 97%' },
   { id: 'r-165', date: '2026-10-08', time: '08:37', sys: 126, dia: 86, pulse: 64, note: 'Утро' },
-  { id: 'r-166', date: '2026-10-08', time: '11:28', sys: 127, dia: 85, pulse: 67, note: 'После завтрака и кофе (одинарный эспрессо)' },
-  { id: 'r-167', date: '2026-10-09', time: '08:59', sys: 121, dia: 88, pulse: 59, note: 'Утро (129/86 68 -> 121/88 59)' },
-  { id: 'r-168', date: '2026-10-10', time: '10:30', sys: 123, dia: 84, pulse: 62, note: 'Утро (128/85 65 -> 123/84 62)' },
+  { id: 'r-166', date: '2026-10-08', time: '11:28', sys: 127, dia: 85, pulse: 67, note: 'После завтрака и эспрессо' },
+  { id: 'r-167', date: '2026-10-09', time: '08:59', sys: 121, dia: 88, pulse: 59, note: 'Утро (129/86 -> 121/88)' },
+  { id: 'r-168', date: '2026-10-10', time: '10:30', sys: 123, dia: 84, pulse: 62, note: 'Утро (128/85 -> 123/84)' },
   { id: 'r-169', date: '2026-10-10', time: '12:18', sys: 119, dia: 87, pulse: 61, note: 'После кофе' },
   { id: 'r-170', date: '2026-10-12', time: '08:46', sys: 123, dia: 84, pulse: 64, note: 'Утро' },
   { id: 'r-171', date: '2026-10-13', time: '09:18', sys: 124, dia: 86, pulse: 64, note: 'Утро' },
   { id: 'r-172', date: '2026-10-14', time: '09:31', sys: 120, dia: 84, pulse: 66, note: 'Утро' }
 ];
+
+const STORAGE_KEY = 'roma_bp_mobile_clean_v3';
 
 const MONTHS_RU = [
   'янв', 'фев', 'мар', 'апр', 'мая', 'июн',
@@ -217,17 +227,11 @@ const formatHumanDate = (isoDate) => {
   return `${parseInt(dd, 10)} ${MONTHS_RU[mIdx] || mm}`;
 };
 
-const getStatusPill = (sys, dia) => {
-  if (sys < 110 || dia < 65) {
-    return { text: 'Низкое', bg: '#CDE9F2', color: '#141A16' };
-  }
-  if (sys < 125 && dia < 83) {
-    return { text: 'Оптимально', bg: '#D6EBB4', color: '#141A16' };
-  }
-  if (sys < 132 && dia < 87) {
-    return { text: 'Норма', bg: '#EFEFEF', color: '#141A16' };
-  }
-  return { text: 'Выше нормы', bg: '#141A16', color: '#FFFFFF' };
+const getStatusLabel = (sys, dia) => {
+  if (sys < 110 || dia < 65) return { text: 'Низкое', bg: '#CDE9F2', textCol: '#141A16' };
+  if (sys < 125 && dia < 83) return { text: 'Оптимально', bg: '#D6EBB4', textCol: '#141A16' };
+  if (sys < 132 && dia < 87) return { text: 'Норма', bg: '#EFEFEF', textCol: '#141A16' };
+  return { text: 'Выше нормы', bg: '#141A16', textCol: '#FFFFFF' };
 };
 
 const parseImportData = (rawText) => {
@@ -239,7 +243,7 @@ const parseImportData = (rawText) => {
   const parsed = [];
 
   lines.forEach((line, idx) => {
-    const chatMatch = line.match(/^\[(\d{2})\.(\d{2})\.(\d{4})\s+(\d{1,2}):(\d{2})\][^:]*:\s*(.+)$/);
+    const chatMatch = line.match(/^\[(\d{2})\.(\d{2})\.(\d{4})\s+(\d{1,2}):(\d{2})\][^:]*:\s*(.+)\$/);
     if (chatMatch) {
       const [, dd, mm, yyyy, hh, min, content] = chatMatch;
       const isoDate = `${yyyy}-${mm}-${dd}`;
@@ -284,7 +288,7 @@ const parseImportData = (rawText) => {
         .replace(nums[0], '')
         .replace(nums[1], '')
         .replace(nums[2] || '', '')
-        .replace(/^[;,\s/|-]+|[;,\s/|-]+$/g, '')
+        .replace(/^[;,\s/|-]+|[;,\s/|-]+\$/g, '')
         .trim();
 
       if (sys >= 75 && sys <= 220 && dia >= 45 && dia <= 140) {
@@ -305,40 +309,144 @@ const parseImportData = (rawText) => {
 };
 
 export function BloodPressureApp() {
-  const [records, setRecords] = useState(ROMA_INITIAL_RECORDS);
-  const [period, setPeriod] = useState('30d'); // '7d' | '30d' | 'all'
-  const [dayTimeFilter, setDayTimeFilter] = useState('all'); // 'all' | 'morning' | 'evening'
-  const [visibleCount, setVisibleCount] = useState(30);
+  const [records, setRecords] = useState(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch (e) {
+      console.error(e);
+    }
+    return ROMA_INITIAL_RECORDS;
+  });
+
+  const [cloudStatus, setCloudStatus] = useState('syncing'); // 'syncing' | 'online' | 'error'
+  const [cloudMessage, setCloudMessage] = useState('Загрузка из облака...');
+
+  const [period, setPeriod] = useState('30d');
+  const [dayTimeFilter, setDayTimeFilter] = useState('all');
+  const [visibleCount, setVisibleCount] = useState(25);
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [activeSheet, setActiveSheet] = useState(null); // 'add' | 'data' | null
 
-  // Bottom sheet state ('add' | 'data' | null)
-  const [activeSheet, setActiveSheet] = useState<string | null>(null);
-
-  // Quick numeric input state inside bottom sheet
   const [sysInput, setSysInput] = useState('');
   const [diaInput, setDiaInput] = useState('');
   const [pulseInput, setPulseInput] = useState('');
   const [noteInput, setNoteInput] = useState('Утро');
-  const [dateInput, setDateInput] = useState('2026-10-14');
+  const [dateInput, setDateInput] = useState(() => new Date().toISOString().slice(0, 10));
   const [timeInput, setTimeInput] = useState('09:30');
 
-  const sysRef = useRef<HTMLInputElement>(null);
-  const diaRef = useRef<HTMLInputElement>(null);
-  const pulseRef = useRef<HTMLInputElement>(null);
+  const sysRef = useRef(null);
+  const diaRef = useRef(null);
+  const pulseRef = useRef(null);
 
   const [importText, setImportText] = useState('');
+
+  // Загрузка записей из Supabase
+  const fetchFromCloud = useCallback(async () => {
+    setCloudStatus('syncing');
+    setCloudMessage('Синхронизация...');
+    try {
+      const cleanUrl = SUPABASE_URL.replace(/\/\$/, '');
+      const res = await fetch(
+        `${cleanUrl}/rest/v1/bp_records?select=*&order=date.asc,time.asc`,
+        {
+          headers: {
+            apikey: SUPABASE_KEY,
+            Authorization: `Bearer ${SUPABASE_KEY}`
+          }
+        }
+      );
+
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+
+      if (Array.isArray(data)) {
+        if (data.length > 0) {
+          setRecords(data);
+          setCloudMessage(`В облаке ${data.length} зам.`);
+        } else {
+          // Если таблица пуста, автоматически выгружаем начальные 179 записей Романа
+          await upsertToCloud(ROMA_INITIAL_RECORDS);
+          setRecords(ROMA_INITIAL_RECORDS);
+          setCloudMessage('База инициализирована');
+        }
+        setCloudStatus('online');
+      }
+    } catch (err) {
+      console.error(err);
+      setCloudStatus('error');
+      setCloudMessage('Офлайн режим (работает локально)');
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchFromCloud();
+  }, [fetchFromCloud]);
+
+  // Сохранение локального кэша
+  useEffect(() => {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(records));
+    } catch (e) {
+      console.error(e);
+    }
+  }, [records]);
+
+  // Запись в Supabase
+  const upsertToCloud = async (itemsArray) => {
+    try {
+      const cleanUrl = SUPABASE_URL.replace(/\/\$/, '');
+      const res = await fetch(`${cleanUrl}/rest/v1/bp_records`, {
+        method: 'POST',
+        headers: {
+          apikey: SUPABASE_KEY,
+          Authorization: `Bearer ${SUPABASE_KEY}`,
+          'Content-Type': 'application/json',
+          Prefer: 'resolution=merge-duplicates'
+        },
+        body: JSON.stringify(itemsArray)
+      });
+      if (!res.ok) throw new Error('Ошибка записи');
+      setCloudStatus('online');
+    } catch (e) {
+      console.error(e);
+      setCloudStatus('error');
+    }
+  };
+
+  // Удаление из Supabase
+  const deleteFromCloud = async (id) => {
+    try {
+      const cleanUrl = SUPABASE_URL.replace(/\/\$/, '');
+      await fetch(
+        `${cleanUrl}/rest/v1/bp_records?id=eq.${encodeURIComponent(id)}`,
+        {
+          method: 'DELETE',
+          headers: {
+            apikey: SUPABASE_KEY,
+            Authorization: `Bearer ${SUPABASE_KEY}`
+          }
+        }
+      );
+    } catch (e) {
+      console.error(e);
+    }
+  };
 
   useEffect(() => {
     if (activeSheet === 'add') {
       const now = new Date();
+      setDateInput(now.toISOString().slice(0, 10));
       const hh = String(now.getHours()).padStart(2, '0');
       const mm = String(now.getMinutes()).padStart(2, '0');
       setTimeInput(`${hh}:${mm}`);
-      const timer = setTimeout(() => {
+      setTimeout(() => {
         if (sysRef.current) sysRef.current.focus();
-      }, 100);
-      return () => clearTimeout(timer);
+      }, 120);
     }
   }, [activeSheet]);
 
@@ -368,7 +476,7 @@ export function BloodPressureApp() {
         if (d < cutoff) return false;
       }
       if (dayTimeFilter !== 'all') {
-        const hour = parseInt((r.time || '09:00').split(':')[0] ?? '9', 10);
+        const hour = parseInt((r.time || '09:00').split(':')[0], 10);
         if (dayTimeFilter === 'morning' && hour >= 13) return false;
         if (dayTimeFilter === 'evening' && hour < 13) return false;
       }
@@ -416,7 +524,7 @@ export function BloodPressureApp() {
     };
   }, [filteredRecords, sortedRecords]);
 
-  const handleSysChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleSysChange = (e) => {
     const val = e.target.value.replace(/\D/g, '').slice(0, 3);
     setSysInput(val);
     if (val.length === 3 || (val.length === 2 && parseInt(val, 10) >= 85 && parseInt(val, 10) <= 99)) {
@@ -424,7 +532,7 @@ export function BloodPressureApp() {
     }
   };
 
-  const handleDiaChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleDiaChange = (e) => {
     const val = e.target.value.replace(/\D/g, '').slice(0, 3);
     setDiaInput(val);
     if (val.length === 2 && parseInt(val, 10) >= 45) {
@@ -432,12 +540,12 @@ export function BloodPressureApp() {
     }
   };
 
-  const handlePulseChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handlePulseChange = (e) => {
     const val = e.target.value.replace(/\D/g, '').slice(0, 3);
     setPulseInput(val);
   };
 
-  const handleSaveRecord = (e: React.FormEvent) => {
+  const handleSaveRecord = async (e) => {
     e.preventDefault();
     const s = parseInt(sysInput, 10);
     const d = parseInt(diaInput, 10);
@@ -460,10 +568,13 @@ export function BloodPressureApp() {
     setDiaInput('');
     setPulseInput('');
     setActiveSheet(null);
+
+    await upsertToCloud([newItem]);
   };
 
-  const handleDelete = (id: string) => {
+  const handleDelete = async (id) => {
     setRecords((prev) => prev.filter((item) => item.id !== id));
+    await deleteFromCloud(id);
   };
 
   const handleExportCSV = () => {
@@ -481,12 +592,13 @@ export function BloodPressureApp() {
     URL.revokeObjectURL(url);
   };
 
-  const handleImportSubmit = () => {
+  const handleImportSubmit = async () => {
     const parsed = parseImportData(importText);
     if (parsed.length > 0) {
       setRecords((prev) => [...prev, ...parsed]);
       setImportText('');
       setActiveSheet(null);
+      await upsertToCloud(parsed);
     }
   };
 
@@ -505,16 +617,38 @@ export function BloodPressureApp() {
   const latestRec = stats.latest;
 
   return (
-    <div className="min-h-screen bg-[#E2E5E2] text-[#141A16] flex justify-center font-sans selection:bg-[#D6EBB4]">
-      {/* Mobile viewport container */}
+    <div className="min-h-screen bg-[#E4E7E4] text-[#141A16] flex justify-center selection:bg-[#D6EBB4]">
       <div className="w-full max-w-[440px] min-h-screen bg-[#EFEFEF] pb-32 px-5 pt-7 relative flex flex-col">
         
-        {/* Large clean header without eyebrows or subtitles */}
+        {/* Верхняя шапка */}
         <header className="flex items-center justify-between mb-6">
           <h1 className="text-[38px] font-bold tracking-tight leading-none text-[#141A16]">
             Давление
           </h1>
           <div className="flex items-center gap-2">
+            <button
+              onClick={fetchFromCloud}
+              title={cloudMessage}
+              className={`h-12 px-3.5 rounded-full flex items-center gap-1.5 text-sm font-semibold active:scale-95 transition cursor-pointer ${
+                cloudStatus === 'online'
+                  ? 'bg-[#D6EBB4] text-[#141A16]'
+                  : cloudStatus === 'syncing'
+                  ? 'bg-[#CDE9F2] text-[#141A16]'
+                  : 'bg-white text-[#7A827D]'
+              }`}
+            >
+              {cloudStatus === 'syncing' ? (
+                <RefreshCw className="w-4 h-4 animate-spin" />
+              ) : cloudStatus === 'online' ? (
+                <Cloud className="w-4 h-4" />
+              ) : (
+                <CloudOff className="w-4 h-4" />
+              )}
+              <span className="text-xs">
+                {cloudStatus === 'online' ? 'Облако' : cloudStatus === 'syncing' ? 'Синхр...' : 'Офлайн'}
+              </span>
+            </button>
+
             <button
               onClick={() => setSearchOpen((prev) => !prev)}
               className="w-12 h-12 rounded-full bg-white flex items-center justify-center text-[#141A16] active:scale-95 transition cursor-pointer"
@@ -532,20 +666,19 @@ export function BloodPressureApp() {
           </div>
         </header>
 
-        {/* Expandable search bar */}
         {searchOpen && (
           <div className="mb-5">
             <input
               type="text"
               value={searchQuery}
-              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSearchQuery(e.target.value)}
+              onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Найти: кофе, трени, сахар, утро..."
               className="w-full bg-white rounded-[22px] px-5 py-4 text-base text-[#141A16] placeholder-[#858D88] focus:outline-none"
             />
           </div>
         )}
 
-        {/* Segmented period pill selector */}
+        {/* Сегментированный пилл периода */}
         <div className="bg-white rounded-full p-1.5 grid grid-cols-3 mb-5">
           {[
             { id: '7d', label: 'Неделя' },
@@ -566,7 +699,7 @@ export function BloodPressureApp() {
           ))}
         </div>
 
-        {}
+        {/* Главная карточка графика */}
         <section className="bg-white rounded-[32px] p-6 mb-4">
           <div className="flex items-start justify-between mb-1">
             <div className="flex items-baseline gap-2">
@@ -584,7 +717,7 @@ export function BloodPressureApp() {
             Коридор {stats.minSys}–{stats.maxSys} · {filteredRecords.length} зам.
           </p>
 
-          <div className="h-[195px] w-full -mx-2">
+          <div className="h-[190px] w-full -mx-2">
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={chartData} margin={{ top: 10, right: 10, left: -24, bottom: 0 }}>
                 <defs>
@@ -593,7 +726,7 @@ export function BloodPressureApp() {
                     <stop offset="95%" stopColor="#D6EBB4" stopOpacity={0.05} />
                   </linearGradient>
                   <linearGradient id="diaFill" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#CDE9F2" stopOpacity={0.75} />
+                    <stop offset="5%" stopColor="#CDE9F2" stopOpacity={0.7} />
                     <stop offset="95%" stopColor="#CDE9F2" stopOpacity={0.05} />
                   </linearGradient>
                 </defs>
@@ -612,7 +745,7 @@ export function BloodPressureApp() {
                   ticks={[75, 100, 125]}
                 />
                 <Tooltip
-                  content={({ active, payload }: any) => {
+                  content={({ active, payload }) => {
                     if (!active || !payload || !payload.length) return null;
                     const item = payload[0].payload;
                     return (
@@ -626,8 +759,7 @@ export function BloodPressureApp() {
                             <span className="text-sm font-normal text-[#D6EBB4] ml-1">
                               ♥ {item.pulse}
                             </span>
-                          )}
-                        </div>
+                          )}                        </div>
                         {item.note && (
                           <div className="text-sm text-[#E2E6E3] mt-1 max-w-[210px] leading-snug">
                             {item.note}
@@ -726,7 +858,7 @@ export function BloodPressureApp() {
         {}
         <section className="space-y-3">
           {feedRecords.slice(0, visibleCount).map((item) => {
-            const badge = getStatusPill(item.sys, item.dia);
+            const badge = getStatusLabel(item.sys, item.dia);
             return (
               <div
                 key={item.id}
@@ -744,7 +876,7 @@ export function BloodPressureApp() {
                     )}
                     <span
                       className="text-xs font-semibold px-2.5 py-0.5 rounded-full"
-                      style={{ backgroundColor: badge.bg, color: badge.color }}
+                      style={{ backgroundColor: badge.bg, color: badge.textCol }}
                     >
                       {badge.text}
                     </span>
