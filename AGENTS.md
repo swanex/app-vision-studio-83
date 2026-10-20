@@ -8,3 +8,5 @@
 > Commits you push to the connected branch sync back to Lovable and show up in
 > the editor, so keep the branch in a working state.
 <!-- LOVABLE:END -->
+
+- Keep imported application source as JSX with its original default export; render it inside ClientOnly so browser storage initialization does not run during SSR.
