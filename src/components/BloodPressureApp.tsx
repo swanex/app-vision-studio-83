@@ -243,7 +243,7 @@ const parseImportData = (rawText) => {
   const parsed = [];
 
   lines.forEach((line, idx) => {
-    const chatMatch = line.match(/^\[(\d{2})\.(\d{2})\.(\d{4})\s+(\d{1,2}):(\d{2})\][^:]*:\s*(.+)\$/);
+    const chatMatch = line.match(/^\[(\d{2})\.(\d{2})\.(\d{4})\s+(\d{1,2}):(\d{2})\][^:]*:\s*(.+)$/);
     if (chatMatch) {
       const [, dd, mm, yyyy, hh, min, content] = chatMatch;
       const isoDate = `${yyyy}-${mm}-${dd}`;
@@ -288,7 +288,7 @@ const parseImportData = (rawText) => {
         .replace(nums[0], '')
         .replace(nums[1], '')
         .replace(nums[2] || '', '')
-        .replace(/^[;,\s/|-]+|[;,\s/|-]+\$/g, '')
+        .replace(/^[;,\s/|-]+|[;,\s/|-]+$/g, '')
         .trim();
 
       if (sys >= 75 && sys <= 220 && dia >= 45 && dia <= 140) {
@@ -350,7 +350,7 @@ export function BloodPressureApp() {
     setCloudStatus('syncing');
     setCloudMessage('Синхронизация...');
     try {
-      const cleanUrl = SUPABASE_URL.replace(/\/\$/, '');
+      const cleanUrl = SUPABASE_URL.replace(/\/$/, '');
       const res = await fetch(
         `${cleanUrl}/rest/v1/bp_records?select=*&order=date.asc,time.asc`,
         {
@@ -399,7 +399,7 @@ export function BloodPressureApp() {
   // Запись в Supabase
   const upsertToCloud = async (itemsArray) => {
     try {
-      const cleanUrl = SUPABASE_URL.replace(/\/\$/, '');
+      const cleanUrl = SUPABASE_URL.replace(/\/$/, '');
       const res = await fetch(`${cleanUrl}/rest/v1/bp_records`, {
         method: 'POST',
         headers: {
@@ -421,7 +421,7 @@ export function BloodPressureApp() {
   // Удаление из Supabase
   const deleteFromCloud = async (id) => {
     try {
-      const cleanUrl = SUPABASE_URL.replace(/\/\$/, '');
+      const cleanUrl = SUPABASE_URL.replace(/\/$/, '');
       await fetch(
         `${cleanUrl}/rest/v1/bp_records?id=eq.${encodeURIComponent(id)}`,
         {
@@ -759,9 +759,10 @@ export function BloodPressureApp() {
                             <span className="text-sm font-normal text-[#D6EBB4] ml-1">
                               ♥ {item.pulse}
                             </span>
-                          )}                        </div>
+                          )}
+                        </div>
                         {item.note && (
-                          <div className="text-sm text-[#E2E6E3] mt-1 max-w-[210px] leading-snug">
+                          <div className="text-sm text-[#E2E6E3] mt-1 max-w-[200px] leading-snug">
                             {item.note}
                           </div>
                         )}
@@ -790,19 +791,19 @@ export function BloodPressureApp() {
           </div>
         </section>
 
-        {}
+        {/* Бенто-пара карточек */}
         <section className="grid grid-cols-2 gap-3.5 mb-7">
           <div className="bg-[#CDE9F2] rounded-[28px] p-5 flex flex-col justify-between min-h-[148px]">
-            <div className="flex items-start justify-between">
+            <div className="flex items-center justify-between">
               <div>
                 <div className="text-[28px] font-bold leading-tight text-[#141A16]">
                   {latestRec ? `${latestRec.sys}/${latestRec.dia}` : '—'}
                 </div>
-                <div className="text-[15px] text-[#49656E] font-medium mt-0.5">
+                <div className="text-[15px] text-[#49656E] font-medium">
                   {latestRec ? formatHumanDate(latestRec.date) : 'Нет данных'}
                 </div>
               </div>
-              <div className="w-10 h-10 rounded-full bg-white flex items-center justify-center text-[#141A16] shrink-0">
+              <div className="w-10 h-10 rounded-full bg-white flex items-center justify-center text-[#141A16]">
                 <Activity className="w-5 h-5" />
               </div>
             </div>
@@ -812,16 +813,16 @@ export function BloodPressureApp() {
           </div>
 
           <div className="bg-[#D6EBB4] rounded-[28px] p-5 flex flex-col justify-between min-h-[148px]">
-            <div className="flex items-start justify-between">
+            <div className="flex items-center justify-between">
               <div>
                 <div className="text-[28px] font-bold leading-tight text-[#141A16]">
                   {stats.avgPulse}
                 </div>
-                <div className="text-[15px] text-[#526634] font-medium mt-0.5">
+                <div className="text-[15px] text-[#526634] font-medium">
                   уд/мин
                 </div>
               </div>
-              <div className="w-10 h-10 rounded-full bg-white flex items-center justify-center text-[#141A16] shrink-0">
+              <div className="w-10 h-10 rounded-full bg-white flex items-center justify-center text-[#141A16]">
                 <Heart className="w-5 h-5" />
               </div>
             </div>
@@ -831,7 +832,7 @@ export function BloodPressureApp() {
           </div>
         </section>
 
-        {}
+        {/* Переключатель фильтра суток */}
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-2xl font-bold text-[#141A16]">История</h2>
           <div className="flex items-center gap-1.5">
@@ -855,7 +856,7 @@ export function BloodPressureApp() {
           </div>
         </div>
 
-        {}
+        {/* Длинная лента карточек замеров */}
         <section className="space-y-3">
           {feedRecords.slice(0, visibleCount).map((item) => {
             const badge = getStatusLabel(item.sys, item.dia);
@@ -865,7 +866,7 @@ export function BloodPressureApp() {
                 className="bg-white rounded-[26px] px-5 py-4 flex items-center justify-between gap-3"
               >
                 <div className="min-w-0 flex-1">
-                  <div className="flex items-baseline gap-2.5 flex-wrap">
+                  <div className="flex items-baseline gap-2.5">
                     <span className="text-[24px] font-bold tracking-tight text-[#141A16]">
                       {item.sys}/{item.dia}
                     </span>
@@ -875,7 +876,7 @@ export function BloodPressureApp() {
                       </span>
                     )}
                     <span
-                      className="text-xs font-semibold px-2.5 py-0.5 rounded-full"
+                      className="text-xs font-semibold px-2.5 py-0.5 rounded-full ml-auto sm:ml-1"
                       style={{ backgroundColor: badge.bg, color: badge.textCol }}
                     >
                       {badge.text}
@@ -910,15 +911,15 @@ export function BloodPressureApp() {
           )}
         </section>
 
-        {}
+        {/* Парящая нижняя кнопка-док */}
         <div className="fixed bottom-5 left-0 right-0 z-30 flex justify-center pointer-events-none px-5">
-          <div className="w-full max-w-[400px] bg-white/95 backdrop-blur-md rounded-full p-2 shadow-lg flex items-center justify-between pointer-events-auto">
+          <div className="w-full max-w-[400px] bg-white/90 backdrop-blur-md rounded-full p-2 shadow-lg flex items-center justify-between pointer-events-auto">
             <div className="pl-4">
               <div className="text-sm font-semibold text-[#141A16]">
                 Новый замер
               </div>
               <div className="text-xs text-[#7A827D]">
-                Быстрый ввод одной рукой
+                Сохранится в облако
               </div>
             </div>
             <button
@@ -931,7 +932,7 @@ export function BloodPressureApp() {
           </div>
         </div>
 
-        {}
+        {/* ШТОРКА 1: Ввод нового замера */}
         {activeSheet === 'add' && (
           <div
             className="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs flex items-end justify-center"
@@ -1032,14 +1033,14 @@ export function BloodPressureApp() {
                   <input
                     type="text"
                     value={noteInput}
-                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setNoteInput(e.target.value)}
+                    onChange={(e) => setNoteInput(e.target.value)}
                     placeholder="Комментарий (напр. сахар 5.4)"
                     className="flex-1 text-base text-[#141A16] placeholder-[#8F9691] focus:outline-none bg-transparent"
                   />
                   <input
                     type="time"
                     value={timeInput}
-                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setTimeInput(e.target.value)}
+                    onChange={(e) => setTimeInput(e.target.value)}
                     className="text-base font-semibold text-[#141A16] bg-[#EFEFEF] rounded-full px-3 py-1 focus:outline-none"
                   />
                 </div>
@@ -1055,67 +1056,67 @@ export function BloodPressureApp() {
           </div>
         )}
 
-        {}
+        {/* ШТОРКА 2: Импорт и экспорт */}
         {activeSheet === 'data' && (
           <div
             className="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs flex items-end justify-center"
             onClick={() => setActiveSheet(null)}
           >
             <div
-              className="w-full max-w-[440px] bg-[#EFEFEF] rounded-t-[36px] p-6 pb-8 space-y-4"
+              className="w-full max-w-[440px] max-h-[90vh] overflow-y-auto bg-[#EFEFEF] rounded-t-[36px] p-6 pb-8 space-y-4"
               onClick={(e) => e.stopPropagation()}
             >
-              <div className="w-12 h-1.5 bg-[#C8CFCB] rounded-full mx-auto mb-4" />
+              <div className="w-12 h-1.5 bg-[#C8CFCB] rounded-full mx-auto mb-2" />
 
-              <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center justify-between">
                 <h3 className="text-[26px] font-bold text-[#141A16]">
-                  База замеров
+                  База данных
                 </h3>
                 <button
                   onClick={() => setActiveSheet(null)}
-                  className="w-10 h-10 rounded-full bg-white flex items-center justify-center text-[#141A16] cursor-pointer"
+                  className="w-10 h-10 rounded-full bg-white flex items-center justify-center text-[#141A16]"
                 >
                   <X className="w-5 h-5" />
                 </button>
               </div>
 
               <div className="bg-white rounded-[26px] p-4 space-y-3">
-                <div className="text-base font-semibold text-[#141A16]">
-                  Добавить строчки из лога
+                <div className="text-base font-bold text-[#141A16]">
+                  Импорт строк из текста
                 </div>
                 <textarea
-                  rows={4}
+                  rows={3}
                   value={importText}
-                  onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setImportText(e.target.value)}
-                  placeholder="[15.10.2026 08:40] Roma Lebedev: 120/80 64 утро"
+                  onChange={(e) => setImportText(e.target.value)}
+                  placeholder="[18.10.2026 08:40] Roma Lebedev: 120/80 64 утро"
                   className="w-full bg-[#EFEFEF] rounded-[18px] p-3 text-sm text-[#141A16] focus:outline-none"
                 />
                 <button
+                  type="button"
                   onClick={handleImportSubmit}
-                  className="w-full py-3.5 rounded-full bg-[#141A16] text-white font-semibold text-base flex items-center justify-center gap-2 cursor-pointer"
+                  className="w-full py-3.5 rounded-full bg-[#141A16] text-white font-semibold text-sm flex items-center justify-center gap-2 cursor-pointer"
                 >
                   <Upload className="w-4 h-4" />
-                  Импортировать записи
+                  Добавить в облако
                 </button>
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <button
+                  type="button"
                   onClick={handleExportCSV}
-                  className="bg-white rounded-[24px] py-4 px-4 font-semibold text-base text-[#141A16] flex items-center justify-center gap-2 cursor-pointer"
+                  className="bg-white rounded-[24px] py-3.5 px-4 font-semibold text-sm text-[#141A16] flex items-center justify-center gap-2 cursor-pointer"
                 >
                   <Download className="w-4 h-4" />
-                  Выгрузить CSV
+                  Скачать CSV
                 </button>
                 <button
-                  onClick={() => {
-                    setRecords(ROMA_INITIAL_RECORDS);
-                    setActiveSheet(null);
-                  }}
-                  className="bg-[#CDE9F2] rounded-[24px] py-4 px-4 font-semibold text-base text-[#141A16] flex items-center justify-center gap-2 cursor-pointer"
+                  type="button"
+                  onClick={fetchFromCloud}
+                  className="bg-[#CDE9F2] rounded-[24px] py-3.5 px-4 font-semibold text-sm text-[#141A16] flex items-center justify-center gap-2 cursor-pointer"
                 >
-                  <RotateCcw className="w-4 h-4" />
-                  Сбросить к базе
+                  <RefreshCw className="w-4 h-4" />
+                  Обновить из облака
                 </button>
               </div>
             </div>
