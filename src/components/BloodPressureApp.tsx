@@ -1,316 +1,124 @@
 // @ts-nocheck
-import React, { useState, useMemo, useEffect, useRef, useCallback } from "react";
-import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
+import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react';
+import {
+  AreaChart,
+  Area,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer
+} from 'recharts';
 import {
   Plus,
   Heart,
   Activity,
-  SlidersHorizontal,
+  Settings,
   X,
   Trash2,
   Download,
   Upload,
-  RotateCcw,
   Search,
   Cloud,
   CloudOff,
   RefreshCw,
-  Check,
-} from "lucide-react";
+  Sun,
+  Moon,
+  Sparkles,
+  Camera
+} from 'lucide-react';
 
-// Твой актуальный Project URL и Anon ключ от нового проекта Supabase
-const SUPABASE_URL = "https://qgmnldmmhdtqbptbdmjm.supabase.co";
-const SUPABASE_KEY =
-  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFnbW5sZG1taGR0cWJwdGJkbWptIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTIyODg5MDcsImV4cCI6MjEwNzg2NDkwN30.uEofng_-EPocDFkxHId5b-nMoLaD2RjKqBo_uh6TUYs";
+// Подключение к твоей облачной базе Supabase
+const SUPABASE_URL = 'https://qgmnldmmhdtqbptbdmjm.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFnbW5sZG1taGR0cWJwdGJkbWptIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTIyODg5MDcsImV4cCI6MjEwNzg2NDkwN30.uEofng_-EPocDFkxHId5b-nMoLaD2RjKqBo_uh6TUYs';
 
-// Стартовая база замеров Романа (офлайн-резерв)
-const ROMA_INITIAL_RECORDS = [
-  { id: "r-1", date: "2026-01-11", time: "11:58", sys: 127, dia: 79, pulse: 65, note: "После пробуждения и разминок" },
-  { id: "r-2", date: "2026-01-12", time: "12:27", sys: 117, dia: 78, pulse: null, note: "Утром после завтрака" },
-  {
-    id: "r-3",
-    date: "2026-01-21",
-    time: "22:06",
-    sys: 135,
-    dia: 87,
-    pulse: null,
-    note: "Вечером, повышенная тревожность (144/92 -> 134/89 -> 135/87)",
-  },
-  {
-    id: "r-4",
-    date: "2026-01-22",
-    time: "15:05",
-    sys: 122,
-    dia: 85,
-    pulse: 60,
-    note: "В спокойствии (128/89 -> 127/86 -> 122/85)",
-  },
-  { id: "r-5", date: "2026-01-26", time: "16:36", sys: 121, dia: 83, pulse: 66, note: "После трени, обеда, кофе" },
-  {
-    id: "r-6",
-    date: "2026-02-09",
-    time: "20:40",
-    sys: 130,
-    dia: 90,
-    pulse: 75,
-    note: "Тревожность есть (130/89 -> 130/90)",
-  },
-  { id: "r-7a", date: "2026-02-10", time: "06:56", sys: 124, dia: 90, pulse: null, note: "После пробуждения" },
-  { id: "r-7b", date: "2026-02-10", time: "21:00", sys: 124, dia: 91, pulse: 68, note: "Вечером" },
-  {
-    id: "r-8",
-    date: "2026-02-11",
-    time: "19:30",
-    sys: 127,
-    dia: 87,
-    pulse: 75,
-    note: "Вечер после прогулки (до 130/88). Днем кардио",
-  },
-  { id: "r-9a", date: "2026-02-12", time: "10:26", sys: 125, dia: 87, pulse: 67, note: "Утро до кофе" },
-  { id: "r-9b", date: "2026-02-12", time: "12:30", sys: 128, dia: 82, pulse: 63, note: "Полдень" },
-  { id: "r-10a", date: "2026-02-13", time: "13:00", sys: 126, dia: 86, pulse: 60, note: "День" },
-  { id: "r-10b", date: "2026-02-13", time: "21:00", sys: 120, dia: 85, pulse: null, note: "Вечер" },
-  { id: "r-11", date: "2026-02-14", time: "10:38", sys: 123, dia: 86, pulse: null, note: "Утро" },
-  { id: "r-12", date: "2026-02-14", time: "21:57", sys: 126, dia: 84, pulse: null, note: "Вечер, без прогулки" },
-  {
-    id: "r-13",
-    date: "2026-02-15",
-    time: "10:19",
-    sys: 118,
-    dia: 81,
-    pulse: null,
-    note: "Утром после завтрака, выспавшись",
-  },
-  { id: "r-14", date: "2026-02-15", time: "21:30", sys: 117, dia: 82, pulse: 72, note: "Вечером после прогулки" },
-  { id: "r-15", date: "2026-02-16", time: "21:41", sys: 123, dia: 86, pulse: 66, note: "Вечером в день силовой" },
-  { id: "r-16a", date: "2026-02-17", time: "09:33", sys: 123, dia: 82, pulse: null, note: "Утром" },
-  { id: "r-16b", date: "2026-02-17", time: "21:00", sys: 121, dia: 88, pulse: null, note: "Вечером" },
-  { id: "r-17", date: "2026-02-18", time: "11:34", sys: 108, dia: 72, pulse: null, note: "Утром низкое" },
-  { id: "r-18", date: "2026-02-18", time: "21:00", sys: 119, dia: 81, pulse: 72, note: "Вечером после прогулки" },
-  { id: "r-19", date: "2026-02-22", time: "09:30", sys: 117, dia: 78, pulse: null, note: "Утром после зарядки" },
-  { id: "r-20a", date: "2026-02-23", time: "08:54", sys: 117, dia: 76, pulse: null, note: "Утро во время завтрака" },
-  { id: "r-20b", date: "2026-02-23", time: "21:00", sys: 110, dia: 76, pulse: null, note: "Вечером после дня ног" },
-  { id: "r-21", date: "2026-02-24", time: "22:29", sys: 113, dia: 80, pulse: 68, note: "Вечером после прогулки" },
-  { id: "r-22", date: "2026-02-25", time: "07:35", sys: 115, dia: 78, pulse: null, note: "Утро" },
-  {
-    id: "r-23",
-    date: "2026-03-08",
-    time: "22:38",
-    sys: 117,
-    dia: 78,
-    pulse: null,
-    note: "Стабильно утром и вечером после прогулки",
-  },
-  { id: "r-24", date: "2026-03-09", time: "21:21", sys: 112, dia: 77, pulse: 65, note: "После дня трени, вечером" },
-  { id: "r-25", date: "2026-03-10", time: "09:16", sys: 111, dia: 75, pulse: 65, note: "Утро" },
-  { id: "r-26", date: "2026-03-16", time: "23:23", sys: 114, dia: 78, pulse: 65, note: "Поздний вечер после трени" },
-  { id: "r-27", date: "2026-03-18", time: "08:00", sys: 128, dia: 83, pulse: null, note: "Утром" },
-  { id: "r-28", date: "2026-03-18", time: "19:51", sys: 118, dia: 83, pulse: null, note: "Вечер" },
-  { id: "r-29", date: "2026-03-19", time: "08:38", sys: 126, dia: 75, pulse: null, note: "Утро" },
-  { id: "r-30a", date: "2026-03-20", time: "08:50", sys: 119, dia: 84, pulse: 73, note: "Утро" },
-  { id: "r-30b", date: "2026-03-20", time: "15:00", sys: 122, dia: 84, pulse: 70, note: "После трени" },
-  { id: "r-31", date: "2026-03-21", time: "10:24", sys: 117, dia: 82, pulse: 62, note: "Утро" },
-  { id: "r-32", date: "2026-03-22", time: "09:33", sys: 125, dia: 83, pulse: 71, note: "Утро" },
-  { id: "r-33", date: "2026-03-23", time: "08:07", sys: 130, dia: 80, pulse: 75, note: "Утро" },
-  { id: "r-34", date: "2026-03-23", time: "20:57", sys: 123, dia: 84, pulse: 66, note: "Вечер" },
-  { id: "r-35", date: "2026-03-24", time: "07:43", sys: 123, dia: 76, pulse: 71, note: "Утро" },
-  { id: "r-36", date: "2026-03-27", time: "08:12", sys: 120, dia: 85, pulse: 75, note: "Утро" },
-  { id: "r-37", date: "2026-03-27", time: "23:07", sys: 127, dia: 89, pulse: 63, note: "Вечер, день трени" },
-  { id: "r-38", date: "2026-03-28", time: "09:51", sys: 126, dia: 86, pulse: 75, note: "Утром" },
-  { id: "r-39", date: "2026-03-30", time: "08:49", sys: 127, dia: 79, pulse: 75, note: "Утро" },
-  { id: "r-40", date: "2026-04-03", time: "07:59", sys: 123, dia: 82, pulse: 75, note: "Утро" },
-  { id: "r-41", date: "2026-04-04", time: "09:41", sys: 120, dia: 76, pulse: 65, note: "Утро" },
-  { id: "r-42", date: "2026-04-09", time: "08:23", sys: 112, dia: 73, pulse: 68, note: "Утро" },
-  { id: "r-43", date: "2026-04-13", time: "08:42", sys: 114, dia: 72, pulse: null, note: "Утро" },
-  { id: "r-44", date: "2026-04-17", time: "07:50", sys: 126, dia: 79, pulse: 70, note: "Утро" },
-  { id: "r-45", date: "2026-04-18", time: "07:59", sys: 127, dia: 75, pulse: 66, note: "Утро" },
-  { id: "r-46", date: "2026-04-19", time: "09:18", sys: 124, dia: 79, pulse: 66, note: "Утро" },
-  { id: "r-47a", date: "2026-04-20", time: "09:00", sys: 119, dia: 76, pulse: 70, note: "Утром" },
-  { id: "r-47b", date: "2026-04-20", time: "13:27", sys: 116, dia: 76, pulse: 72, note: "После трени" },
-  { id: "r-48", date: "2026-04-21", time: "08:10", sys: 123, dia: 83, pulse: 69, note: "Утро" },
-  { id: "r-49", date: "2026-04-24", time: "08:08", sys: 114, dia: 77, pulse: 69, note: "Утро" },
-  { id: "r-50", date: "2026-04-25", time: "08:30", sys: 114, dia: 75, pulse: 68, note: "Утро" },
-  { id: "r-51", date: "2026-04-26", time: "10:49", sys: 123, dia: 70, pulse: 65, note: "Утро" },
-  { id: "r-52", date: "2026-04-27", time: "09:00", sys: 118, dia: 78, pulse: 62, note: "Утро" },
-  { id: "r-53", date: "2026-04-29", time: "08:08", sys: 114, dia: 77, pulse: 66, note: "Утро" },
-  { id: "r-54", date: "2026-04-30", time: "10:30", sys: 113, dia: 73, pulse: 66, note: "Утро" },
-  { id: "r-55", date: "2026-05-01", time: "09:21", sys: 121, dia: 81, pulse: 66, note: "Утро" },
-  { id: "r-56", date: "2026-05-06", time: "08:36", sys: 126, dia: 82, pulse: null, note: "Утро" },
-  {
-    id: "r-57",
-    date: "2026-05-07",
-    time: "08:11",
-    sys: 118,
-    dia: 84,
-    pulse: 70,
-    note: "Серия утром: 130/80 -> 118/84",
-  },
-  { id: "r-58", date: "2026-05-09", time: "19:25", sys: 129, dia: 89, pulse: 77, note: "Вечером после прогулки" },
-  { id: "r-59", date: "2026-05-10", time: "08:16", sys: 126, dia: 82, pulse: 70, note: "Утро" },
-  { id: "r-60", date: "2026-05-11", time: "09:36", sys: 111, dia: 82, pulse: 64, note: "Утро" },
-  { id: "r-61", date: "2026-05-12", time: "08:51", sys: 115, dia: 83, pulse: 69, note: "Утро" },
-  { id: "r-62", date: "2026-05-13", time: "07:22", sys: 126, dia: 84, pulse: 69, note: "Утро" },
-  { id: "r-63", date: "2026-05-15", time: "08:31", sys: 118, dia: 79, pulse: 74, note: "Утро (125/82 -> 118/79)" },
-  { id: "r-64", date: "2026-05-16", time: "08:28", sys: 125, dia: 75, pulse: 63, note: "Утро" },
-  { id: "r-65", date: "2026-05-19", time: "08:41", sys: 116, dia: 84, pulse: 62, note: "Утро" },
-  { id: "r-66", date: "2026-05-20", time: "08:08", sys: 116, dia: 86, pulse: null, note: "Серия: 120/86 -> 116/86" },
-  { id: "r-67", date: "2026-05-21", time: "07:59", sys: 114, dia: 78, pulse: 64, note: "Утро (122/80 -> 114/78)" },
-  { id: "r-68", date: "2026-05-26", time: "09:37", sys: 118, dia: 84, pulse: 63, note: "Утро (124/83 -> 118/84)" },
-  { id: "r-69", date: "2026-05-29", time: "08:34", sys: 116, dia: 84, pulse: 59, note: "Утро" },
-  { id: "r-70", date: "2026-05-30", time: "08:53", sys: 112, dia: 82, pulse: 58, note: "Утро" },
-  { id: "r-71a", date: "2026-06-05", time: "08:47", sys: 119, dia: 81, pulse: 62, note: "Утро" },
-  { id: "r-71b", date: "2026-06-05", time: "11:00", sys: 118, dia: 84, pulse: 64, note: "После кардио" },
-  { id: "r-72", date: "2026-06-07", time: "11:30", sys: 120, dia: 84, pulse: 63, note: "Утро" },
-  { id: "r-73", date: "2026-06-12", time: "09:33", sys: 124, dia: 82, pulse: 71, note: "Утро" },
-  { id: "r-74", date: "2026-06-14", time: "12:43", sys: 119, dia: 83, pulse: null, note: "День" },
-  { id: "r-75", date: "2026-06-15", time: "08:51", sys: 126, dia: 82, pulse: 60, note: "Утро" },
-  { id: "r-76", date: "2026-06-17", time: "09:28", sys: 113, dia: 75, pulse: 68, note: "Утро" },
-  { id: "r-77", date: "2026-06-18", time: "09:40", sys: 113, dia: 78, pulse: 67, note: "Утро" },
-  { id: "r-78", date: "2026-06-23", time: "09:40", sys: 115, dia: 82, pulse: 64, note: "Утро" },
-  { id: "r-79", date: "2026-06-24", time: "08:01", sys: 121, dia: 75, pulse: 66, note: "Утро" },
-  { id: "r-80", date: "2026-06-25", time: "09:05", sys: 126, dia: 85, pulse: 61, note: "Утро (130/86 -> 126/85)" },
-  { id: "r-81", date: "2026-06-26", time: "08:47", sys: 129, dia: 83, pulse: 75, note: "Утро" },
-  { id: "r-82", date: "2026-06-28", time: "11:40", sys: 120, dia: 88, pulse: 66, note: "Утро" },
-  { id: "r-83", date: "2026-07-01", time: "08:49", sys: 115, dia: 84, pulse: 66, note: "Утро" },
-  { id: "r-84", date: "2026-07-02", time: "08:51", sys: 116, dia: 80, pulse: 64, note: "Утро" },
-  { id: "r-85", date: "2026-07-03", time: "08:31", sys: 119, dia: 81, pulse: 72, note: "Утро" },
-  { id: "r-86", date: "2026-07-11", time: "09:36", sys: 124, dia: 79, pulse: 68, note: "Утро" },
-  { id: "r-87", date: "2026-07-12", time: "12:48", sys: 120, dia: 84, pulse: 68, note: "День" },
-  { id: "r-88", date: "2026-07-13", time: "08:30", sys: 127, dia: 86, pulse: 65, note: "Утро" },
-  { id: "r-89", date: "2026-07-14", time: "11:08", sys: 126, dia: 78, pulse: 66, note: "Утро" },
-  { id: "r-90", date: "2026-07-15", time: "09:03", sys: 124, dia: 74, pulse: 73, note: "Утро" },
-  { id: "r-91", date: "2026-07-16", time: "09:40", sys: 127, dia: 79, pulse: 69, note: "Утро" },
-  {
-    id: "r-92",
-    date: "2026-07-17",
-    time: "14:30",
-    sys: 126,
-    dia: 82,
-    pulse: 82,
-    note: "Полдень, после кардио и обеда",
-  },
-  { id: "r-93", date: "2026-07-18", time: "17:36", sys: 119, dia: 79, pulse: 68, note: "Днем, под вечер" },
-  { id: "r-94", date: "2026-07-19", time: "10:16", sys: 118, dia: 77, pulse: 66, note: "Утро" },
-  { id: "r-95", date: "2026-07-20", time: "10:00", sys: 117, dia: 80, pulse: 63, note: "Утро" },
-  { id: "r-96", date: "2026-07-20", time: "23:24", sys: 119, dia: 81, pulse: 65, note: "Поздний вечер" },
-  { id: "r-97", date: "2026-07-21", time: "08:21", sys: 117, dia: 81, pulse: 62, note: "Утро" },
-  { id: "r-98", date: "2026-07-22", time: "08:21", sys: 114, dia: 82, pulse: 64, note: "Утро" },
-  { id: "r-99", date: "2026-07-23", time: "09:20", sys: 125, dia: 83, pulse: 62, note: "Утро" },
-  { id: "r-100", date: "2026-07-24", time: "08:59", sys: 118, dia: 83, pulse: 62, note: "Утро" },
-  { id: "r-101", date: "2026-07-24", time: "22:59", sys: 120, dia: 82, pulse: 64, note: "Вечер" },
-  { id: "r-102", date: "2026-07-26", time: "11:04", sys: 120, dia: 78, pulse: 63, note: "Утро" },
-  { id: "r-103", date: "2026-07-28", time: "09:16", sys: 119, dia: 77, pulse: 64, note: "Утро" },
-  { id: "r-104", date: "2026-07-29", time: "09:06", sys: 121, dia: 80, pulse: 70, note: "Утро" },
-  { id: "r-105", date: "2026-07-30", time: "08:56", sys: 121, dia: 83, pulse: 67, note: "Утро" },
-  { id: "r-106", date: "2026-07-31", time: "08:53", sys: 121, dia: 84, pulse: 60, note: "Утро" },
-  { id: "r-107", date: "2026-08-01", time: "08:59", sys: 119, dia: 86, pulse: 63, note: "Утро" },
-  { id: "r-108", date: "2026-08-03", time: "08:51", sys: 119, dia: 78, pulse: 65, note: "Утро" },
-  { id: "r-109", date: "2026-08-05", time: "08:18", sys: 124, dia: 79, pulse: 69, note: "Утро" },
-  { id: "r-110", date: "2026-08-06", time: "11:19", sys: 125, dia: 84, pulse: 65, note: "Утро" },
-  { id: "r-111", date: "2026-08-07", time: "07:54", sys: 125, dia: 81, pulse: 68, note: "Утро" },
-  { id: "r-112", date: "2026-08-08", time: "08:29", sys: 119, dia: 81, pulse: 63, note: "Утро" },
-  { id: "r-113", date: "2026-08-11", time: "10:05", sys: 112, dia: 76, pulse: 64, note: "Утро" },
-  { id: "r-114", date: "2026-08-12", time: "09:25", sys: 118, dia: 80, pulse: 67, note: "Утро" },
-  { id: "r-115", date: "2026-08-13", time: "09:27", sys: 120, dia: 83, pulse: 68, note: "Утро" },
-  { id: "r-116", date: "2026-08-14", time: "08:36", sys: 119, dia: 83, pulse: 59, note: "Утро" },
-  { id: "r-117", date: "2026-08-15", time: "10:44", sys: 119, dia: 80, pulse: 60, note: "Утро" },
-  { id: "r-118", date: "2026-08-17", time: "09:05", sys: 116, dia: 75, pulse: 56, note: "Утро" },
-  { id: "r-119", date: "2026-08-18", time: "09:18", sys: 117, dia: 82, pulse: 63, note: "Утро" },
-  { id: "r-120", date: "2026-08-19", time: "09:00", sys: 114, dia: 81, pulse: 58, note: "Утро" },
-  { id: "r-121", date: "2026-08-20", time: "08:39", sys: 120, dia: 83, pulse: 61, note: "Утро" },
-  { id: "r-122", date: "2026-08-21", time: "08:55", sys: 113, dia: 82, pulse: 67, note: "Утро" },
-  { id: "r-123", date: "2026-08-22", time: "10:10", sys: 115, dia: 79, pulse: 70, note: "Утро" },
-  { id: "r-124", date: "2026-08-24", time: "09:06", sys: 120, dia: 79, pulse: 60, note: "Утро" },
-  { id: "r-125", date: "2026-08-25", time: "09:08", sys: 123, dia: 80, pulse: 65, note: "Утро" },
-  { id: "r-126", date: "2026-08-26", time: "09:59", sys: 121, dia: 80, pulse: 65, note: "Утро (123/85 -> 121/80)" },
-  { id: "r-127", date: "2026-08-27", time: "10:10", sys: 123, dia: 78, pulse: 71, note: "Утро" },
-  { id: "r-128", date: "2026-08-28", time: "09:02", sys: 120, dia: 82, pulse: 72, note: "Утро" },
-  { id: "r-129", date: "2026-08-29", time: "09:38", sys: 120, dia: 82, pulse: 67, note: "Утро" },
-  { id: "r-130", date: "2026-08-31", time: "09:11", sys: 124, dia: 78, pulse: 64, note: "Утро" },
-  { id: "r-131", date: "2026-09-01", time: "08:19", sys: 126, dia: 84, pulse: 68, note: "Утро" },
-  { id: "r-132", date: "2026-09-03", time: "08:29", sys: 126, dia: 86, pulse: 62, note: "Утро" },
-  { id: "r-133", date: "2026-09-04", time: "08:38", sys: 124, dia: 81, pulse: 65, note: "Утро" },
-  { id: "r-134", date: "2026-09-07", time: "07:57", sys: 116, dia: 76, pulse: 58, note: "Утро" },
-  { id: "r-135", date: "2026-09-07", time: "22:22", sys: 118, dia: 82, pulse: 56, note: "Вечер" },
-  { id: "r-136", date: "2026-09-08", time: "08:41", sys: 123, dia: 82, pulse: 65, note: "Утро" },
-  { id: "r-137", date: "2026-09-09", time: "08:44", sys: 124, dia: 82, pulse: 65, note: "Утро" },
-  { id: "r-138", date: "2026-09-10", time: "08:42", sys: 121, dia: 82, pulse: 68, note: "Утро, сахар 5.4" },
-  { id: "r-139", date: "2026-09-11", time: "08:46", sys: 123, dia: 84, pulse: 67, note: "Утро" },
-  { id: "r-140", date: "2026-09-14", time: "08:57", sys: 117, dia: 83, pulse: 58, note: "Утро" },
-  { id: "r-141", date: "2026-09-15", time: "08:29", sys: 118, dia: 83, pulse: 60, note: "Утро" },
-  { id: "r-142", date: "2026-09-16", time: "08:34", sys: 122, dia: 82, pulse: 60, note: "Утро" },
-  { id: "r-143", date: "2026-09-17", time: "09:33", sys: 114, dia: 84, pulse: 70, note: "Утро" },
-  { id: "r-144", date: "2026-09-18", time: "09:13", sys: 119, dia: 80, pulse: 62, note: "Утро" },
-  { id: "r-145", date: "2026-09-19", time: "10:25", sys: 118, dia: 81, pulse: 70, note: "Утро" },
-  { id: "r-146", date: "2026-09-21", time: "08:59", sys: 118, dia: 84, pulse: 63, note: "Утро" },
-  { id: "r-147", date: "2026-09-22", time: "09:31", sys: 120, dia: 81, pulse: 70, note: "Утро" },
-  { id: "r-148", date: "2026-09-24", time: "09:01", sys: 115, dia: 78, pulse: 64, note: "Утро" },
-  { id: "r-149", date: "2026-09-25", time: "09:16", sys: 117, dia: 76, pulse: 70, note: "Утро" },
-  { id: "r-150", date: "2026-09-26", time: "11:46", sys: 120, dia: 82, pulse: 71, note: "Утро" },
-  { id: "r-151", date: "2026-09-27", time: "10:18", sys: 114, dia: 81, pulse: 66, note: "Утро (110/80 -> 114/81)" },
-  { id: "r-152", date: "2026-09-28", time: "09:20", sys: 118, dia: 81, pulse: 66, note: "Утро" },
-  { id: "r-153", date: "2026-09-29", time: "09:48", sys: 118, dia: 79, pulse: 68, note: "Утро" },
-  { id: "r-154", date: "2026-10-01", time: "09:28", sys: 116, dia: 81, pulse: 66, note: "Утро" },
-  { id: "r-155", date: "2026-10-02", time: "08:29", sys: 114, dia: 81, pulse: 72, note: "Утро" },
-  { id: "r-156", date: "2026-10-04", time: "12:06", sys: 111, dia: 75, pulse: 61, note: "До кофе" },
-  { id: "r-157", date: "2026-10-04", time: "13:03", sys: 131, dia: 85, pulse: 55, note: "После кофе" },
-  { id: "r-158", date: "2026-10-04", time: "14:15", sys: 134, dia: 85, pulse: 56, note: "Через час после кофе" },
-  { id: "r-159", date: "2026-10-05", time: "08:36", sys: 127, dia: 82, pulse: 63, note: "Утро" },
-  { id: "r-160", date: "2026-10-05", time: "14:00", sys: 122, dia: 84, pulse: 72, note: "После кофе и силовой" },
-  { id: "r-161", date: "2026-10-06", time: "10:01", sys: 124, dia: 82, pulse: 65, note: "Утро" },
-  { id: "r-162", date: "2026-10-07", time: "08:35", sys: 123, dia: 83, pulse: 67, note: "Утро" },
-  { id: "r-163", date: "2026-10-07", time: "09:46", sys: 121, dia: 85, pulse: 61, note: "После кофе" },
-  {
-    id: "r-164",
-    date: "2026-10-07",
-    time: "13:21",
-    sys: 128,
-    dia: 87,
-    pulse: 74,
-    note: "После кардио, сахар 6.2, сатурация 97%",
-  },
-  { id: "r-165", date: "2026-10-08", time: "08:37", sys: 126, dia: 86, pulse: 64, note: "Утро" },
-  { id: "r-166", date: "2026-10-08", time: "11:28", sys: 127, dia: 85, pulse: 67, note: "После завтрака и эспрессо" },
-  { id: "r-167", date: "2026-10-09", time: "08:59", sys: 121, dia: 88, pulse: 59, note: "Утро (129/86 -> 121/88)" },
-  { id: "r-168", date: "2026-10-10", time: "10:30", sys: 123, dia: 84, pulse: 62, note: "Утро (128/85 -> 123/84)" },
-  { id: "r-169", date: "2026-10-10", time: "12:18", sys: 119, dia: 87, pulse: 61, note: "После кофе" },
-  { id: "r-170", date: "2026-10-12", time: "08:46", sys: 123, dia: 84, pulse: 64, note: "Утро" },
-  { id: "r-171", date: "2026-10-13", time: "09:18", sys: 124, dia: 86, pulse: 64, note: "Утро" },
-  { id: "r-172", date: "2026-10-14", time: "09:31", sys: 120, dia: 84, pulse: 66, note: "Утро" },
+const STORAGE_CACHE_KEY = 'roma_bp_cloud_cache_v5';
+const AVATAR_STORAGE_KEY = 'roma_bp_custom_avatar_v1';
+
+const MONTHS_RU = [
+  'янв', 'фев', 'мар', 'апр', 'мая', 'июн',
+  'июл', 'авг', 'сен', 'окт', 'ноя', 'дек'
 ];
 
-const STORAGE_KEY = "roma_bp_mobile_clean_v3";
-
-const MONTHS_RU = ["янв", "фев", "мар", "апр", "мая", "июн", "июл", "авг", "сен", "окт", "ноя", "дек"];
-
 const formatHumanDate = (isoDate) => {
-  if (!isoDate) return "";
-  const [, mm, dd] = isoDate.split("-");
+  if (!isoDate) return '';
+  const [, mm, dd] = isoDate.split('-');
   const mIdx = parseInt(mm, 10) - 1;
   return `${parseInt(dd, 10)} ${MONTHS_RU[mIdx] || mm}`;
 };
 
-const getStatusLabel = (sys, dia) => {
-  if (sys < 110 || dia < 65) return { text: "Низкое", bg: "#CDE9F2", textCol: "#141A16" };
-  if (sys < 125 && dia < 83) return { text: "Оптимально", bg: "#D6EBB4", textCol: "#141A16" };
-  if (sys < 132 && dia < 87) return { text: "Норма", bg: "#EFEFEF", textCol: "#141A16" };
-  return { text: "Выше нормы", bg: "#141A16", textCol: "#FFFFFF" };
+// Приветствие в зависимости от времени суток
+const getGreetingByHour = () => {
+  const hour = new Date().getHours();
+  if (hour >= 5 && hour < 12) return 'Доброе утро!';
+  if (hour >= 12 && hour < 18) return 'Добрый день!';
+  if (hour >= 18 && hour < 23) return 'Добрый вечер!';
+  return 'Доброй ночи!';
 };
 
+const getStatusLabel = (sys, dia) => {
+  if (sys < 110 || dia < 65) return { text: 'Низкое', bg: '#CDE9F2', textCol: '#141A16' };
+  if (sys < 130 && dia < 85) return { text: 'В норме', bg: '#D6EBB4', textCol: '#141A16' };
+  if (sys < 140 && dia < 90) return { text: 'Повышенное', bg: '#EFEFEF', textCol: '#141A16' };
+  return { text: 'Высокое', bg: '#141A16', textCol: '#FFFFFF' };
+};
+
+// Иконка Домика (Solid / Outline)
+const HomeNavIcon = ({ solid }) =>
+  solid ? (
+    <svg width="28" height="28" viewBox="0 0 24 24" fill="#141A16" xmlns="http://www.w3.org/2000/svg">
+      <path d="M11.33 2.59a1.05 1.05 0 0 1 1.34 0l8 6.86A1.05 1.05 0 0 1 21.05 10.25v9.7A2.05 2.05 0 0 1 19 22h-4.5a.75.75 0 0 1-.75-.75v-5.5a.75.75 0 0 0-.75-.75h-2a.75.75 0 0 0-.75.75v5.5a.75.75 0 0 1-.75.75H5a2.05 2.05 0 0 1-2.05-2.05v-9.7a1.05 1.05 0 0 1 .38-.8l8-6.86Z" />
+    </svg>
+  ) : (
+    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#858D88" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M3 9.5L12 3l9 6.5V20a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 20V9.5z" />
+      <path d="M9 21.5V14h6v7.5" />
+    </svg>
+  );
+
+// Иконка Истории (Solid / Outline)
+const HistoryNavIcon = ({ solid }) =>
+  solid ? (
+    <svg width="28" height="28" viewBox="0 0 24 24" fill="#141A16" xmlns="http://www.w3.org/2000/svg">
+      <rect x="3" y="3" width="18" height="18" rx="4" fill="#141A16" />
+      <path d="M7.5 8.5H16.5M7.5 12H16.5M7.5 15.5H12.5" stroke="#FFFFFF" strokeWidth="2.2" strokeLinecap="round" />
+    </svg>
+  ) : (
+    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#858D88" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="3.5" y="3.5" width="17" height="17" rx="3.5" />
+      <line x1="7.5" y1="8.5" x2="16.5" y2="8.5" />
+      <line x1="7.5" y1="12" x2="16.5" y2="12" />
+      <line x1="7.5" y1="15.5" x2="12.5" y2="15.5" />
+    </svg>
+  );
+
+// Автоматическая очистка дубликатов (если одна и та же запись попала в базу дважды с разными ID)
+const deduplicateRecords = (arr) => {
+  const seen = new Map();
+  arr.forEach((item) => {
+    const signature = `${item.date}_${item.time}_${item.sys}_${item.dia}`;
+    if (!seen.has(signature)) {
+      seen.set(signature, item);
+    }
+  });
+  return Array.from(seen.values());
+};
+
+// Парсер строк из Telegram-лога или CSV
 const parseImportData = (rawText) => {
   const lines = rawText
-    .split("\n")
+    .split('\n')
     .map((l) => l.trim())
     .filter((l) => l.length > 0);
 
   const parsed = [];
 
   lines.forEach((line, idx) => {
-    const chatMatch = line.match(/^\[(\d{2})\.(\d{2})\.(\d{4})\s+(\d{1,2}):(\d{2})\][^:]*:\s*(.+)$/);
+    const chatMatch = line.match(/^\[(\d{2})\.(\d{2})\.(\d{4})\s+(\d{1,2}):(\d{2})\][^:]*:\s*(.+)\$/);
     if (chatMatch) {
       const [, dd, mm, yyyy, hh, min, content] = chatMatch;
       const isoDate = `${yyyy}-${mm}-${dd}`;
-      const timeStr = `${hh.padStart(2, "0")}:${min}`;
+      const timeStr = `${hh.padStart(2, '0')}:${min}`;
       const bpMatches = [...content.matchAll(/(\d{2,3})\/(\d{2,3})(?:\s+(\d{2,3}))?/g)];
       if (bpMatches.length > 0) {
         const last = bpMatches[bpMatches.length - 1];
@@ -319,13 +127,13 @@ const parseImportData = (rawText) => {
         const d = parseInt(last[2], 10);
         const p = last[3] ? parseInt(last[3], 10) : null;
         parsed.push({
-          id: `imp-${Date.now()}-${idx}`,
+          id: `r-${isoDate}-${timeStr.replace(':', '')}`,
           date: isoDate,
           time: timeStr,
           sys: s,
           dia: d,
           pulse: p && p >= 35 && p <= 200 ? p : null,
-          note: content.trim(),
+          note: content.trim()
         });
         return;
       }
@@ -334,13 +142,13 @@ const parseImportData = (rawText) => {
     const dateMatch = line.match(/(\d{4}-\d{2}-\d{2}|\d{2}\.\d{2}\.\d{4})/);
     if (!dateMatch) return;
     let isoDate = dateMatch[1];
-    if (isoDate.includes(".")) {
-      const [dd, mm, yyyy] = isoDate.split(".");
+    if (isoDate.includes('.')) {
+      const [dd, mm, yyyy] = isoDate.split('.');
       isoDate = `${yyyy}-${mm}-${dd}`;
     }
     const timeMatch = line.match(/\b([01]?\d|2[0-3]):([0-5]\d)\b/);
-    const time = timeMatch ? `${timeMatch[1].padStart(2, "0")}:${timeMatch[2]}` : "09:00";
-    let rest = line.replace(dateMatch[1], "").replace(timeMatch ? timeMatch[0] : "", "");
+    const time = timeMatch ? `${timeMatch[1].padStart(2, '0')}:${timeMatch[2]}` : '09:00';
+    let rest = line.replace(dateMatch[1], '').replace(timeMatch ? timeMatch[0] : '', '');
 
     const nums = rest.match(/\b\d{2,3}\b/g);
     if (nums && nums.length >= 2) {
@@ -348,21 +156,21 @@ const parseImportData = (rawText) => {
       const dia = parseInt(nums[1], 10);
       const pulse = nums[2] ? parseInt(nums[2], 10) : null;
       const cleanNote = rest
-        .replace(nums[0], "")
-        .replace(nums[1], "")
-        .replace(nums[2] || "", "")
-        .replace(/^[;,\s/|-]+|[;,\s/|-]+$/g, "")
+        .replace(nums[0], '')
+        .replace(nums[1], '')
+        .replace(nums[2] || '', '')
+        .replace(/^[;,\s/|-]+|[;,\s/|-]+\$/g, '')
         .trim();
 
       if (sys >= 75 && sys <= 220 && dia >= 45 && dia <= 140) {
         parsed.push({
-          id: `imp-${Date.now()}-${idx}`,
+          id: `r-${isoDate}-${time.replace(':', '')}-${idx}`,
           date: isoDate,
           time,
           sys,
           dia,
           pulse: pulse && pulse >= 35 && pulse <= 200 ? pulse : null,
-          note: cleanNote || "Замер",
+          note: cleanNote || 'Замер'
         });
       }
     }
@@ -371,75 +179,98 @@ const parseImportData = (rawText) => {
   return parsed;
 };
 
+// Дефолтный стилизованный портрет (в кепке и очках), который можно заменить кликом на фото из закрепа
+const DEFAULT_AVATAR_SVG = `data:image/svg+xml;utf8,${encodeURIComponent(`
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#1e2530"/>
+      <stop offset="100%" stop-color="#0f141c"/>
+    </linearGradient>
+  </defs>
+  <rect width="120" height="120" rx="60" fill="url(#bg)"/>
+  <circle cx="60" cy="54" r="24" fill="#d8a98c"/>
+  <path d="M24 114 C28 88 92 88 96 114" fill="#181c24"/>
+  <!-- Кепка -->
+  <path d="M34 44 C34 24 86 24 86 44 Z" fill="#23272e"/>
+  <path d="M22 43 Q55 37 88 44 L86 48 Q54 43 22 46 Z" fill="#14171c"/>
+  <!-- Очки -->
+  <rect x="40" y="47" width="17" height="12" rx="3" fill="none" stroke="#181b20" stroke-width="3.2"/>
+  <rect x="63" y="47" width="17" height="12" rx="3" fill="none" stroke="#181b20" stroke-width="3.2"/>
+  <line x1="57" y1="51" x2="63" y2="51" stroke="#181b20" stroke-width="3"/>
+  <path d="M51 67 Q60 72 69 67" fill="none" stroke="#8c584c" stroke-width="2.5" stroke-linecap="round"/>
+</svg>
+`)}`;
+
 export function BloodPressureApp() {
   const [records, setRecords] = useState(() => {
     try {
-      const saved = localStorage.getItem(STORAGE_KEY);
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      const cached = localStorage.getItem(STORAGE_CACHE_KEY);
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (Array.isArray(parsed)) return deduplicateRecords(parsed);
       }
     } catch (e) {
       console.error(e);
     }
-    return ROMA_INITIAL_RECORDS;
+    return [];
   });
 
-  const [cloudStatus, setCloudStatus] = useState("syncing"); // 'syncing' | 'online' | 'error'
-  const [cloudMessage, setCloudMessage] = useState("Загрузка из облака...");
+  const [avatarSrc, setAvatarSrc] = useState(() => {
+    return localStorage.getItem(AVATAR_STORAGE_KEY) || DEFAULT_AVATAR_SVG;
+  });
 
-  const [period, setPeriod] = useState("30d");
-  const [dayTimeFilter, setDayTimeFilter] = useState("all");
-  const [visibleCount, setVisibleCount] = useState(25);
+  const [cloudStatus, setCloudStatus] = useState('syncing');
+  const [rawCloudCount, setRawCloudCount] = useState(0);
+  const [activeTab, setActiveTab] = useState('home'); // 'home' | 'history'
+  const [period, setPeriod] = useState('30d'); // '7d' | '30d' | 'all'
+  const [dayTimeFilter, setDayTimeFilter] = useState('all'); // 'all' | 'morning' | 'evening'
+
   const [searchOpen, setSearchOpen] = useState(false);
-  const [searchQuery, setSearchQuery] = useState("");
+  const [searchQuery, setSearchQuery] = useState('');
   const [activeSheet, setActiveSheet] = useState(null); // 'add' | 'data' | null
 
-  const [sysInput, setSysInput] = useState("");
-  const [diaInput, setDiaInput] = useState("");
-  const [pulseInput, setPulseInput] = useState("");
-  const [noteInput, setNoteInput] = useState("Утро");
+  const [sysInput, setSysInput] = useState('');
+  const [diaInput, setDiaInput] = useState('');
+  const [pulseInput, setPulseInput] = useState('');
+  const [noteInput, setNoteInput] = useState('Утро');
   const [dateInput, setDateInput] = useState(() => new Date().toISOString().slice(0, 10));
-  const [timeInput, setTimeInput] = useState("09:30");
+  const [timeInput, setTimeInput] = useState('09:30');
 
   const sysRef = useRef(null);
   const diaRef = useRef(null);
   const pulseRef = useRef(null);
+  const avatarInputRef = useRef(null);
 
-  const [importText, setImportText] = useState("");
+  const [importText, setImportText] = useState('');
 
-  // Загрузка записей из Supabase
+  // Загрузка базы напрямую из Supabase с фильтрацией возможных дублей
   const fetchFromCloud = useCallback(async () => {
-    setCloudStatus("syncing");
-    setCloudMessage("Синхронизация...");
+    setCloudStatus('syncing');
     try {
-      const cleanUrl = SUPABASE_URL.replace(/\/$/, "");
-      const res = await fetch(`${cleanUrl}/rest/v1/bp_records?select=*&order=date.asc,time.asc`, {
-        headers: {
-          apikey: SUPABASE_KEY,
-          Authorization: `Bearer ${SUPABASE_KEY}`,
-        },
-      });
+      const res = await fetch(
+        `${SUPABASE_URL}/rest/v1/bp_records?select=*&order=date.asc,time.asc`,
+        {
+          headers: {
+            apikey: SUPABASE_KEY,
+            Authorization: `Bearer ${SUPABASE_KEY}`
+          }
+        }
+      );
 
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
 
       if (Array.isArray(data)) {
-        if (data.length > 0) {
-          setRecords(data);
-          setCloudMessage(`В облаке ${data.length} зам.`);
-        } else {
-          // Если таблица пуста, автоматически выгружаем начальные 179 записей Романа
-          await upsertToCloud(ROMA_INITIAL_RECORDS);
-          setRecords(ROMA_INITIAL_RECORDS);
-          setCloudMessage("База инициализирована");
-        }
-        setCloudStatus("online");
+        setRawCloudCount(data.length);
+        const unique = deduplicateRecords(data);
+        setRecords(unique);
+        localStorage.setItem(STORAGE_CACHE_KEY, JSON.stringify(unique));
+        setCloudStatus('online');
       }
     } catch (err) {
       console.error(err);
-      setCloudStatus("error");
-      setCloudMessage("Офлайн режим (работает локально)");
+      setCloudStatus('error');
     }
   }, []);
 
@@ -447,59 +278,101 @@ export function BloodPressureApp() {
     fetchFromCloud();
   }, [fetchFromCloud]);
 
-  // Сохранение локального кэша
-  useEffect(() => {
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(records));
-    } catch (e) {
-      console.error(e);
-    }
-  }, [records]);
-
-  // Запись в Supabase
   const upsertToCloud = async (itemsArray) => {
+    setCloudStatus('syncing');
     try {
-      const cleanUrl = SUPABASE_URL.replace(/\/$/, "");
-      const res = await fetch(`${cleanUrl}/rest/v1/bp_records`, {
-        method: "POST",
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/bp_records`, {
+        method: 'POST',
         headers: {
           apikey: SUPABASE_KEY,
           Authorization: `Bearer ${SUPABASE_KEY}`,
-          "Content-Type": "application/json",
-          Prefer: "resolution=merge-duplicates",
+          'Content-Type': 'application/json',
+          Prefer: 'resolution=merge-duplicates'
         },
-        body: JSON.stringify(itemsArray),
+        body: JSON.stringify(itemsArray)
       });
-      if (!res.ok) throw new Error("Ошибка записи");
-      setCloudStatus("online");
+      if (!res.ok) throw new Error('Ошибка записи');
+      setCloudStatus('online');
     } catch (e) {
       console.error(e);
-      setCloudStatus("error");
+      setCloudStatus('error');
     }
   };
 
-  // Удаление из Supabase
   const deleteFromCloud = async (id) => {
     try {
-      const cleanUrl = SUPABASE_URL.replace(/\/$/, "");
-      await fetch(`${cleanUrl}/rest/v1/bp_records?id=eq.${encodeURIComponent(id)}`, {
-        method: "DELETE",
-        headers: {
-          apikey: SUPABASE_KEY,
-          Authorization: `Bearer ${SUPABASE_KEY}`,
-        },
-      });
+      await fetch(
+        `${SUPABASE_URL}/rest/v1/bp_records?id=eq.${encodeURIComponent(id)}`,
+        {
+          method: 'DELETE',
+          headers: {
+            apikey: SUPABASE_KEY,
+            Authorization: `Bearer ${SUPABASE_KEY}`
+          }
+        }
+      );
     } catch (e) {
       console.error(e);
     }
   };
 
+  // Физическое удаление дубликатов из таблицы Supabase, если они там накопились
+  const handleCleanCloudDuplicates = async () => {
+    setCloudStatus('syncing');
+    try {
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/bp_records?select=*`, {
+        headers: {
+          apikey: SUPABASE_KEY,
+          Authorization: `Bearer ${SUPABASE_KEY}`
+        }
+      });
+      const allRows = await res.json();
+      if (!Array.isArray(allRows)) return;
+
+      const seen = new Set();
+      const duplicateIds = [];
+
+      allRows.forEach((row) => {
+        const sig = `${row.date}_${row.time}_${row.sys}_${row.dia}`;
+        if (seen.has(sig)) {
+          duplicateIds.push(row.id);
+        } else {
+          seen.add(sig);
+        }
+      });
+
+      for (const id of duplicateIds) {
+        await deleteFromCloud(id);
+      }
+
+      await fetchFromCloud();
+      setActiveSheet(null);
+    } catch (e) {
+      console.error(e);
+      setCloudStatus('error');
+    }
+  };
+
+  // Загрузка твоего реального фото в аватар (сохраняется в localStorage)
+  const handleAvatarUpload = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      if (typeof reader.result === 'string') {
+        setAvatarSrc(reader.result);
+        localStorage.setItem(AVATAR_STORAGE_KEY, reader.result);
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+
   useEffect(() => {
-    if (activeSheet === "add") {
+    if (activeSheet === 'add') {
       const now = new Date();
       setDateInput(now.toISOString().slice(0, 10));
-      const hh = String(now.getHours()).padStart(2, "0");
-      const mm = String(now.getMinutes()).padStart(2, "0");
+      const hh = String(now.getHours()).padStart(2, '0');
+      const mm = String(now.getMinutes()).padStart(2, '0');
       setTimeInput(`${hh}:${mm}`);
       setTimeout(() => {
         if (sysRef.current) sysRef.current.focus();
@@ -509,7 +382,7 @@ export function BloodPressureApp() {
 
   const sortedRecords = useMemo(() => {
     return [...records].sort((a, b) =>
-      `${a.date}T${a.time || "00:00"}`.localeCompare(`${b.date}T${b.time || "00:00"}`),
+      `${a.date}T${a.time || '00:00'}`.localeCompare(`${b.date}T${b.time || '00:00'}`)
     );
   }, [records]);
 
@@ -519,10 +392,10 @@ export function BloodPressureApp() {
     const anchor = new Date(`${lastDateStr}T23:59:59`);
 
     let cutoff = null;
-    if (period === "7d") {
+    if (period === '7d') {
       cutoff = new Date(anchor);
       cutoff.setDate(cutoff.getDate() - 7);
-    } else if (period === "30d") {
+    } else if (period === '30d') {
       cutoff = new Date(anchor);
       cutoff.setDate(cutoff.getDate() - 30);
     }
@@ -532,10 +405,10 @@ export function BloodPressureApp() {
         const d = new Date(`${r.date}T12:00:00`);
         if (d < cutoff) return false;
       }
-      if (dayTimeFilter !== "all") {
-        const hour = parseInt((r.time || "09:00").split(":")[0], 10);
-        if (dayTimeFilter === "morning" && hour >= 13) return false;
-        if (dayTimeFilter === "evening" && hour < 13) return false;
+      if (dayTimeFilter !== 'all') {
+        const hour = parseInt((r.time || '09:00').split(':')[0], 10);
+        if (dayTimeFilter === 'morning' && hour >= 13) return false;
+        if (dayTimeFilter === 'evening' && hour < 13) return false;
       }
       return true;
     });
@@ -544,13 +417,20 @@ export function BloodPressureApp() {
   const chartData = useMemo(() => {
     return filteredRecords.map((r) => ({
       ...r,
-      shortLabel: formatHumanDate(r.date),
+      shortLabel: formatHumanDate(r.date)
     }));
   }, [filteredRecords]);
 
   const stats = useMemo(() => {
     if (filteredRecords.length === 0) {
-      return { avgSys: 120, avgDia: 80, avgPulse: 64, minSys: 110, maxSys: 130, latest: null };
+      return {
+        avgSys: 0,
+        avgDia: 0,
+        avgPulse: 0,
+        minSys: 0,
+        maxSys: 0,
+        latest: sortedRecords[sortedRecords.length - 1] || null
+      };
     }
     let sysSum = 0;
     let diaSum = 0;
@@ -574,15 +454,15 @@ export function BloodPressureApp() {
     return {
       avgSys: Math.round(sysSum / cnt),
       avgDia: Math.round(diaSum / cnt),
-      avgPulse: pulseCnt > 0 ? Math.round(pulseSum / pulseCnt) : 64,
+      avgPulse: pulseCnt > 0 ? Math.round(pulseSum / pulseCnt) : '—',
       minSys,
       maxSys,
-      latest: sortedRecords[sortedRecords.length - 1],
+      latest: sortedRecords[sortedRecords.length - 1]
     };
   }, [filteredRecords, sortedRecords]);
 
   const handleSysChange = (e) => {
-    const val = e.target.value.replace(/\D/g, "").slice(0, 3);
+    const val = e.target.value.replace(/\D/g, '').slice(0, 3);
     setSysInput(val);
     if (val.length === 3 || (val.length === 2 && parseInt(val, 10) >= 85 && parseInt(val, 10) <= 99)) {
       if (diaRef.current) diaRef.current.focus();
@@ -590,7 +470,7 @@ export function BloodPressureApp() {
   };
 
   const handleDiaChange = (e) => {
-    const val = e.target.value.replace(/\D/g, "").slice(0, 3);
+    const val = e.target.value.replace(/\D/g, '').slice(0, 3);
     setDiaInput(val);
     if (val.length === 2 && parseInt(val, 10) >= 45) {
       if (pulseRef.current) pulseRef.current.focus();
@@ -598,7 +478,7 @@ export function BloodPressureApp() {
   };
 
   const handlePulseChange = (e) => {
-    const val = e.target.value.replace(/\D/g, "").slice(0, 3);
+    const val = e.target.value.replace(/\D/g, '').slice(0, 3);
     setPulseInput(val);
   };
 
@@ -611,38 +491,43 @@ export function BloodPressureApp() {
     if (!s || !d || s < 70 || d < 40) return;
 
     const newItem = {
-      id: `r-${Date.now()}`,
+      id: `r-${dateInput}-${timeInput.replace(':', '')}`,
       date: dateInput,
       time: timeInput,
       sys: s,
       dia: d,
       pulse: p,
-      note: noteInput.trim() || "Утро",
+      note: noteInput.trim() || 'Утро'
     };
 
-    setRecords((prev) => [...prev, newItem]);
-    setSysInput("");
-    setDiaInput("");
-    setPulseInput("");
+    const updated = deduplicateRecords([...records, newItem]);
+    setRecords(updated);
+    localStorage.setItem(STORAGE_CACHE_KEY, JSON.stringify(updated));
+
+    setSysInput('');
+    setDiaInput('');
+    setPulseInput('');
     setActiveSheet(null);
 
     await upsertToCloud([newItem]);
   };
 
   const handleDelete = async (id) => {
-    setRecords((prev) => prev.filter((item) => item.id !== id));
+    const updated = records.filter((item) => item.id !== id);
+    setRecords(updated);
+    localStorage.setItem(STORAGE_CACHE_KEY, JSON.stringify(updated));
     await deleteFromCloud(id);
   };
 
   const handleExportCSV = () => {
-    const header = "Дата;Время;Верхнее;Нижнее;Пульс;Заметка\n";
+    const header = 'Дата;Время;Верхнее;Нижнее;Пульс;Заметка\n';
     const body = [...sortedRecords]
       .reverse()
-      .map((r) => `${r.date};${r.time};${r.sys};${r.dia};${r.pulse || ""};${r.note || ""}`)
-      .join("\n");
-    const blob = new Blob([header + body], { type: "text/csv;charset=utf-8;" });
+      .map((r) => `${r.date};${r.time};${r.sys};${r.dia};${r.pulse || ''};${r.note || ''}`)
+      .join('\n');
+    const blob = new Blob([header + body], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
+    const a = document.createElement('a');
     a.href = url;
     a.download = `pressure_roma_${new Date().toISOString().slice(0, 10)}.csv`;
     a.click();
@@ -652,308 +537,429 @@ export function BloodPressureApp() {
   const handleImportSubmit = async () => {
     const parsed = parseImportData(importText);
     if (parsed.length > 0) {
-      setRecords((prev) => [...prev, ...parsed]);
-      setImportText("");
+      const updated = deduplicateRecords([...records, ...parsed]);
+      setRecords(updated);
+      localStorage.setItem(STORAGE_CACHE_KEY, JSON.stringify(updated));
+      setImportText('');
       setActiveSheet(null);
       await upsertToCloud(parsed);
     }
   };
 
-  const feedRecords = useMemo(() => {
-    const rev = [...filteredRecords].reverse();
+  const historyList = useMemo(() => {
+    const rev = [...sortedRecords].reverse();
     if (!searchQuery.trim()) return rev;
     const q = searchQuery.toLowerCase();
     return rev.filter(
-      (r) => (r.note && r.note.toLowerCase().includes(q)) || r.date.includes(q) || `${r.sys}/${r.dia}`.includes(q),
+      (r) =>
+        (r.note && r.note.toLowerCase().includes(q)) ||
+        r.date.includes(q) ||
+        `${r.sys}/${r.dia}`.includes(q)
     );
-  }, [filteredRecords, searchQuery]);
+  }, [sortedRecords, searchQuery]);
 
   const latestRec = stats.latest;
+  const avgBadge = getStatusLabel(stats.avgSys || 120, stats.avgDia || 80);
+  const greetingText = getGreetingByHour();
 
   return (
-    <div className="min-h-screen bg-[#E4E7E4] text-[#141A16] flex justify-center selection:bg-[#D6EBB4]">
-      <div className="w-full max-w-[440px] min-h-screen bg-[#EFEFEF] pb-32 px-5 pt-7 relative flex flex-col">
-        {/* Верхняя шапка */}
-        <header className="flex items-center justify-between mb-6">
-          <h1 className="text-[38px] font-bold tracking-tight leading-none text-[#141A16]">Давление</h1>
-          <div className="flex items-center gap-2">
+    <div className="min-h-screen bg-[#E4E7E4] text-[#141A16] flex justify-center selection:bg-[#D6EBB4] font-sans">
+      <div className="w-full max-w-[440px] min-h-screen bg-[#F2F3F0] pb-28 px-5 pt-6 relative flex flex-col">
+        
+        {/* ВЕРХНЯЯ ШАПКА: Аватар + Приветствие по времени суток + Рома Лебедев */}
+        <header className="flex items-center justify-between gap-2 mb-5">
+          <div className="flex items-center gap-3 min-w-0">
+            <input
+              ref={avatarInputRef}
+              type="file"
+              accept="image/*"
+              onChange={handleAvatarUpload}
+              className="hidden"
+            />
+            <button
+              onClick={() => avatarInputRef.current?.click()}
+              title="Нажми, чтобы выбрать свое фото для аватара"
+              className="w-[52px] h-[52px] rounded-full overflow-hidden bg-[#141A16] shrink-0 relative group cursor-pointer shadow-xs"
+            >
+              <img
+                src={avatarSrc}
+                alt="Рома Лебедев"
+                className="w-full h-full object-cover"
+              />
+              <span className="absolute inset-0 bg-black/35 opacity-0 group-hover:opacity-100 flex items-center justify-center text-white transition">
+                <Camera className="w-4 h-4" />
+              </span>
+            </button>
+
+            <div className="min-w-0">
+              <div className="text-[14px] text-[#6E7671] font-medium leading-tight">
+                {greetingText}
+              </div>
+              <div className="text-[20px] font-extrabold tracking-tight text-[#141A16] leading-tight truncate mt-0.5">
+                Рома Лебедев
+              </div>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-1.5 shrink-0">
             <button
               onClick={fetchFromCloud}
-              title={cloudMessage}
-              className={`h-12 px-3.5 rounded-full flex items-center gap-1.5 text-sm font-semibold active:scale-95 transition cursor-pointer ${
-                cloudStatus === "online"
-                  ? "bg-[#D6EBB4] text-[#141A16]"
-                  : cloudStatus === "syncing"
-                    ? "bg-[#CDE9F2] text-[#141A16]"
-                    : "bg-white text-[#7A827D]"
+              className={`h-11 px-3.5 rounded-full flex items-center gap-1.5 text-sm font-semibold active:scale-95 transition cursor-pointer ${
+                cloudStatus === 'online'
+                  ? 'bg-[#D6EBB4] text-[#141A16]'
+                  : cloudStatus === 'syncing'
+                  ? 'bg-[#CDE9F2] text-[#141A16]'
+                  : 'bg-white text-[#7A827D]'
               }`}
             >
-              {cloudStatus === "syncing" ? (
+              {cloudStatus === 'syncing' ? (
                 <RefreshCw className="w-4 h-4 animate-spin" />
-              ) : cloudStatus === "online" ? (
+              ) : cloudStatus === 'online' ? (
                 <Cloud className="w-4 h-4" />
               ) : (
                 <CloudOff className="w-4 h-4" />
               )}
-              <span className="text-xs">
-                {cloudStatus === "online" ? "Облако" : cloudStatus === "syncing" ? "Синхр..." : "Офлайн"}
-              </span>
+              <span>Облако</span>
             </button>
 
             <button
-              onClick={() => setSearchOpen((prev) => !prev)}
-              className="w-12 h-12 rounded-full bg-white flex items-center justify-center text-[#141A16] active:scale-95 transition cursor-pointer"
+              onClick={() => {
+                setActiveTab('history');
+                setSearchOpen((prev) => !prev);
+              }}
+              className="w-11 h-11 rounded-full bg-white flex items-center justify-center text-[#141A16] active:scale-95 transition cursor-pointer shadow-2xs"
               aria-label="Поиск"
             >
               <Search className="w-5 h-5" />
             </button>
+
             <button
-              onClick={() => setActiveSheet("data")}
-              className="w-12 h-12 rounded-full bg-white flex items-center justify-center text-[#141A16] active:scale-95 transition cursor-pointer"
-              aria-label="База данных"
+              onClick={() => setActiveSheet('data')}
+              className="w-11 h-11 rounded-full bg-white flex items-center justify-center text-[#141A16] active:scale-95 transition cursor-pointer shadow-2xs"
+              aria-label="Настройки"
             >
-              <SlidersHorizontal className="w-5 h-5" />
+              <Settings className="w-5 h-5" />
             </button>
           </div>
         </header>
 
-        {searchOpen && (
-          <div className="mb-5">
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Найти: кофе, трени, сахар, утро..."
-              className="w-full bg-white rounded-[22px] px-5 py-4 text-base text-[#141A16] placeholder-[#858D88] focus:outline-none"
-            />
-          </div>
-        )}
-
-        {/* Сегментированный пилл периода */}
-        <div className="bg-white rounded-full p-1.5 grid grid-cols-3 mb-5">
-          {[
-            { id: "7d", label: "Неделя" },
-            { id: "30d", label: "Месяц" },
-            { id: "all", label: "Год" },
-          ].map((tab) => (
-            <button
-              key={tab.id}
-              onClick={() => setPeriod(tab.id)}
-              className={`py-3 rounded-full text-[15px] font-semibold transition cursor-pointer ${
-                period === tab.id ? "bg-[#141A16] text-white" : "text-[#6E7671] hover:text-[#141A16]"
-              }`}
-            >
-              {tab.label}
-            </button>
-          ))}
-        </div>
-
-        {/* Главная карточка графика */}
-        <section className="bg-white rounded-[32px] p-6 mb-4">
-          <div className="flex items-start justify-between mb-1">
-            <div className="flex items-baseline gap-2">
-              <span className="text-[44px] font-bold tracking-tight leading-none text-[#141A16]">
-                {stats.avgSys}/{stats.avgDia}
-              </span>
-              <span className="text-base font-medium text-[#7A827D]">ср.</span>
+        {/* ЭКРАН 1: ГЛАВНАЯ */}
+        {activeTab === 'home' && (
+          <main className="space-y-4">
+            {/* Сегментированный переключатель периода */}
+            <div className="bg-white rounded-full p-1.5 grid grid-cols-3 shadow-2xs">
+              {[
+                { id: '7d', label: 'Неделя' },
+                { id: '30d', label: 'Месяц' },
+                { id: 'all', label: 'Год' }
+              ].map((tab) => (
+                <button
+                  key={tab.id}
+                  onClick={() => setPeriod(tab.id)}
+                  className={`py-3 rounded-full text-[15px] font-semibold transition cursor-pointer ${
+                    period === tab.id
+                      ? 'bg-[#141A16] text-white'
+                      : 'text-[#6E7671] hover:text-[#141A16]'
+                  }`}
+                >
+                  {tab.label}
+                </button>
+              ))}
             </div>
-            <span className="px-4 py-1.5 rounded-full text-sm font-semibold bg-[#D6EBB4] text-[#141A16]">В норме</span>
-          </div>
 
-          <p className="text-[15px] text-[#7A827D] mb-5">
-            Коридор {stats.minSys}–{stats.maxSys} · {filteredRecords.length} зам.
-          </p>
-
-          <div className="h-[190px] w-full -mx-2">
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={chartData} margin={{ top: 10, right: 10, left: -24, bottom: 0 }}>
-                <defs>
-                  <linearGradient id="sysFill" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#D6EBB4" stopOpacity={0.85} />
-                    <stop offset="95%" stopColor="#D6EBB4" stopOpacity={0.05} />
-                  </linearGradient>
-                  <linearGradient id="diaFill" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#CDE9F2" stopOpacity={0.7} />
-                    <stop offset="95%" stopColor="#CDE9F2" stopOpacity={0.05} />
-                  </linearGradient>
-                </defs>
-                <XAxis
-                  dataKey="shortLabel"
-                  axisLine={false}
-                  tickLine={false}
-                  tick={{ fontSize: 13, fill: "#858D88" }}
-                  minTickGap={36}
-                />
-                <YAxis
-                  domain={[65, 140]}
-                  axisLine={false}
-                  tickLine={false}
-                  tick={{ fontSize: 13, fill: "#858D88" }}
-                  ticks={[75, 100, 125]}
-                />
-                <Tooltip
-                  content={({ active, payload }) => {
-                    if (!active || !payload || !payload.length) return null;
-                    const item = payload[0].payload;
-                    return (
-                      <div className="bg-[#141A16] text-white rounded-[22px] px-4 py-3 shadow-lg">
-                        <div className="text-sm text-[#A3ABA6] mb-0.5">
-                          {formatHumanDate(item.date)} · {item.time}
-                        </div>
-                        <div className="text-xl font-bold">
-                          {item.sys}/{item.dia}{" "}
-                          {item.pulse && (
-                            <span className="text-sm font-normal text-[#D6EBB4] ml-1">♥ {item.pulse}</span>
-                          )}
-                        </div>
-                        {item.note && (
-                          <div className="text-sm text-[#E2E6E3] mt-1 max-w-[200px] leading-snug">{item.note}</div>
-                        )}
-                      </div>
-                    );
-                  }}
-                />
-                <Area
-                  type="monotone"
-                  dataKey="sys"
-                  stroke="#141A16"
-                  strokeWidth={2.5}
-                  fill="url(#sysFill)"
-                  activeDot={{ r: 6, fill: "#141A16", stroke: "#D6EBB4", strokeWidth: 3 }}
-                />
-                <Area
-                  type="monotone"
-                  dataKey="dia"
-                  stroke="#72B0BE"
-                  strokeWidth={2.2}
-                  fill="url(#diaFill)"
-                  activeDot={{ r: 5, fill: "#72B0BE", stroke: "#FFFFFF", strokeWidth: 2 }}
-                />
-              </AreaChart>
-            </ResponsiveContainer>
-          </div>
-        </section>
-
-        {/* Бенто-пара карточек */}
-        <section className="grid grid-cols-2 gap-3.5 mb-7">
-          <div className="bg-[#CDE9F2] rounded-[28px] p-5 flex flex-col justify-between min-h-[148px]">
-            <div className="flex items-center justify-between">
-              <div>
-                <div className="text-[28px] font-bold leading-tight text-[#141A16]">
-                  {latestRec ? `${latestRec.sys}/${latestRec.dia}` : "—"}
+            {/* Единая белая карточка: Среднее АД + График + Фильтры суток по центру */}
+            <section className="bg-white rounded-[32px] p-6 shadow-2xs">
+              <div className="flex items-start justify-between mb-1">
+                <div className="flex items-baseline gap-2">
+                  <span className="text-[46px] font-extrabold tracking-tight leading-none text-[#141A16]">
+                    {stats.avgSys ? `${stats.avgSys}/${stats.avgDia}` : '—/—'}
+                  </span>
+                  <span className="text-lg font-medium text-[#7A827D]">ср.</span>
                 </div>
-                <div className="text-[15px] text-[#49656E] font-medium">
-                  {latestRec ? formatHumanDate(latestRec.date) : "Нет данных"}
-                </div>
+                <span
+                  className="px-4 py-1.5 rounded-full text-sm font-semibold"
+                  style={{ backgroundColor: avgBadge.bg, color: avgBadge.textCol }}
+                >
+                  {avgBadge.text}
+                </span>
               </div>
-              <div className="w-10 h-10 rounded-full bg-white flex items-center justify-center text-[#141A16]">
-                <Activity className="w-5 h-5" />
-              </div>
-            </div>
-            <div className="text-base font-semibold text-[#141A16] mt-4">Последний замер</div>
-          </div>
 
-          <div className="bg-[#D6EBB4] rounded-[28px] p-5 flex flex-col justify-between min-h-[148px]">
-            <div className="flex items-center justify-between">
-              <div>
-                <div className="text-[28px] font-bold leading-tight text-[#141A16]">{stats.avgPulse}</div>
-                <div className="text-[15px] text-[#526634] font-medium">уд/мин</div>
-              </div>
-              <div className="w-10 h-10 rounded-full bg-white flex items-center justify-center text-[#141A16]">
-                <Heart className="w-5 h-5" />
-              </div>
-            </div>
-            <div className="text-base font-semibold text-[#141A16] mt-4">Средний пульс</div>
-          </div>
-        </section>
+              <p className="text-[15px] text-[#7A827D] mb-4">
+                {stats.avgSys
+                  ? `Коридор ${stats.minSys}–${stats.maxSys} • ${filteredRecords.length} зам.`
+                  : 'Загрузка измерений из облака...'}
+              </p>
 
-        {/* Переключатель фильтра суток */}
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-2xl font-bold text-[#141A16]">История</h2>
-          <div className="flex items-center gap-1.5">
-            {[
-              { id: "all", label: "Все" },
-              { id: "morning", label: "Утро" },
-              { id: "evening", label: "Вечер" },
-            ].map((f) => (
-              <button
-                key={f.id}
-                onClick={() => setDayTimeFilter(f.id)}
-                className={`px-3.5 py-1.5 rounded-full text-sm font-semibold transition cursor-pointer ${
-                  dayTimeFilter === f.id ? "bg-[#141A16] text-white" : "bg-white text-[#6E7671]"
-                }`}
-              >
-                {f.label}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Длинная лента карточек замеров */}
-        <section className="space-y-3">
-          {feedRecords.slice(0, visibleCount).map((item) => {
-            const badge = getStatusLabel(item.sys, item.dia);
-            return (
-              <div key={item.id} className="bg-white rounded-[26px] px-5 py-4 flex items-center justify-between gap-3">
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-baseline gap-2.5">
-                    <span className="text-[24px] font-bold tracking-tight text-[#141A16]">
-                      {item.sys}/{item.dia}
-                    </span>
-                    {item.pulse && <span className="text-base font-semibold text-[#72B0BE]">♥ {item.pulse}</span>}
-                    <span
-                      className="text-xs font-semibold px-2.5 py-0.5 rounded-full ml-auto sm:ml-1"
-                      style={{ backgroundColor: badge.bg, color: badge.textCol }}
-                    >
-                      {badge.text}
-                    </span>
+              <div className="h-[200px] w-full -mx-2">
+                {chartData.length > 0 ? (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <AreaChart data={chartData} margin={{ top: 10, right: 12, left: -22, bottom: 0 }}>
+                      <defs>
+                        <linearGradient id="sysFill" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor="#D6EBB4" stopOpacity={0.75} />
+                          <stop offset="95%" stopColor="#D6EBB4" stopOpacity={0.05} />
+                        </linearGradient>
+                        <linearGradient id="diaFill" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor="#CDE9F2" stopOpacity={0.75} />
+                          <stop offset="95%" stopColor="#CDE9F2" stopOpacity={0.05} />
+                        </linearGradient>
+                      </defs>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#ECEEED" />
+                      <XAxis
+                        dataKey="shortLabel"
+                        axisLine={false}
+                        tickLine={false}
+                        tick={{ fontSize: 13, fill: '#7A827D' }}
+                        minTickGap={34}
+                      />
+                      <YAxis
+                        domain={[65, 140]}
+                        axisLine={false}
+                        tickLine={false}
+                        tick={{ fontSize: 13, fill: '#7A827D' }}
+                        ticks={[75, 100, 125]}
+                      />
+                      <Tooltip
+                        content={({ active, payload }) => {
+                          if (!active || !payload || !payload.length) return null;
+                          const item = payload[0].payload;
+                          return (
+                            <div className="bg-[#141A16] text-white rounded-[20px] px-4 py-3 shadow-lg">
+                              <div className="text-xs text-[#A3ABA6] mb-0.5">
+                                {formatHumanDate(item.date)} · {item.time}
+                              </div>
+                              <div className="text-lg font-bold">
+                                {item.sys}/{item.dia}{' '}
+                                {item.pulse && (
+                                  <span className="text-sm font-normal text-[#D6EBB4] ml-1">
+                                    ♥ {item.pulse}
+                                  </span>
+                                )}
+                              </div>
+                              {item.note && (
+                                <div className="text-xs text-[#E2E6E3] mt-1 max-w-[200px] leading-snug">
+                                  {item.note}
+                                </div>
+                              )}
+                            </div>
+                          );
+                        }}
+                      />
+                      <Area
+                        type="monotone"
+                        dataKey="sys"
+                        stroke="#141A16"
+                        strokeWidth={2.5}
+                        fill="url(#sysFill)"
+                        activeDot={{ r: 5, fill: '#141A16', stroke: '#D6EBB4', strokeWidth: 2 }}
+                      />
+                      <Area
+                        type="monotone"
+                        dataKey="dia"
+                        stroke="#5BA4B6"
+                        strokeWidth={2.2}
+                        fill="url(#diaFill)"
+                        activeDot={{ r: 5, fill: '#5BA4B6', stroke: '#FFFFFF', strokeWidth: 2 }}
+                      />
+                    </AreaChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <div className="h-full flex items-center justify-center text-sm text-[#8F9691]">
+                    Нет данных за выбранный фильтр
                   </div>
-                  <div className="text-[15px] text-[#5A625D] mt-1 truncate">{item.note || "Замер"}</div>
-                  <div className="text-sm text-[#8F9691] mt-0.5">
-                    {formatHumanDate(item.date)} в {item.time}
-                  </div>
-                </div>
+                )}
+              </div>
+
+              {/* Фильтры «Все / Утро / Вечер» по центру карточки */}
+              <div className="mt-5 pt-1 flex items-center justify-center gap-2.5">
+                <button
+                  onClick={() => setDayTimeFilter('all')}
+                  className={`px-6 py-2.5 rounded-full text-[15px] font-semibold transition cursor-pointer ${
+                    dayTimeFilter === 'all'
+                      ? 'bg-[#141A16] text-white'
+                      : 'bg-[#F4F5F2] text-[#6E7671] hover:text-[#141A16]'
+                  }`}
+                >
+                  Все
+                </button>
 
                 <button
-                  onClick={() => handleDelete(item.id)}
-                  className="w-10 h-10 rounded-full flex items-center justify-center text-[#B0B7B2] hover:text-[#141A16] active:scale-95 transition cursor-pointer shrink-0"
-                  title="Удалить запись"
+                  onClick={() => setDayTimeFilter('morning')}
+                  className={`px-5 py-2.5 rounded-full text-[15px] font-semibold flex items-center gap-2 transition cursor-pointer ${
+                    dayTimeFilter === 'morning'
+                      ? 'bg-[#141A16] text-white'
+                      : 'bg-[#F4F5F2] text-[#6E7671] hover:text-[#141A16]'
+                  }`}
                 >
-                  <Trash2 className="w-4 h-4" />
+                  <Sun className="w-4 h-4 text-amber-500 fill-amber-400" />
+                  <span>Утро</span>
+                </button>
+
+                <button
+                  onClick={() => setDayTimeFilter('evening')}
+                  className={`px-5 py-2.5 rounded-full text-[15px] font-semibold flex items-center gap-2 transition cursor-pointer ${
+                    dayTimeFilter === 'evening'
+                      ? 'bg-[#141A16] text-white'
+                      : 'bg-[#EEF1FA] text-[#3B4990] hover:opacity-90'
+                  }`}
+                >
+                  <Moon className="w-4 h-4 text-indigo-500 fill-indigo-500" />
+                  <span>Вечер</span>
                 </button>
               </div>
-            );
-          })}
+            </section>
 
-          {visibleCount < feedRecords.length && (
-            <button
-              onClick={() => setVisibleCount((prev) => prev + 30)}
-              className="w-full py-4 rounded-[24px] bg-white text-[#141A16] font-semibold text-base active:scale-[0.99] transition cursor-pointer"
-            >
-              Показать еще ({feedRecords.length - visibleCount})
-            </button>
-          )}
-        </section>
+            {/* Два дополнительных показателя рядом */}
+            <section className="grid grid-cols-2 gap-3.5 pt-0.5">
+              <div className="bg-[#D4ECF4] rounded-[28px] p-5 flex flex-col justify-between min-h-[144px]">
+                <div className="flex items-start justify-between">
+                  <div>
+                    <div className="text-[30px] font-extrabold tracking-tight leading-none text-[#141A16]">
+                      {latestRec ? `${latestRec.sys}/${latestRec.dia}` : '—'}
+                    </div>
+                    <div className="text-[15px] text-[#5B7077] font-medium mt-1.5">
+                      {latestRec ? formatHumanDate(latestRec.date) : '—'}
+                    </div>
+                  </div>
+                  <div className="w-11 h-11 rounded-full bg-white flex items-center justify-center text-[#141A16] shrink-0">
+                    <Activity className="w-5 h-5" />
+                  </div>
+                </div>
+                <div className="text-[16px] font-semibold text-[#141A16] mt-4">
+                  Последний замер
+                </div>
+              </div>
 
-        {/* Парящая нижняя кнопка-док */}
-        <div className="fixed bottom-5 left-0 right-0 z-30 flex justify-center pointer-events-none px-5">
-          <div className="w-full max-w-[400px] bg-white/90 backdrop-blur-md rounded-full p-2 shadow-lg flex items-center justify-between pointer-events-auto">
-            <div className="pl-4">
-              <div className="text-sm font-semibold text-[#141A16]">Новый замер</div>
-              <div className="text-xs text-[#7A827D]">Сохранится в облако</div>
+              <div className="bg-[#D8EEB9] rounded-[28px] p-5 flex flex-col justify-between min-h-[144px]">
+                <div className="flex items-start justify-between">
+                  <div>
+                    <div className="text-[30px] font-extrabold tracking-tight leading-none text-[#141A16]">
+                      {stats.avgPulse}
+                    </div>
+                    <div className="text-[15px] text-[#5D7044] font-medium mt-1.5">
+                      уд/мин
+                    </div>
+                  </div>
+                  <div className="w-11 h-11 rounded-full bg-white flex items-center justify-center text-[#141A16] shrink-0">
+                    <Heart className="w-5 h-5" />
+                  </div>
+                </div>
+                <div className="text-[16px] font-semibold text-[#141A16] mt-4">
+                  Средний пульс
+                </div>
+              </div>
+            </section>
+          </main>
+        )}
+
+        {/* ЭКРАН 2: ИСТОРИЯ ИЗМЕРЕНИЙ */}
+        {activeTab === 'history' && (
+          <main className="space-y-3">
+            {searchOpen && (
+              <div className="mb-3">
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Найти: кофе, трени, сахар, утро..."
+                  className="w-full bg-white rounded-[22px] px-5 py-3.5 text-base text-[#141A16] placeholder-[#858D88] focus:outline-none shadow-2xs"
+                />
+              </div>
+            )}
+
+            <div className="flex items-center justify-between px-1 pb-1">
+              <span className="text-sm font-medium text-[#7A827D]">
+                Уникальных замеров: {historyList.length}
+              </span>
+              {searchQuery && (
+                <button
+                  onClick={() => setSearchQuery('')}
+                  className="text-xs font-semibold text-[#141A16] underline"
+                >
+                  Сбросить поиск
+                </button>
+              )}
             </div>
+
+            {historyList.map((item) => {
+              const badge = getStatusLabel(item.sys, item.dia);
+              return (
+                <div
+                  key={item.id}
+                  className="bg-white rounded-[26px] px-5 py-4 flex items-center justify-between gap-3 shadow-2xs"
+                >
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-baseline gap-2.5">
+                      <span className="text-[24px] font-bold tracking-tight text-[#141A16]">
+                        {item.sys}/{item.dia}
+                      </span>
+                      {item.pulse && (
+                        <span className="text-base font-semibold text-[#5BA4B6]">
+                          ♥ {item.pulse}
+                        </span>
+                      )}
+                      <span
+                        className="text-xs font-semibold px-2.5 py-0.5 rounded-full ml-auto sm:ml-1"
+                        style={{ backgroundColor: badge.bg, color: badge.textCol }}
+                      >
+                        {badge.text}
+                      </span>
+                    </div>
+                    <div className="text-[15px] text-[#5A625D] mt-1 truncate">
+                      {item.note || 'Замер'}
+                    </div>
+                    <div className="text-sm text-[#8F9691] mt-0.5">
+                      {formatHumanDate(item.date)} в {item.time}
+                    </div>
+                  </div>
+
+                  <button
+                    onClick={() => handleDelete(item.id)}
+                    className="w-10 h-10 rounded-full flex items-center justify-center text-[#B0B7B2] hover:text-[#141A16] active:scale-95 transition cursor-pointer shrink-0"
+                    title="Удалить запись"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
+              );
+            })}
+          </main>
+        )}
+
+        {/* НИЖНИЙ НАВБАР БЕЗ ПОДПИСЕЙ: Solid/Outline иконки + крупный черный круг с плюсом */}
+        <nav className="fixed bottom-4 left-0 right-0 z-30 flex justify-center px-5 pointer-events-none">
+          <div className="w-full max-w-[400px] h-[68px] bg-white rounded-[34px] px-12 shadow-lg flex items-center justify-between pointer-events-auto">
+            {/* 1. Домик (Solid на главной, Outline в истории) */}
             <button
-              onClick={() => setActiveSheet("add")}
-              className="px-6 py-3.5 rounded-full bg-[#141A16] text-white font-semibold text-base flex items-center gap-2 active:scale-95 transition cursor-pointer"
+              onClick={() => setActiveTab('home')}
+              className="p-2 active:scale-95 transition cursor-pointer"
+              aria-label="Главная"
             >
-              <Plus className="w-5 h-5" />
-              Записать
+              <HomeNavIcon solid={activeTab === 'home'} />
+            </button>
+
+            {/* 2. Крупный черный круг с плюсом по центру */}
+            <button
+              onClick={() => setActiveSheet('add')}
+              className="w-16 h-16 -mt-6 rounded-full bg-[#141A16] text-white flex items-center justify-center shadow-md active:scale-95 transition cursor-pointer"
+              aria-label="Добавить замер"
+            >
+              <Plus className="w-8 h-8" strokeWidth={2.2} />
+            </button>
+
+            {/* 3. История (Outline на главной, Solid в истории) */}
+            <button
+              onClick={() => setActiveTab('history')}
+              className="p-2 active:scale-95 transition cursor-pointer"
+              aria-label="История"
+            >
+              <HistoryNavIcon solid={activeTab === 'history'} />
             </button>
           </div>
-        </div>
+        </nav>
 
         {/* ШТОРКА 1: Ввод нового замера */}
-        {activeSheet === "add" && (
+        {activeSheet === 'add' && (
           <div
             className="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs flex items-end justify-center"
             onClick={() => setActiveSheet(null)}
@@ -965,7 +971,9 @@ export function BloodPressureApp() {
               <div className="w-12 h-1.5 bg-[#C8CFCB] rounded-full mx-auto mb-5" />
 
               <div className="flex items-center justify-between mb-6">
-                <h3 className="text-[28px] font-bold text-[#141A16] leading-none">Новый замер</h3>
+                <h3 className="text-[28px] font-bold text-[#141A16] leading-none">
+                  Новый замер
+                </h3>
                 <button
                   onClick={() => setActiveSheet(null)}
                   className="w-10 h-10 rounded-full bg-white flex items-center justify-center text-[#141A16] cursor-pointer"
@@ -977,7 +985,9 @@ export function BloodPressureApp() {
               <form onSubmit={handleSaveRecord} className="space-y-5">
                 <div className="grid grid-cols-3 gap-3">
                   <div className="bg-white rounded-[26px] p-4 text-center">
-                    <span className="block text-sm font-medium text-[#7A827D] mb-1">Верхнее</span>
+                    <span className="block text-sm font-medium text-[#7A827D] mb-1">
+                      Верхнее
+                    </span>
                     <input
                       ref={sysRef}
                       type="text"
@@ -991,7 +1001,9 @@ export function BloodPressureApp() {
                   </div>
 
                   <div className="bg-white rounded-[26px] p-4 text-center">
-                    <span className="block text-sm font-medium text-[#7A827D] mb-1">Нижнее</span>
+                    <span className="block text-sm font-medium text-[#7A827D] mb-1">
+                      Нижнее
+                    </span>
                     <input
                       ref={diaRef}
                       type="text"
@@ -1004,8 +1016,10 @@ export function BloodPressureApp() {
                     />
                   </div>
 
-                  <div className="bg-[#D6EBB4] rounded-[26px] p-4 text-center">
-                    <span className="block text-sm font-medium text-[#4A5D2F] mb-1">Пульс</span>
+                  <div className="bg-[#D8EEB9] rounded-[26px] p-4 text-center">
+                    <span className="block text-sm font-medium text-[#4A5D2F] mb-1">
+                      Пульс
+                    </span>
                     <input
                       ref={pulseRef}
                       type="text"
@@ -1019,13 +1033,21 @@ export function BloodPressureApp() {
                 </div>
 
                 <div className="flex flex-wrap gap-2">
-                  {["Утро", "После кофе", "После силовой", "После кардио", "Вечером после прогулки"].map((tag) => (
+                  {[
+                    'Утро',
+                    'После кофе',
+                    'После силовой',
+                    'После кардио',
+                    'Вечером после прогулки'
+                  ].map((tag) => (
                     <button
                       type="button"
                       key={tag}
                       onClick={() => setNoteInput(tag)}
                       className={`px-4 py-2.5 rounded-full text-[15px] font-semibold transition cursor-pointer ${
-                        noteInput === tag ? "bg-[#141A16] text-white" : "bg-white text-[#141A16]"
+                        noteInput === tag
+                          ? 'bg-[#141A16] text-white'
+                          : 'bg-white text-[#141A16]'
                       }`}
                     >
                       {tag}
@@ -1060,8 +1082,8 @@ export function BloodPressureApp() {
           </div>
         )}
 
-        {/* ШТОРКА 2: Импорт и экспорт */}
-        {activeSheet === "data" && (
+        {/* ШТОРКА 2: Управление базой, аватар и очистка дублей */}
+        {activeSheet === 'data' && (
           <div
             className="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs flex items-end justify-center"
             onClick={() => setActiveSheet(null)}
@@ -1073,7 +1095,9 @@ export function BloodPressureApp() {
               <div className="w-12 h-1.5 bg-[#C8CFCB] rounded-full mx-auto mb-2" />
 
               <div className="flex items-center justify-between">
-                <h3 className="text-[26px] font-bold text-[#141A16]">База данных</h3>
+                <h3 className="text-[26px] font-bold text-[#141A16]">
+                  База данных
+                </h3>
                 <button
                   onClick={() => setActiveSheet(null)}
                   className="w-10 h-10 rounded-full bg-white flex items-center justify-center text-[#141A16]"
@@ -1082,13 +1106,37 @@ export function BloodPressureApp() {
                 </button>
               </div>
 
+              {/* Инфо о количестве записей и очистка возможных дублей */}
+              <div className="bg-white rounded-[26px] p-4 flex items-center justify-between">
+                <div>
+                  <div className="text-sm font-bold text-[#141A16]">
+                    Записей в облаке: {rawCloudCount}
+                  </div>
+                  <div className="text-xs text-[#7A827D]">
+                    Уникальных замеров: {records.length}
+                  </div>
+                </div>
+                {rawCloudCount > records.length && (
+                  <button
+                    type="button"
+                    onClick={handleCleanCloudDuplicates}
+                    className="px-4 py-2 rounded-full bg-[#D8EEB9] text-[#141A16] text-xs font-bold flex items-center gap-1.5 cursor-pointer"
+                  >
+                    <Sparkles className="w-3.5 h-3.5" />
+                    Удалить дубли ({rawCloudCount - records.length})
+                  </button>
+                )}
+              </div>
+
               <div className="bg-white rounded-[26px] p-4 space-y-3">
-                <div className="text-base font-bold text-[#141A16]">Импорт строк из текста</div>
+                <div className="text-base font-bold text-[#141A16]">
+                  Импорт строк из текста
+                </div>
                 <textarea
                   rows={3}
                   value={importText}
                   onChange={(e) => setImportText(e.target.value)}
-                  placeholder="[18.10.2026 08:40] Roma Lebedev: 120/80 64 утро"
+                  placeholder="[20.10.2026 08:40] Roma Lebedev: 120/80 64 утро"
                   className="w-full bg-[#EFEFEF] rounded-[18px] p-3 text-sm text-[#141A16] focus:outline-none"
                 />
                 <button
@@ -1112,11 +1160,14 @@ export function BloodPressureApp() {
                 </button>
                 <button
                   type="button"
-                  onClick={fetchFromCloud}
-                  className="bg-[#CDE9F2] rounded-[24px] py-3.5 px-4 font-semibold text-sm text-[#141A16] flex items-center justify-center gap-2 cursor-pointer"
+                  onClick={() => {
+                    fetchFromCloud();
+                    setActiveSheet(null);
+                  }}
+                  className="bg-[#D4ECF4] rounded-[24px] py-3.5 px-4 font-semibold text-sm text-[#141A16] flex items-center justify-center gap-2 cursor-pointer"
                 >
                   <RefreshCw className="w-4 h-4" />
-                  Обновить из облака
+                  Синхронизировать
                 </button>
               </div>
             </div>
