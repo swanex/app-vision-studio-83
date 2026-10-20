@@ -1,5 +1,5 @@
-import { createFileRoute } from "@tanstack/react-router";
-import { BloodPressureApp } from "@/components/BloodPressureApp";
+import { ClientOnly, createFileRoute } from "@tanstack/react-router";
+import BloodPressureApp from "@/components/BloodPressureApp";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -24,5 +24,5 @@ export const Route = createFileRoute("/")({
 });
 
 function Index() {
-  return <BloodPressureApp />;
+  return <ClientOnly><BloodPressureApp /></ClientOnly>;
 }
