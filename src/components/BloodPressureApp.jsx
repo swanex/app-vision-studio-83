@@ -28,20 +28,17 @@ import {
   ChevronDown
 } from 'lucide-react';
 
-// Подключение к облачной базе Supabase
 const SUPABASE_URL = 'https://qgmnldmmhdtqbptbdmjm.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFnbW5sZG1taGR0cWJwdGJkbWptIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTIyODg5MDcsImV4cCI6MjEwNzg2NDkwN30.uEofng_-EPocDFkxHId5b-nMoLaD2RjKqBo_uh6TUYs';
 
-// Секретный пин-код владельца (вводится 1 раз на устройстве и запоминается навсегда)
 const OWNER_PIN = '1971';
 
 const STORAGE_CACHE_KEY = 'roma_bp_cloud_cache_v5';
 const AVATAR_STORAGE_KEY = 'roma_bp_custom_avatar_v1';
 const AUTH_STORAGE_KEY = 'roma_bp_owner_authorized_v1';
 
-// Цвета основных линий графика
-const SYS_COLOR = '#689F38'; // Зеленый для верхнего давления
-const DIA_COLOR = '#5BA4B6'; // Бирюзово-голубой для нижнего давления
+const SYS_COLOR = '#689F38'; 
+const DIA_COLOR = '#5BA4B6'; 
 
 const MONTHS_RU = [
   'янв', 'фев', 'мар', 'апр', 'мая', 'июн',
@@ -79,7 +76,6 @@ const getStatusLabel = (sys, dia) => {
   return { text: 'Высокое', bg: '#141A16', textCol: '#FFFFFF' };
 };
 
-// Иконка облака с чекмарком (Icon-cloud-check.svg, 20x20px как соседние иконки)
 const CloudCheckIcon = ({ className = 'w-5 h-5' }) => (
   <svg
     viewBox="0 0 24 24"
@@ -95,7 +91,6 @@ const CloudCheckIcon = ({ className = 'w-5 h-5' }) => (
   </svg>
 );
 
-// Иконка облака с крестиком (Icon-cloud-x.svg, 20x20px как соседние иконки)
 const CloudXIcon = ({ className = 'w-5 h-5' }) => (
   <svg
     viewBox="0 0 24 24"
@@ -112,7 +107,6 @@ const CloudXIcon = ({ className = 'w-5 h-5' }) => (
   </svg>
 );
 
-// Иконка Домика (Solid / Outline)
 const HomeNavIcon = ({ solid }) =>
   solid ? (
     <svg width="28" height="28" viewBox="0 0 24 24" fill="#141A16" xmlns="http://www.w3.org/2000/svg">
@@ -125,7 +119,6 @@ const HomeNavIcon = ({ solid }) =>
     </svg>
   );
 
-// Иконка Истории (Solid / Outline)
 const HistoryNavIcon = ({ solid }) =>
   solid ? (
     <svg width="28" height="28" viewBox="0 0 24 24" fill="#141A16" xmlns="http://www.w3.org/2000/svg">
@@ -271,15 +264,15 @@ export default function App() {
   const [pinError, setPinError] = useState(false);
   const [pendingAction, setPendingAction] = useState(null);
 
-  const [cloudStatus, setCloudStatus] = useState('syncing'); // 'online' | 'syncing' | 'error'
+  const [cloudStatus, setCloudStatus] = useState('syncing'); 
   const [rawCloudCount, setRawCloudCount] = useState(0);
-  const [activeTab, setActiveTab] = useState('home'); // 'home' | 'history'
-  const [period, setPeriod] = useState('30d'); // '7d' | '30d' | 'all'
-  const [dayTimeFilter, setDayTimeFilter] = useState('all'); // 'all' | 'morning' | 'evening'
+  const [activeTab, setActiveTab] = useState('home'); 
+  const [period, setPeriod] = useState('30d'); 
+  const [dayTimeFilter, setDayTimeFilter] = useState('all'); 
 
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const [activeSheet, setActiveSheet] = useState(null); // 'add' | 'data' | 'auth' | null
+  const [activeSheet, setActiveSheet] = useState(null); 
 
   const [inputsUnlocked, setInputsUnlocked] = useState(false);
 
@@ -289,7 +282,7 @@ export default function App() {
   const [sysInput, setSysInput] = useState('');
   const [diaInput, setDiaInput] = useState('');
   const [pulseInput, setPulseInput] = useState('');
-  const [noteInput, setNoteInput] = useState('Утро');
+  const [noteInput, setNoteInput] = useState('');
   const [dateInput, setDateInput] = useState(() => new Date().toISOString().slice(0, 10));
   const [timeInput, setTimeInput] = useState('09:30');
 
@@ -625,7 +618,7 @@ export default function App() {
       sys: s,
       dia: d,
       pulse: p,
-      note: noteInput.trim() || 'Утро'
+      note: noteInput.trim() || 'Замер'
     };
 
     const updated = deduplicateRecords([...records, newItem]);
@@ -704,6 +697,10 @@ export default function App() {
     return `${rangePart} · ${count} ${pluralizeMeasurements(count)}`;
   }, [stats.firstDate, stats.lastDate, filteredRecords.length]);
 
+  const latestRecIsEvening = latestRec && parseInt(latestRec.time.split(':')[0], 10) >= 13;
+  const latestRecBgColor = latestRecIsEvening ? '#EEF1FA' : '#FCF4E0';
+  const latestRecDateColor = latestRecIsEvening ? '#3B4990' : '#8A7545';
+
   return (
     <div
       className="min-h-screen bg-[#E4E7E4] text-[#141A16] flex justify-center font-sans select-none"
@@ -713,9 +710,24 @@ export default function App() {
         WebkitTouchCallout: 'none'
       }}
     >
+      <style>{`
+        input[type="time"]::-webkit-calendar-picker-indicator {
+          background: transparent;
+          bottom: 0;
+          color: transparent;
+          cursor: pointer;
+          height: auto;
+          left: 0;
+          position: absolute;
+          right: 0;
+          top: 0;
+          width: auto;
+          opacity: 0;
+        }
+      `}</style>
+
       <div className="w-full max-w-[440px] min-h-screen bg-[#F2F3F0] pb-28 px-5 relative flex flex-col">
         
-        {/* ВЕРХНЯЯ ОБЛАСТЬ: на Главной обычная, а в Истории фиксируется (sticky top-0) вместе с поиском и счетчиком */}
         <div
           className={
             activeTab === 'history'
@@ -723,7 +735,6 @@ export default function App() {
               : 'pt-6 mb-5'
           }
         >
-          {/* ШАПКА (одинаковая по отступам и размерам на обоих экранах) */}
           <header className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-3 min-w-0">
               <input
@@ -819,7 +830,6 @@ export default function App() {
             </div>
           </header>
 
-          {/* Доп. элементы фиксированной шапки в режиме Истории */}
           {activeTab === 'history' && (
             <div className="mt-5">
               {searchOpen && (
@@ -853,7 +863,6 @@ export default function App() {
           )}
         </div>
 
-        {/* ЭКРАН 1: ГЛАВНАЯ */}
         {activeTab === 'home' && (
           <main className="space-y-4">
             <div className="bg-white rounded-full p-1.5 grid grid-cols-3 shadow-2xs">
@@ -1032,13 +1041,19 @@ export default function App() {
             </section>
 
             <section className="grid grid-cols-2 gap-3.5 pt-0.5">
-              <div className="bg-[#D4ECF4] rounded-[28px] p-5 flex flex-col justify-between min-h-[148px]">
+              <div
+                className="rounded-[28px] p-5 flex flex-col justify-between min-h-[148px]"
+                style={{ backgroundColor: latestRecBgColor }}
+              >
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
                     <div className="text-[25px] font-extrabold tracking-tight leading-none text-[#141A16]">
                       {latestRec ? `${latestRec.sys}/${latestRec.dia}` : '—'}
                     </div>
-                    <div className="text-[14px] text-[#5B7077] font-medium mt-1.5">
+                    <div
+                      className="text-[14px] font-medium mt-1.5"
+                      style={{ color: latestRecDateColor }}
+                    >
                       {latestRec ? formatHumanDate(latestRec.date) : '—'}
                     </div>
                   </div>
@@ -1053,13 +1068,13 @@ export default function App() {
                 </div>
               </div>
 
-              <div className="bg-[#D8EEB9] rounded-[28px] p-5 flex flex-col justify-between min-h-[148px]">
+              <div className="bg-[#ECEEED] rounded-[28px] p-5 flex flex-col justify-between min-h-[148px]">
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
                     <div className="text-[25px] font-extrabold tracking-tight leading-none text-[#141A16]">
                       {stats.avgPulse}
                     </div>
-                    <div className="text-[14px] text-[#5D7044] font-medium mt-1.5">
+                    <div className="text-[14px] text-[#5A625D] font-medium mt-1.5">
                       уд/мин
                     </div>
                   </div>
@@ -1077,7 +1092,6 @@ export default function App() {
           </main>
         )}
 
-        {/* ЭКРАН 2: СПИСОК ИСТОРИИ (уходит под sticky-шапку при скролле) */}
         {activeTab === 'history' && (
           <main className="space-y-3">
             {historyList.map((item) => {
@@ -1127,7 +1141,6 @@ export default function App() {
           </main>
         )}
 
-        {/* НИЖНИЙ НАВБАР БЕЗ ПОДПИСЕЙ */}
         <nav className="fixed bottom-4 left-0 right-0 z-30 flex justify-center px-5 pointer-events-none">
           <div className="w-full max-w-[400px] h-[68px] bg-white rounded-[34px] px-12 shadow-lg flex items-center justify-between pointer-events-auto">
             <button
@@ -1156,7 +1169,6 @@ export default function App() {
           </div>
         </nav>
 
-        {/* ШТОРКА АВТОРИЗАЦИИ ВЛАДЕЛЬЦА */}
         {activeSheet === 'auth' && (
           <div
             className="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs flex items-end justify-center overscroll-none touch-none"
@@ -1253,10 +1265,10 @@ export default function App() {
                 </button>
               </div>
 
-              <div role="presentation" className="space-y-5">
+              <div role="presentation" className="space-y-4">
                 <div className="grid grid-cols-3 gap-3">
-                  <div className="bg-white rounded-[26px] p-4 text-center">
-                    <span className="block text-sm font-medium text-[#7A827D] mb-1">
+                  <div className="bg-[#D8EEB9] rounded-[26px] p-4 text-center">
+                    <span className="block text-sm font-medium text-[#4A5D2F] mb-1">
                       Верхнее
                     </span>
                     <input
@@ -1277,12 +1289,12 @@ export default function App() {
                       placeholder="120"
                       value={sysInput}
                       onChange={handleSysChange}
-                      className="w-full text-center text-[34px] font-bold text-[#141A16] placeholder-[#D0D5D2] focus:outline-none bg-transparent select-text"
+                      className="w-full text-center text-[34px] font-bold text-[#141A16] placeholder-[#A5C282] focus:outline-none bg-transparent select-text"
                     />
                   </div>
 
-                  <div className="bg-white rounded-[26px] p-4 text-center">
-                    <span className="block text-sm font-medium text-[#7A827D] mb-1">
+                  <div className="bg-[#D4ECF4] rounded-[26px] p-4 text-center">
+                    <span className="block text-sm font-medium text-[#395C66] mb-1">
                       Нижнее
                     </span>
                     <input
@@ -1303,12 +1315,12 @@ export default function App() {
                       placeholder="82"
                       value={diaInput}
                       onChange={handleDiaChange}
-                      className="w-full text-center text-[34px] font-bold text-[#141A16] placeholder-[#D0D5D2] focus:outline-none bg-transparent select-text"
+                      className="w-full text-center text-[34px] font-bold text-[#141A16] placeholder-[#A0C9D6] focus:outline-none bg-transparent select-text"
                     />
                   </div>
 
-                  <div className="bg-[#D8EEB9] rounded-[26px] p-4 text-center">
-                    <span className="block text-sm font-medium text-[#4A5D2F] mb-1">
+                  <div className="bg-[#ECEEED] rounded-[26px] p-4 text-center">
+                    <span className="block text-sm font-medium text-[#5A625D] mb-1">
                       Пульс
                     </span>
                     <input
@@ -1329,14 +1341,32 @@ export default function App() {
                       placeholder="64"
                       value={pulseInput}
                       onChange={handlePulseChange}
-                      className="w-full text-center text-[34px] font-bold text-[#141A16] placeholder-[#99B277] focus:outline-none bg-transparent select-text"
+                      className="w-full text-center text-[34px] font-bold text-[#141A16] placeholder-[#B0B7B2] focus:outline-none bg-transparent select-text"
                     />
                   </div>
                 </div>
 
+                <div className="bg-white rounded-[26px] pl-5 pr-4 py-3.5 flex items-center justify-between">
+                  <span className="text-[17px] font-semibold text-[#141A16]">
+                    Время замера
+                  </span>
+                  <label className="relative inline-flex items-center gap-2.5 bg-[#F4F5F2] rounded-[20px] px-5 py-3 cursor-pointer">
+                    <span className="text-[20px] font-bold text-[#141A16] leading-none tabular-nums">
+                      {timeInput}
+                    </span>
+                    <ChevronDown className="w-5 h-5 text-[#5A625D] shrink-0" />
+                    <input
+                      type="time"
+                      autoComplete="off"
+                      value={timeInput}
+                      onChange={(e) => setTimeInput(e.target.value)}
+                      className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                    />
+                  </label>
+                </div>
+
                 <div className="flex flex-wrap gap-2">
                   {[
-                    'Утро',
                     'После кофе',
                     'После силовой',
                     'После кардио',
@@ -1357,7 +1387,7 @@ export default function App() {
                   ))}
                 </div>
 
-                <div className="bg-white rounded-[24px] px-4 py-3 flex items-center gap-3">
+                <div className="bg-white rounded-[24px] px-5 py-4">
                   <input
                     type="text"
                     readOnly={!inputsUnlocked}
@@ -1372,29 +1402,14 @@ export default function App() {
                     value={noteInput}
                     onChange={(e) => setNoteInput(e.target.value)}
                     placeholder="Комментарий (напр. сахар 5.4)"
-                    className="flex-1 min-w-0 text-base text-[#141A16] placeholder-[#8F9691] focus:outline-none bg-transparent select-text"
+                    className="w-full text-base text-[#141A16] placeholder-[#8F9691] focus:outline-none bg-transparent select-text"
                   />
-
-                  {/* Компактная пилюля времени в 2 раза уже: кастомный текст + невидимый input поверх */}
-                  <label className="relative inline-flex items-center gap-1 bg-[#EFEFEF] rounded-full px-2.5 py-1.5 shrink-0 cursor-pointer">
-                    <span className="text-[15px] font-semibold text-[#141A16] leading-none tabular-nums">
-                      {timeInput}
-                    </span>
-                    <ChevronDown className="w-3.5 h-3.5 text-[#5A625D] shrink-0" />
-                    <input
-                      type="time"
-                      autoComplete="off"
-                      value={timeInput}
-                      onChange={(e) => setTimeInput(e.target.value)}
-                      className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                    />
-                  </label>
                 </div>
 
                 <button
                   type="button"
                   onClick={handleSaveRecord}
-                  className="w-full py-4 rounded-full bg-[#141A16] text-white text-lg font-semibold active:scale-[0.99] transition cursor-pointer"
+                  className="w-full py-4 rounded-full bg-[#141A16] text-white text-lg font-semibold active:scale-[0.99] transition cursor-pointer mt-1"
                 >
                   Сохранить замер
                 </button>
@@ -1464,7 +1479,7 @@ export default function App() {
                   rows={3}
                   value={importText}
                   onChange={(e) => setImportText(e.target.value)}
-                  placeholder="[20.10.2026 08:40] Roma Lebedev: 120/80 64 утро"
+                  placeholder="[20.10.2026 08:40] Roma Lebedev: 120/80 64"
                   className="w-full bg-[#EFEFEF] rounded-[18px] p-3 text-sm text-[#141A16] focus:outline-none select-text"
                 />
                 <button
