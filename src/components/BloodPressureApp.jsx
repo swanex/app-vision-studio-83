@@ -24,17 +24,24 @@ import {
   Sun,
   Moon,
   Sparkles,
-  Camera
+  Camera,
+  Lock,
+  Unlock,
+  ChevronDown
 } from 'lucide-react';
 
-// Прямое подключение к облачной базе Supabase (REST API)
+// Подключение к твоей облачной базе Supabase
 const SUPABASE_URL = 'https://qgmnldmmhdtqbptbdmjm.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFnbW5sZG1taGR0cWJwdGJkbWptIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTIyODg5MDcsImV4cCI6MjEwNzg2NDkwN30.uEofng_-EPocDFkxHId5b-nMoLaD2RjKqBo_uh6TUYs';
 
+// Секретный пин-код владельца (вводится 1 раз на устройстве и запоминается навсегда)
+const OWNER_PIN = '1971';
+
 const STORAGE_CACHE_KEY = 'roma_bp_cloud_cache_v5';
 const AVATAR_STORAGE_KEY = 'roma_bp_custom_avatar_v1';
+const AUTH_STORAGE_KEY = 'roma_bp_owner_authorized_v1';
 
-// Цвета основных линий графика (сбалансированные по плотности контраста)
+// Цвета основных линий графика
 const SYS_COLOR = '#689F38'; // Зеленый для верхнего давления
 const DIA_COLOR = '#5BA4B6'; // Бирюзово-голубой для нижнего давления
 
@@ -67,17 +74,11 @@ const getGreetingByHour = () => {
   return 'Доброй ночи!';
 };
 
-const getStatusPill = (sys, dia) => {
-  if (sys < 110 || dia < 65) {
-    return { text: 'Низкое', bg: '#CDE9F2', color: '#141A16' };
-  }
-  if (sys < 130 && dia < 85) {
-    return { text: 'В норме', bg: '#D6EBB4', color: '#141A16' };
-  }
-  if (sys < 140 && dia < 90) {
-    return { text: 'Повышенное', bg: '#EFEFEF', color: '#141A16' };
-  }
-  return { text: 'Выше нормы', bg: '#141A16', color: '#FFFFFF' };
+const getStatusLabel = (sys, dia) => {
+  if (sys < 110 || dia < 65) return { text: 'Низкое', bg: '#CDE9F2', textCol: '#141A16' };
+  if (sys < 130 && dia < 85) return { text: 'В норме', bg: '#D6EBB4', textCol: '#141A16' };
+  if (sys < 140 && dia < 90) return { text: 'Повышенное', bg: '#EFEFEF', textCol: '#141A16' };
+  return { text: 'Высокое', bg: '#141A16', textCol: '#FFFFFF' };
 };
 
 // Иконка Домика (Solid / Outline)
@@ -129,7 +130,7 @@ const parseImportData = (rawText) => {
   const parsed = [];
 
   lines.forEach((line, idx) => {
-    const chatMatch = line.match(/^\[(\d{2})\.(\d{2})\.(\d{4})\s+(\d{1,2}):(\d{2})\][^:]*:\s*(.+)$/);
+    const chatMatch = line.match(/^\[(\d{2})\.(\d{2})\.(\d{4})\s+(\d{1,2}):(\d{2})\][^:]*:\s*(.+)\$/);
     if (chatMatch) {
       const [, dd, mm, yyyy, hh, min, content] = chatMatch;
       const isoDate = `${yyyy}-${mm}-${dd}`;
@@ -174,7 +175,7 @@ const parseImportData = (rawText) => {
         .replace(nums[0], '')
         .replace(nums[1], '')
         .replace(nums[2] || '', '')
-        .replace(/^[;,\s/|-]+|[;,\s/|-]+$/g, '')
+        .replace(/^[;,\s/|-]+|[;,\s/|-]+\$/g, '')
         .trim();
 
       if (sys >= 75 && sys <= 220 && dia >= 45 && dia <= 140) {
@@ -232,7 +233,15 @@ export default function App() {
     return localStorage.getItem(AVATAR_STORAGE_KEY) || DEFAULT_AVATAR_SVG;
   });
 
-  const [cloudStatus, setCloudStatus] = useState('syncing'); // 'syncing' | 'online' | 'error'
+  // Авторизация владельца: проверяется в localStorage, поэтому пароль вводится 1 раз в жизни устройства
+  const [isOwner, setIsOwner] = useState(() => {
+    return localStorage.getItem(AUTH_STORAGE_KEY) === 'true';
+  });
+  const [pinInput, setPinInput] = useState('');
+  const [pinError, setPinError] = useState(false);
+  const [pendingAction, setPendingAction] = useState(null); // какое окно открыть после ввода PIN
+
+  const [cloudStatus, setCloudStatus] = useState('syncing'); // 'online' | 'syncing' | 'error'
   const [rawCloudCount, setRawCloudCount] = useState(0);
   const [activeTab, setActiveTab] = useState('home'); // 'home' | 'history'
   const [period, setPeriod] = useState('30d'); // '7d' | '30d' | 'all'
@@ -240,13 +249,14 @@ export default function App() {
 
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const [activeSheet, setActiveSheet] = useState(null); // 'add' | 'data' | null
+  const [activeSheet, setActiveSheet] = useState(null); // 'add' | 'data' | 'auth' | null
 
-  // Свайп шторки за тело
+  // Хак против белой брови автозаполнения Chrome/Gboard: поля изначально readOnly и разблокируются при фокусе
+  const [inputsUnlocked, setInputsUnlocked] = useState(false);
+
   const [dragOffset, setDragOffset] = useState(0);
   const touchStartYRef = useRef(null);
 
-  // Поля ввода нового замера
   const [sysInput, setSysInput] = useState('');
   const [diaInput, setDiaInput] = useState('');
   const [pulseInput, setPulseInput] = useState('');
@@ -261,7 +271,43 @@ export default function App() {
 
   const [importText, setImportText] = useState('');
 
-  // Блокируем скролл экрана под открытой шторкой
+  // Проверка прав перед любым действием, меняющим базу
+  const requireOwner = (targetSheet) => {
+    if (isOwner) {
+      setActiveSheet(targetSheet);
+    } else {
+      setPendingAction(targetSheet);
+      setPinInput('');
+      setPinError(false);
+      setActiveSheet('auth');
+    }
+  };
+
+  const handlePinChange = (val) => {
+    const clean = val.replace(/\D/g, '').slice(0, 4);
+    setPinInput(clean);
+    setPinError(false);
+
+    if (clean.length === 4) {
+      if (clean === OWNER_PIN) {
+        localStorage.setItem(AUTH_STORAGE_KEY, 'true');
+        setIsOwner(true);
+        const next = pendingAction || 'add';
+        setPendingAction(null);
+        setActiveSheet(next);
+      } else {
+        setPinError(true);
+      }
+    }
+  };
+
+  const handleLockDevice = () => {
+    localStorage.removeItem(AUTH_STORAGE_KEY);
+    setIsOwner(false);
+    setActiveSheet(null);
+  };
+
+  // Блокируем прокрутку фона под открытой шторкой
   useEffect(() => {
     if (activeSheet) {
       const prevOverflow = document.body.style.overflow;
@@ -274,6 +320,7 @@ export default function App() {
       };
     }
     setDragOffset(0);
+    setInputsUnlocked(false);
   }, [activeSheet]);
 
   const handleSheetTouchStart = (e) => {
@@ -296,7 +343,6 @@ export default function App() {
     touchStartYRef.current = null;
   };
 
-  // Чтение актуальной базы из Supabase при запуске
   const fetchFromCloud = useCallback(async () => {
     setCloudStatus('syncing');
     try {
@@ -331,6 +377,7 @@ export default function App() {
   }, [fetchFromCloud]);
 
   const upsertToCloud = async (itemsArray) => {
+    if (!isOwner) return;
     setCloudStatus('syncing');
     try {
       const res = await fetch(`${SUPABASE_URL}/rest/v1/bp_records`, {
@@ -339,7 +386,8 @@ export default function App() {
           apikey: SUPABASE_KEY,
           Authorization: `Bearer ${SUPABASE_KEY}`,
           'Content-Type': 'application/json',
-          Prefer: 'resolution=merge-duplicates'
+          Prefer: 'resolution=merge-duplicates',
+          'x-owner-pin': OWNER_PIN
         },
         body: JSON.stringify(itemsArray)
       });
@@ -352,6 +400,7 @@ export default function App() {
   };
 
   const deleteFromCloud = async (id) => {
+    if (!isOwner) return;
     try {
       await fetch(
         `${SUPABASE_URL}/rest/v1/bp_records?id=eq.${encodeURIComponent(id)}`,
@@ -359,7 +408,8 @@ export default function App() {
           method: 'DELETE',
           headers: {
             apikey: SUPABASE_KEY,
-            Authorization: `Bearer ${SUPABASE_KEY}`
+            Authorization: `Bearer ${SUPABASE_KEY}`,
+            'x-owner-pin': OWNER_PIN
           }
         }
       );
@@ -369,6 +419,7 @@ export default function App() {
   };
 
   const handleCleanCloudDuplicates = async () => {
+    if (!isOwner) return;
     setCloudStatus('syncing');
     try {
       const res = await fetch(`${SUPABASE_URL}/rest/v1/bp_records?select=*`, {
@@ -424,10 +475,10 @@ export default function App() {
       const hh = String(now.getHours()).padStart(2, '0');
       const mm = String(now.getMinutes()).padStart(2, '0');
       setTimeInput(`${hh}:${mm}`);
-      const timer = setTimeout(() => {
+      setTimeout(() => {
+        setInputsUnlocked(true);
         if (sysRef.current) sysRef.current.focus();
-      }, 100);
-      return () => clearTimeout(timer);
+      }, 140);
     }
   }, [activeSheet]);
 
@@ -477,7 +528,7 @@ export default function App() {
       return {
         avgSys: 0,
         avgDia: 0,
-        avgPulse: '—',
+        avgPulse: 0,
         firstDate: null,
         lastDate: null,
         latest: sortedRecords[sortedRecords.length - 1] || null
@@ -530,6 +581,10 @@ export default function App() {
   };
 
   const handleSaveRecord = async () => {
+    if (!isOwner) {
+      requireOwner('add');
+      return;
+    }
     const s = parseInt(sysInput, 10);
     const d = parseInt(diaInput, 10);
     const p = pulseInput ? parseInt(pulseInput, 10) : null;
@@ -559,6 +614,10 @@ export default function App() {
   };
 
   const handleDelete = async (id) => {
+    if (!isOwner) {
+      requireOwner( null );
+      return;
+    }
     const updated = records.filter((item) => item.id !== id);
     setRecords(updated);
     localStorage.setItem(STORAGE_CACHE_KEY, JSON.stringify(updated));
@@ -581,6 +640,7 @@ export default function App() {
   };
 
   const handleImportSubmit = async () => {
+    if (!isOwner) return;
     const parsed = parseImportData(importText);
     if (parsed.length > 0) {
       const updated = deduplicateRecords([...records, ...parsed]);
@@ -605,7 +665,7 @@ export default function App() {
   }, [sortedRecords, searchQuery]);
 
   const latestRec = stats.latest;
-  const avgBadge = getStatusPill(stats.avgSys || 120, stats.avgDia || 80);
+  const avgBadge = getStatusLabel(stats.avgSys || 120, stats.avgDia || 80);
   const greetingText = getGreetingByHour();
 
   const periodRangeLabel = useMemo(() => {
@@ -618,10 +678,34 @@ export default function App() {
   }, [stats.firstDate, stats.lastDate, filteredRecords.length]);
 
   return (
-    <div className="min-h-screen bg-[#E2E5E2] text-[#141A16] flex justify-center font-sans selection:bg-[#D6EBB4]">
+    <div
+      className="min-h-screen bg-[#E4E7E4] text-[#141A16] flex justify-center font-sans select-none"
+      style={{
+        WebkitUserSelect: 'none',
+        userSelect: 'none',
+        WebkitTouchCallout: 'none'
+      }}
+    >
+      {/* Глобальное скрытие нативной иконки часов/шеврона в time input, чтобы наш кастомный шеврон стоял с отступом */}
+      <style>{`
+        input[type="time"]::-webkit-calendar-picker-indicator {
+          background: transparent;
+          bottom: 0;
+          color: transparent;
+          cursor: pointer;
+          height: auto;
+          left: 0;
+          position: absolute;
+          right: 0;
+          top: 0;
+          width: auto;
+          opacity: 0;
+        }
+      `}</style>
+
       <div className="w-full max-w-[440px] min-h-screen bg-[#F2F3F0] pb-28 px-5 pt-6 relative flex flex-col">
         
-        {/* Верхняя шапка: Аватар + Приветствие и полное имя + 3 круглые кнопки */}
+        {/* ВЕРХНЯЯ ШАПКА */}
         <header className="flex items-center justify-between gap-2 mb-5">
           <div className="flex items-center gap-3 min-w-0">
             <input
@@ -632,23 +716,33 @@ export default function App() {
               className="hidden"
             />
             <button
-              onClick={() => avatarInputRef.current?.click()}
-              title="Нажми, чтобы выбрать свое фото для аватара"
+              onClick={() => {
+                if (isOwner) {
+                  avatarInputRef.current?.click();
+                } else {
+                  requireOwner(null);
+                }
+              }}
+              title={isOwner ? 'Нажми, чтобы сменить фото аватара' : 'Режим просмотра (нажми для входа владельца)'}
               className="w-[50px] h-[50px] rounded-full overflow-hidden bg-[#141A16] shrink-0 relative group cursor-pointer shadow-xs"
             >
               <img
                 src={avatarSrc}
                 alt="Рома Лебедев"
-                className="w-full h-full object-cover"
+                draggable={false}
+                className="w-full h-full object-cover pointer-events-none"
               />
               <span className="absolute inset-0 bg-black/35 opacity-0 group-hover:opacity-100 flex items-center justify-center text-white transition">
-                <Camera className="w-4 h-4" />
+                {isOwner ? <Camera className="w-4 h-4" /> : <Lock className="w-4 h-4" />}
               </span>
             </button>
 
             <div className="min-w-0">
-              <div className="text-[13px] text-[#6E7671] font-medium leading-tight whitespace-nowrap">
-                {greetingText}
+              <div className="text-[13px] text-[#6E7671] font-medium leading-tight whitespace-nowrap flex items-center gap-1">
+                <span>{greetingText}</span>
+                {!isOwner && (
+                  <Lock className="w-3 h-3 text-[#8F9691] inline" title="Гостевой режим (только чтение)" />
+                )}
               </div>
               <div className="text-[17px] font-extrabold tracking-tight text-[#141A16] leading-snug whitespace-nowrap">
                 Рома Лебедев
@@ -698,7 +792,7 @@ export default function App() {
             </button>
 
             <button
-              onClick={() => setActiveSheet('data')}
+              onClick={() => requireOwner('data')}
               className="w-11 h-11 rounded-full bg-white flex items-center justify-center text-[#141A16] active:scale-95 transition cursor-pointer shadow-2xs"
               aria-label="Настройки"
             >
@@ -707,11 +801,9 @@ export default function App() {
           </div>
         </header>
 
-        {}
         {/* ЭКРАН 1: ГЛАВНАЯ */}
         {activeTab === 'home' && (
           <main className="space-y-4">
-            {/* Сегментированный переключатель периода над карточкой графика */}
             <div className="bg-white rounded-full p-1.5 grid grid-cols-3 shadow-2xs">
               {[
                 { id: '7d', label: 'Неделя' },
@@ -732,7 +824,6 @@ export default function App() {
               ))}
             </div>
 
-            {/* Единая белая карточка: Среднее АД + 2-строчная подпись + График с легендой + Фильтры времени суток */}
             <section className="bg-white rounded-[32px] p-6 shadow-2xs">
               <div className="flex items-start justify-between gap-2 mb-1.5">
                 <span className="text-[44px] font-extrabold tracking-tight leading-none text-[#141A16]">
@@ -740,7 +831,7 @@ export default function App() {
                 </span>
                 <span
                   className="px-3.5 py-1.5 rounded-full text-sm font-semibold shrink-0"
-                  style={{ backgroundColor: avgBadge.bg, color: avgBadge.color }}
+                  style={{ backgroundColor: avgBadge.bg, color: avgBadge.textCol }}
                 >
                   {avgBadge.text}
                 </span>
@@ -749,13 +840,10 @@ export default function App() {
               <div className="text-[15px] leading-snug text-[#7A827D] mb-4">
                 <div>Среднее за период</div>
                 <div>
-                  {stats.avgSys
-                    ? periodRangeLabel
-                    : 'Синхронизация измерений с облаком...'}
+                  {stats.avgSys ? periodRangeLabel : 'Загрузка измерений из облака...'}
                 </div>
               </div>
 
-              {/* График с легкой пунктирной сеткой и легендой справа */}
               <div className="h-[200px] w-full -mx-2 relative">
                 <div className="absolute top-1.5 right-3 z-10 flex items-center gap-3 bg-white/85 backdrop-blur-xs px-2.5 py-1 rounded-full pointer-events-none">
                   <div className="flex items-center gap-1.5">
@@ -853,7 +941,6 @@ export default function App() {
                 )}
               </div>
 
-              {/* Фильтры «Все / Утро / Вечер» внутри карточки графика по центру */}
               <div className="mt-5 pt-1 flex items-center justify-center gap-2.5">
                 <button
                   onClick={() => setDayTimeFilter('all')}
@@ -892,7 +979,6 @@ export default function App() {
               </div>
             </section>
 
-            {/* Два дополнительных показателя рядом */}
             <section className="grid grid-cols-2 gap-3.5 pt-0.5">
               <div className="bg-[#D4ECF4] rounded-[28px] p-5 flex flex-col justify-between min-h-[148px]">
                 <div className="flex items-start justify-between gap-3">
@@ -939,20 +1025,19 @@ export default function App() {
           </main>
         )}
 
-        {}
         {/* ЭКРАН 2: ИСТОРИЯ ИЗМЕРЕНИЙ */}
         {activeTab === 'history' && (
           <main className="space-y-3">
             {searchOpen && (
               <div className="mb-3">
                 <input
-                  type="search"
-                  name="bp_history_filter_query"
+                  type="text"
+                  inputMode="search"
                   autoComplete="off"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   placeholder="Найти: кофе, трени, сахар, утро..."
-                  className="w-full bg-white rounded-[22px] px-5 py-3.5 text-base text-[#141A16] placeholder-[#858D88] focus:outline-none shadow-2xs"
+                  className="w-full bg-white rounded-[22px] px-5 py-3.5 text-base text-[#141A16] placeholder-[#858D88] focus:outline-none shadow-2xs select-text"
                 />
               </div>
             )}
@@ -972,7 +1057,7 @@ export default function App() {
             </div>
 
             {historyList.map((item) => {
-              const badge = getStatusPill(item.sys, item.dia);
+              const badge = getStatusLabel(item.sys, item.dia);
               return (
                 <div
                   key={item.id}
@@ -990,7 +1075,7 @@ export default function App() {
                       )}
                       <span
                         className="text-xs font-semibold px-2.5 py-0.5 rounded-full ml-auto sm:ml-1"
-                        style={{ backgroundColor: badge.bg, color: badge.color }}
+                        style={{ backgroundColor: badge.bg, color: badge.textCol }}
                       >
                         {badge.text}
                       </span>
@@ -1003,20 +1088,22 @@ export default function App() {
                     </div>
                   </div>
 
-                  <button
-                    onClick={() => handleDelete(item.id)}
-                    className="w-10 h-10 rounded-full flex items-center justify-center text-[#B0B7B2] hover:text-[#141A16] active:scale-95 transition cursor-pointer shrink-0"
-                    title="Удалить запись"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
+                  {isOwner && (
+                    <button
+                      onClick={() => handleDelete(item.id)}
+                      className="w-10 h-10 rounded-full flex items-center justify-center text-[#B0B7B2] hover:text-[#141A16] active:scale-95 transition cursor-pointer shrink-0"
+                      title="Удалить запись"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  )}
                 </div>
               );
             })}
           </main>
         )}
 
-        {/* НИЖНИЙ НАВБАР БЕЗ ПОДПИСЕЙ: Solid/Outline иконки + крупный черный круг с плюсом */}
+        {/* НИЖНИЙ НАВБАР БЕЗ ПОДПИСЕЙ */}
         <nav className="fixed bottom-4 left-0 right-0 z-30 flex justify-center px-5 pointer-events-none">
           <div className="w-full max-w-[400px] h-[68px] bg-white rounded-[34px] px-12 shadow-lg flex items-center justify-between pointer-events-auto">
             <button
@@ -1028,7 +1115,7 @@ export default function App() {
             </button>
 
             <button
-              onClick={() => setActiveSheet('add')}
+              onClick={() => requireOwner('add')}
               className="w-16 h-16 -mt-6 rounded-full bg-[#141A16] text-white flex items-center justify-center shadow-md active:scale-95 transition cursor-pointer"
               aria-label="Добавить замер"
             >
@@ -1045,8 +1132,72 @@ export default function App() {
           </div>
         </nav>
 
-        {}
-        {/* ШТОРКА 1: Ввод нового замера */}
+        {/* ШТОРКА АВТОРИЗАЦИИ ВЛАДЕЛЬЦА (Спрашивается 1 раз на новом устройстве) */}
+        {activeSheet === 'auth' && (
+          <div
+            className="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs flex items-end justify-center overscroll-none touch-none"
+            onClick={() => setActiveSheet(null)}
+          >
+            <div
+              onTouchStart={handleSheetTouchStart}
+              onTouchMove={handleSheetTouchMove}
+              onTouchEnd={handleSheetTouchEnd}
+              style={{
+                transform: `translateY(${dragOffset}px)`,
+                transition: dragOffset === 0 ? 'transform 0.2s ease-out' : 'none'
+              }}
+              className="w-full max-w-[440px] bg-[#EFEFEF] rounded-t-[36px] p-6 pb-8"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="w-12 h-1.5 bg-[#C8CFCB] rounded-full mx-auto mb-5" />
+
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-10 h-10 rounded-full bg-[#D8EEB9] flex items-center justify-center text-[#141A16]">
+                    <Lock className="w-5 h-5" />
+                  </div>
+                  <h3 className="text-[24px] font-bold text-[#141A16] leading-none">
+                    Код владельца
+                  </h3>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setActiveSheet(null)}
+                  className="w-10 h-10 rounded-full bg-white flex items-center justify-center text-[#141A16] cursor-pointer"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <p className="text-sm text-[#6E7671] mb-5">
+                Введи 4 цифры один раз. Браузер запомнит тебя, и больше код вводить не придется.
+              </p>
+
+              <div className="bg-white rounded-[26px] p-4 mb-3">
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  autoComplete="off"
+                  autoCorrect="off"
+                  spellCheck={false}
+                  placeholder="••••"
+                  value={pinInput}
+                  onChange={(e) => handlePinChange(e.target.value)}
+                  className="w-full text-center text-[36px] tracking-[14px] font-extrabold text-[#141A16] placeholder-[#D0D5D2] focus:outline-none bg-transparent"
+                  autoFocus
+                />
+              </div>
+
+              {pinError && (
+                <p className="text-center text-sm font-semibold text-red-600">
+                  Неверный код доступа
+                </p>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* ШТОРКА 1: Ввод нового замера (без панели паролей/адресов Gboard и с ровным шевроном времени) */}
         {activeSheet === 'add' && (
           <div
             className="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs flex items-end justify-center overscroll-none touch-none"
@@ -1060,7 +1211,7 @@ export default function App() {
                 transform: `translateY(${dragOffset}px)`,
                 transition: dragOffset === 0 ? 'transform 0.2s ease-out' : 'none'
               }}
-              className="w-full max-w-[440px] bg-[#EFEFEF] rounded-t-[36px] p-6 pb-8 select-none"
+              className="w-full max-w-[440px] bg-[#EFEFEF] rounded-t-[36px] p-6 pb-8"
               onClick={(e) => e.stopPropagation()}
             >
               <div className="w-12 h-1.5 bg-[#C8CFCB] rounded-full mx-auto mb-5" />
@@ -1078,7 +1229,8 @@ export default function App() {
                 </button>
               </div>
 
-              <div role="group" data-form-type="other" className="space-y-5">
+              {/* Поля с readOnly до момента фокуса + type="text" + inputMode="numeric" — полностью отключают белую бровь автозаполнения Chrome */}
+              <div role="presentation" className="space-y-5">
                 <div className="grid grid-cols-3 gap-3">
                   <div className="bg-white rounded-[26px] p-4 text-center">
                     <span className="block text-sm font-medium text-[#7A827D] mb-1">
@@ -1086,21 +1238,23 @@ export default function App() {
                     </span>
                     <input
                       ref={sysRef}
-                      type="tel"
+                      type="text"
                       inputMode="numeric"
-                      pattern="[0-9]*"
-                      name="bp_val_s_custom"
+                      readOnly={!inputsUnlocked}
+                      onFocus={() => setInputsUnlocked(true)}
                       autoComplete="off"
                       autoCorrect="off"
                       autoCapitalize="off"
                       spellCheck={false}
                       data-lpignore="true"
                       data-1p-ignore="true"
+                      data-bwignore="true"
                       data-form-type="other"
+                      aria-autocomplete="none"
                       placeholder="120"
                       value={sysInput}
                       onChange={handleSysChange}
-                      className="w-full text-center text-[34px] font-bold text-[#141A16] placeholder-[#D0D5D2] focus:outline-none bg-transparent"
+                      className="w-full text-center text-[34px] font-bold text-[#141A16] placeholder-[#D0D5D2] focus:outline-none bg-transparent select-text"
                     />
                   </div>
 
@@ -1110,21 +1264,23 @@ export default function App() {
                     </span>
                     <input
                       ref={diaRef}
-                      type="tel"
+                      type="text"
                       inputMode="numeric"
-                      pattern="[0-9]*"
-                      name="bp_val_d_custom"
+                      readOnly={!inputsUnlocked}
+                      onFocus={() => setInputsUnlocked(true)}
                       autoComplete="off"
                       autoCorrect="off"
                       autoCapitalize="off"
                       spellCheck={false}
                       data-lpignore="true"
                       data-1p-ignore="true"
+                      data-bwignore="true"
                       data-form-type="other"
+                      aria-autocomplete="none"
                       placeholder="82"
                       value={diaInput}
                       onChange={handleDiaChange}
-                      className="w-full text-center text-[34px] font-bold text-[#141A16] placeholder-[#D0D5D2] focus:outline-none bg-transparent"
+                      className="w-full text-center text-[34px] font-bold text-[#141A16] placeholder-[#D0D5D2] focus:outline-none bg-transparent select-text"
                     />
                   </div>
 
@@ -1134,21 +1290,23 @@ export default function App() {
                     </span>
                     <input
                       ref={pulseRef}
-                      type="tel"
+                      type="text"
                       inputMode="numeric"
-                      pattern="[0-9]*"
-                      name="bp_val_p_custom"
+                      readOnly={!inputsUnlocked}
+                      onFocus={() => setInputsUnlocked(true)}
                       autoComplete="off"
                       autoCorrect="off"
                       autoCapitalize="off"
                       spellCheck={false}
                       data-lpignore="true"
                       data-1p-ignore="true"
+                      data-bwignore="true"
                       data-form-type="other"
+                      aria-autocomplete="none"
                       placeholder="64"
                       value={pulseInput}
                       onChange={handlePulseChange}
-                      className="w-full text-center text-[34px] font-bold text-[#141A16] placeholder-[#99B277] focus:outline-none bg-transparent"
+                      className="w-full text-center text-[34px] font-bold text-[#141A16] placeholder-[#99B277] focus:outline-none bg-transparent select-text"
                     />
                   </div>
                 </div>
@@ -1176,28 +1334,35 @@ export default function App() {
                   ))}
                 </div>
 
-                <div className="bg-white rounded-[24px] px-4 py-3.5 flex items-center gap-3">
+                <div className="bg-white rounded-[24px] px-4 py-3 flex items-center gap-3">
                   <input
-                    type="search"
-                    name="bp_custom_memo_field"
+                    type="text"
+                    readOnly={!inputsUnlocked}
+                    onFocus={() => setInputsUnlocked(true)}
                     autoComplete="off"
                     autoCorrect="off"
                     spellCheck={false}
                     data-lpignore="true"
+                    data-1p-ignore="true"
                     data-form-type="other"
+                    aria-autocomplete="none"
                     value={noteInput}
                     onChange={(e) => setNoteInput(e.target.value)}
                     placeholder="Комментарий (напр. сахар 5.4)"
-                    className="flex-1 text-base text-[#141A16] placeholder-[#8F9691] focus:outline-none bg-transparent"
+                    className="flex-1 min-w-0 text-base text-[#141A16] placeholder-[#8F9691] focus:outline-none bg-transparent select-text"
                   />
-                  <input
-                    type="time"
-                    name="bp_custom_time_field"
-                    autoComplete="off"
-                    value={timeInput}
-                    onChange={(e) => setTimeInput(e.target.value)}
-                    className="text-base font-semibold text-[#141A16] bg-[#EFEFEF] rounded-full px-3 py-1 focus:outline-none"
-                  />
+
+                  {/* Пилюля времени с аккуратным отступом шеврона справа */}
+                  <label className="relative inline-flex items-center gap-1.5 bg-[#EFEFEF] rounded-full pl-3.5 pr-3 py-1.5 shrink-0 cursor-pointer">
+                    <input
+                      type="time"
+                      autoComplete="off"
+                      value={timeInput}
+                      onChange={(e) => setTimeInput(e.target.value)}
+                      className="text-base font-semibold text-[#141A16] bg-transparent focus:outline-none appearance-none cursor-pointer"
+                    />
+                    <ChevronDown className="w-4 h-4 text-[#5A625D] pointer-events-none shrink-0" />
+                  </label>
                 </div>
 
                 <button
@@ -1212,7 +1377,7 @@ export default function App() {
           </div>
         )}
 
-        {/* ШТОРКА 2: Импорт и экспорт */}
+        {/* ШТОРКА 2: Управление базой */}
         {activeSheet === 'data' && (
           <div
             className="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs flex items-end justify-center overscroll-none"
@@ -1238,7 +1403,7 @@ export default function App() {
                 <button
                   type="button"
                   onClick={() => setActiveSheet(null)}
-                  className="w-10 h-10 rounded-full bg-white flex items-center justify-center text-[#141A16] cursor-pointer"
+                  className="w-10 h-10 rounded-full bg-white flex items-center justify-center text-[#141A16]"
                 >
                   <X className="w-5 h-5" />
                 </button>
@@ -1274,7 +1439,7 @@ export default function App() {
                   value={importText}
                   onChange={(e) => setImportText(e.target.value)}
                   placeholder="[20.10.2026 08:40] Roma Lebedev: 120/80 64 утро"
-                  className="w-full bg-[#EFEFEF] rounded-[18px] p-3 text-sm text-[#141A16] focus:outline-none"
+                  className="w-full bg-[#EFEFEF] rounded-[18px] p-3 text-sm text-[#141A16] focus:outline-none select-text"
                 />
                 <button
                   type="button"
@@ -1307,6 +1472,16 @@ export default function App() {
                   Синхронизировать
                 </button>
               </div>
+
+              {/* Кнопка перевода текущего браузера обратно в гостевой режим (на случай проверки) */}
+              <button
+                type="button"
+                onClick={handleLockDevice}
+                className="w-full py-3 rounded-[22px] bg-white text-[#7A827D] text-xs font-semibold flex items-center justify-center gap-1.5 cursor-pointer"
+              >
+                <Unlock className="w-3.5 h-3.5" />
+                Выйти из режима владельца на этом устройстве
+              </button>
             </div>
           </div>
         )}
