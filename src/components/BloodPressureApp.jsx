@@ -23,22 +23,27 @@ import {
   Moon,
   Sparkles,
   Camera,
-  Lock,
-  Unlock,
-  ChevronDown
+  ChevronDown,
+  User,
+  LogOut
 } from 'lucide-react';
 
 const SUPABASE_URL = 'https://qgmnldmmhdtqbptbdmjm.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFnbW5sZG1taGR0cWJwdGJkbWptIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTIyODg5MDcsImV4cCI6MjEwNzg2NDkwN30.uEofng_-EPocDFkxHId5b-nMoLaD2RjKqBo_uh6TUYs';
 
-const OWNER_PIN = '1971';
+const SESSION_STORAGE_KEY = 'bp_multiuser_session_v1';
+const LEGACY_AVATAR_KEY = 'roma_bp_custom_avatar_v1';
 
-const STORAGE_CACHE_KEY = 'roma_bp_cloud_cache_v5';
-const AVATAR_STORAGE_KEY = 'roma_bp_custom_avatar_v1';
-const AUTH_STORAGE_KEY = 'roma_bp_owner_authorized_v1';
+const DEFAULT_TAGS_ROMA = [
+  'После кофе',
+  'После силовой',
+  'После кардио',
+  'Вечером после прогулки'
+];
+const DEFAULT_TAGS_NEW_USER = ['После пробуждения', 'До сна'];
 
-const SYS_COLOR = '#689F38'; 
-const DIA_COLOR = '#5BA4B6'; 
+const SYS_COLOR = '#689F38';
+const DIA_COLOR = '#5BA4B6';
 
 const MONTHS_RU = [
   'янв', 'фев', 'мар', 'апр', 'мая', 'июн',
@@ -70,11 +75,72 @@ const getGreetingByHour = () => {
 };
 
 const getStatusLabel = (sys, dia) => {
+  if (!sys || !dia) return { text: 'Нет данных', bg: '#EFEFEF', textCol: '#6E7671' };
   if (sys < 110 || dia < 65) return { text: 'Низкое', bg: '#CDE9F2', textCol: '#141A16' };
   if (sys < 130 && dia < 85) return { text: 'В норме', bg: '#D6EBB4', textCol: '#141A16' };
   if (sys < 140 && dia < 90) return { text: 'Повышенное', bg: '#EFEFEF', textCol: '#141A16' };
   return { text: 'Высокое', bg: '#141A16', textCol: '#FFFFFF' };
 };
+
+// Генератор демонстрационных замеров для незарегистрированного гостя
+const generateDemoRecords = () => {
+  const base = [
+    [119, 78, 62, '08:30', 'После пробуждения'],
+    [124, 82, 68, '19:45', 'До сна'],
+    [117, 76, 60, '08:15', 'После пробуждения'],
+    [122, 80, 65, '20:10', 'Вечерняя прогулка'],
+    [128, 84, 71, '09:00', 'После кофе'],
+    [121, 79, 64, '21:00', 'До сна'],
+    [118, 77, 61, '08:20', 'После пробуждения'],
+    [125, 83, 67, '19:30', 'После тренировки'],
+    [120, 80, 63, '08:40', 'После пробуждения'],
+    [123, 81, 66, '20:40', 'До сна'],
+    [116, 75, 59, '08:10', 'После пробуждения'],
+    [126, 84, 69, '19:50', 'До сна'],
+    [121, 80, 64, '08:30', 'После пробуждения'],
+    [124, 82, 66, '20:20', 'До сна']
+  ];
+  const now = new Date();
+  return base.map((item, idx) => {
+    const d = new Date(now);
+    d.setDate(d.getDate() - Math.floor((base.length - 1 - idx) / 2));
+    const iso = d.toISOString().slice(0, 10);
+    return {
+      id: `demo-${idx}`,
+      date: iso,
+      time: item[3],
+      sys: item[0],
+      dia: item[1],
+      pulse: item[2],
+      note: item[4]
+    };
+  });
+};
+
+const DEMO_RECORDS = generateDemoRecords();
+
+// Сжатие аватарки до 160x160px JPEG для легкого хранения в облаке
+const compressAvatarImage = (file) =>
+  new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const size = 160;
+        canvas.width = size;
+        canvas.height = size;
+        const ctx = canvas.getContext('2d');
+        const minSide = Math.min(img.width, img.height);
+        const sx = (img.width - minSide) / 2;
+        const sy = (img.height - minSide) / 2;
+        ctx.drawImage(img, sx, sy, minSide, minSide, 0, 0, size, size);
+        resolve(canvas.toDataURL('image/jpeg', 0.82));
+      };
+      img.src = e.target.result;
+    };
+    reader.readAsDataURL(file);
+  });
 
 const CloudCheckIcon = ({ className = 'w-5 h-5' }) => (
   <svg
@@ -145,7 +211,7 @@ const deduplicateRecords = (arr) => {
   return Array.from(seen.values());
 };
 
-const parseImportData = (rawText) => {
+const parseImportData = (rawText, username = 'user') => {
   const lines = rawText
     .split('\n')
     .map((l) => l.trim())
@@ -167,7 +233,8 @@ const parseImportData = (rawText) => {
         const d = parseInt(last[2], 10);
         const p = last[3] ? parseInt(last[3], 10) : null;
         parsed.push({
-          id: `r-${isoDate}-${timeStr.replace(':', '')}`,
+          id: `r-${username}-${isoDate}-${timeStr.replace(':', '')}`,
+          username,
           date: isoDate,
           time: timeStr,
           sys: s,
@@ -204,7 +271,8 @@ const parseImportData = (rawText) => {
 
       if (sys >= 75 && sys <= 220 && dia >= 45 && dia <= 140) {
         parsed.push({
-          id: `r-${isoDate}-${time.replace(':', '')}-${idx}`,
+          id: `r-${username}-${isoDate}-${time.replace(':', '')}-${idx}`,
+          username,
           date: isoDate,
           time,
           sys,
@@ -219,7 +287,7 @@ const parseImportData = (rawText) => {
   return parsed;
 };
 
-const DEFAULT_AVATAR_SVG = `data:image/svg+xml;utf8,${encodeURIComponent(`
+const DEFAULT_ROMA_AVATAR_SVG = `data:image/svg+xml;utf8,${encodeURIComponent(`
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120">
   <defs>
     <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
@@ -240,39 +308,52 @@ const DEFAULT_AVATAR_SVG = `data:image/svg+xml;utf8,${encodeURIComponent(`
 `)}`;
 
 export default function App() {
+  // Текущий авторизованный пользователь (null = Демо-режим)
+  const [currentUser, setCurrentUser] = useState(() => {
+    try {
+      const saved = localStorage.getItem(SESSION_STORAGE_KEY);
+      if (saved) return JSON.parse(saved);
+    } catch (e) {
+      console.error(e);
+    }
+    return null;
+  });
+
   const [records, setRecords] = useState(() => {
     try {
-      const cached = localStorage.getItem(STORAGE_CACHE_KEY);
-      if (cached) {
-        const parsed = JSON.parse(cached);
-        if (Array.isArray(parsed)) return deduplicateRecords(parsed);
+      const saved = localStorage.getItem(SESSION_STORAGE_KEY);
+      if (saved) {
+        const u = JSON.parse(saved);
+        const cached = localStorage.getItem(`bp_records_cache_${u.username}`);
+        if (cached) return deduplicateRecords(JSON.parse(cached));
+        return [];
       }
     } catch (e) {
       console.error(e);
     }
-    return [];
+    return DEMO_RECORDS;
   });
 
-  const [avatarSrc, setAvatarSrc] = useState(() => {
-    return localStorage.getItem(AVATAR_STORAGE_KEY) || DEFAULT_AVATAR_SVG;
-  });
-
-  const [isOwner, setIsOwner] = useState(() => {
-    return localStorage.getItem(AUTH_STORAGE_KEY) === 'true';
-  });
-  const [pinInput, setPinInput] = useState('');
-  const [pinError, setPinError] = useState(false);
+  // Состояния шторки Входа / Регистрации
+  const [authMode, setAuthMode] = useState('login'); // 'login' | 'register'
+  const [loginUsername, setLoginUsername] = useState('');
+  const [loginPin, setLoginPin] = useState('');
+  const [regUsername, setRegUsername] = useState('');
+  const [regDisplayName, setRegDisplayName] = useState('');
+  const [regPin, setRegPin] = useState('');
+  const [authError, setAuthError] = useState('');
+  const [authLoading, setAuthLoading] = useState(false);
   const [pendingAction, setPendingAction] = useState(null);
 
-  const [cloudStatus, setCloudStatus] = useState('syncing'); 
+  const [cloudStatus, setCloudStatus] = useState('online');
   const [rawCloudCount, setRawCloudCount] = useState(0);
-  const [activeTab, setActiveTab] = useState('home'); 
-  const [period, setPeriod] = useState('30d'); 
-  const [dayTimeFilter, setDayTimeFilter] = useState('all'); 
+  const [activeTab, setActiveTab] = useState('home');
+  const [period, setPeriod] = useState('30d');
+  const [dayTimeFilter, setDayTimeFilter] = useState('all');
 
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const [activeSheet, setActiveSheet] = useState(null); 
+  const [activeSheet, setActiveSheet] = useState(null); // 'add' | 'data' | 'auth' | null
 
   const [inputsUnlocked, setInputsUnlocked] = useState(false);
 
@@ -293,38 +374,241 @@ export default function App() {
 
   const [importText, setImportText] = useState('');
 
-  const requireOwner = (targetSheet) => {
-    if (isOwner) {
+  // Персональные подсказки (максимум 4 чипса)
+  const userTags = useMemo(() => {
+    if (!currentUser) return DEFAULT_TAGS_NEW_USER;
+    if (Array.isArray(currentUser.tags)) return currentUser.tags.slice(0, 4);
+    return currentUser.username === 'swanex' ? DEFAULT_TAGS_ROMA : DEFAULT_TAGS_NEW_USER;
+  }, [currentUser]);
+
+  const saveSessionLocally = (userObj) => {
+    setCurrentUser(userObj);
+    localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(userObj));
+  };
+
+  // Обновление профиля пользователя в облаке (аватарка, теги, имя)
+  const updateProfileInCloud = async (userObj, patchFields) => {
+    if (!userObj) return;
+    const updatedUser = { ...userObj, ...patchFields };
+    saveSessionLocally(updatedUser);
+    try {
+      await fetch(
+        `${SUPABASE_URL}/rest/v1/bp_users?username=eq.${encodeURIComponent(userObj.username)}`,
+        {
+          method: 'PATCH',
+          headers: {
+            apikey: SUPABASE_KEY,
+            Authorization: `Bearer ${SUPABASE_KEY}`,
+            'Content-Type': 'application/json',
+            'x-user-login': userObj.username,
+            'x-user-pin': userObj.pin
+          },
+          body: JSON.stringify(patchFields)
+        }
+      );
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const openAuthOrSheet = (targetSheet) => {
+    if (currentUser) {
       setActiveSheet(targetSheet);
     } else {
       setPendingAction(targetSheet);
-      setPinInput('');
-      setPinError(false);
+      setAuthError('');
+      setLoginPin('');
       setActiveSheet('auth');
     }
   };
 
-  const handlePinChange = (val) => {
-    const clean = val.replace(/\D/g, '').slice(0, 4);
-    setPinInput(clean);
-    setPinError(false);
+  // Загрузка замеров конкретного пользователя из облака
+  const fetchFromCloud = useCallback(async (userOverride) => {
+    const activeUser = userOverride !== undefined ? userOverride : currentUser;
+    if (!activeUser) {
+      setRecords(DEMO_RECORDS);
+      setCloudStatus('online');
+      return;
+    }
 
-    if (clean.length === 4) {
-      if (clean === OWNER_PIN) {
-        localStorage.setItem(AUTH_STORAGE_KEY, 'true');
-        setIsOwner(true);
-        const next = pendingAction || 'add';
-        setPendingAction(null);
-        setActiveSheet(next);
-      } else {
-        setPinError(true);
+    setCloudStatus('syncing');
+    try {
+      const res = await fetch(
+        `${SUPABASE_URL}/rest/v1/bp_records?select=*&username=eq.${encodeURIComponent(
+          activeUser.username
+        )}&order=date.asc,time.asc`,
+        {
+          headers: {
+            apikey: SUPABASE_KEY,
+            Authorization: `Bearer ${SUPABASE_KEY}`,
+            'x-user-login': activeUser.username,
+            'x-user-pin': activeUser.pin
+          }
+        }
+      );
+
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+
+      if (Array.isArray(data)) {
+        setRawCloudCount(data.length);
+        const unique = deduplicateRecords(data);
+        setRecords(unique);
+        localStorage.setItem(`bp_records_cache_${activeUser.username}`, JSON.stringify(unique));
+        setCloudStatus('online');
       }
+    } catch (err) {
+      console.error(err);
+      setCloudStatus('error');
+    }
+  }, [currentUser]);
+
+  useEffect(() => {
+    if (currentUser) {
+      fetchFromCloud(currentUser);
+    } else {
+      setRecords(DEMO_RECORDS);
+    }
+  }, [currentUser, fetchFromCloud]);
+
+  // Авторизация существующего пользователя
+  const handleLoginSubmit = async (pinOverride) => {
+    const cleanLogin = loginUsername.trim().toLowerCase().replace(/[^a-z0-9_.-]/g, '');
+    const cleanPin = (pinOverride !== undefined ? pinOverride : loginPin).replace(/\D/g, '');
+
+    if (!cleanLogin || cleanPin.length !== 4) {
+      setAuthError('Введите логин и 4 цифры ПИН-кода');
+      return;
+    }
+
+    setAuthLoading(true);
+    setAuthError('');
+
+    try {
+      const res = await fetch(
+        `${SUPABASE_URL}/rest/v1/bp_users?username=eq.${encodeURIComponent(cleanLogin)}&select=*`,
+        {
+          headers: {
+            apikey: SUPABASE_KEY,
+            Authorization: `Bearer ${SUPABASE_KEY}`,
+            'x-user-login': cleanLogin,
+            'x-user-pin': cleanPin
+          }
+        }
+      );
+
+      if (!res.ok) throw new Error('Ошибка сети');
+      const rows = await res.json();
+
+      if (!Array.isArray(rows) || rows.length === 0) {
+        setAuthError('Неверный логин или ПИН-код');
+        setAuthLoading(false);
+        return;
+      }
+
+      const dbUser = rows[0];
+      // Если это Рома и в облаке еще нет аватара, подхватываем сохраненный в браузере
+      const legacyAvatar =
+        cleanLogin === 'swanex' ? localStorage.getItem(LEGACY_AVATAR_KEY) : null;
+
+      const loggedUser = {
+        username: dbUser.username,
+        pin: cleanPin,
+        display_name: dbUser.display_name || cleanLogin,
+        avatar: dbUser.avatar || legacyAvatar || null,
+        tags: Array.isArray(dbUser.tags)
+          ? dbUser.tags.slice(0, 4)
+          : cleanLogin === 'swanex'
+          ? DEFAULT_TAGS_ROMA
+          : DEFAULT_TAGS_NEW_USER
+      };
+
+      saveSessionLocally(loggedUser);
+      if (!dbUser.avatar && legacyAvatar) {
+        updateProfileInCloud(loggedUser, { avatar: legacyAvatar });
+      }
+
+      await fetchFromCloud(loggedUser);
+      setAuthLoading(false);
+
+      const next = pendingAction;
+      setPendingAction(null);
+      setActiveSheet(next || null);
+    } catch (e) {
+      console.error(e);
+      setAuthError('Не удалось войти. Проверьте подключение');
+      setAuthLoading(false);
     }
   };
 
-  const handleLockDevice = () => {
-    localStorage.removeItem(AUTH_STORAGE_KEY);
-    setIsOwner(false);
+  // Регистрация нового пользователя
+  const handleRegisterSubmit = async () => {
+    const cleanLogin = regUsername.trim().toLowerCase().replace(/[^a-z0-9_.-]/g, '');
+    const cleanName = regDisplayName.trim();
+    const cleanPin = regPin.replace(/\D/g, '');
+
+    if (!cleanLogin || !cleanName || cleanPin.length !== 4) {
+      setAuthError('Заполните логин (лат.), имя и 4 цифры ПИН-кода');
+      return;
+    }
+
+    setAuthLoading(true);
+    setAuthError('');
+
+    try {
+      const payload = {
+        username: cleanLogin,
+        pin: cleanPin,
+        display_name: cleanName,
+        tags: DEFAULT_TAGS_NEW_USER
+      };
+
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/bp_users`, {
+        method: 'POST',
+        headers: {
+          apikey: SUPABASE_KEY,
+          Authorization: `Bearer ${SUPABASE_KEY}`,
+          'Content-Type': 'application/json',
+          'x-user-login': cleanLogin,
+          'x-user-pin': cleanPin
+        },
+        body: JSON.stringify(payload)
+      });
+
+      if (!res.ok) {
+        if (res.status === 409) {
+          setAuthError('Этот логин уже занят, выберите другой');
+        } else {
+          setAuthError('Ошибка при создании профиля');
+        }
+        setAuthLoading(false);
+        return;
+      }
+
+      const newUser = {
+        ...payload,
+        avatar: null
+      };
+
+      saveSessionLocally(newUser);
+      setRecords([]);
+      setRawCloudCount(0);
+      setAuthLoading(false);
+
+      const next = pendingAction;
+      setPendingAction(null);
+      setActiveSheet(next || null);
+    } catch (e) {
+      console.error(e);
+      setAuthError('Ошибка сети при регистрации');
+      setAuthLoading(false);
+    }
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem(SESSION_STORAGE_KEY);
+    setCurrentUser(null);
+    setRecords(DEMO_RECORDS);
     setActiveSheet(null);
   };
 
@@ -363,43 +647,15 @@ export default function App() {
     touchStartYRef.current = null;
   };
 
-  const fetchFromCloud = useCallback(async () => {
-    setCloudStatus('syncing');
-    try {
-      const res = await fetch(
-        `${SUPABASE_URL}/rest/v1/bp_records?select=*&order=date.asc,time.asc`,
-        {
-          headers: {
-            apikey: SUPABASE_KEY,
-            Authorization: `Bearer ${SUPABASE_KEY}`
-          }
-        }
-      );
-
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const data = await res.json();
-
-      if (Array.isArray(data)) {
-        setRawCloudCount(data.length);
-        const unique = deduplicateRecords(data);
-        setRecords(unique);
-        localStorage.setItem(STORAGE_CACHE_KEY, JSON.stringify(unique));
-        setCloudStatus('online');
-      }
-    } catch (err) {
-      console.error(err);
-      setCloudStatus('error');
-    }
-  }, []);
-
-  useEffect(() => {
-    fetchFromCloud();
-  }, [fetchFromCloud]);
-
   const upsertToCloud = async (itemsArray) => {
-    if (!isOwner) return;
+    if (!currentUser) return;
     setCloudStatus('syncing');
     try {
+      const withUser = itemsArray.map((item) => ({
+        ...item,
+        username: currentUser.username
+      }));
+
       const res = await fetch(`${SUPABASE_URL}/rest/v1/bp_records`, {
         method: 'POST',
         headers: {
@@ -407,9 +663,10 @@ export default function App() {
           Authorization: `Bearer ${SUPABASE_KEY}`,
           'Content-Type': 'application/json',
           Prefer: 'resolution=merge-duplicates',
-          'x-owner-pin': OWNER_PIN
+          'x-user-login': currentUser.username,
+          'x-user-pin': currentUser.pin
         },
-        body: JSON.stringify(itemsArray)
+        body: JSON.stringify(withUser)
       });
       if (!res.ok) throw new Error('Ошибка записи');
       setCloudStatus('online');
@@ -420,16 +677,19 @@ export default function App() {
   };
 
   const deleteFromCloud = async (id) => {
-    if (!isOwner) return;
+    if (!currentUser) return;
     try {
       await fetch(
-        `${SUPABASE_URL}/rest/v1/bp_records?id=eq.${encodeURIComponent(id)}`,
+        `${SUPABASE_URL}/rest/v1/bp_records?id=eq.${encodeURIComponent(
+          id
+        )}&username=eq.${encodeURIComponent(currentUser.username)}`,
         {
           method: 'DELETE',
           headers: {
             apikey: SUPABASE_KEY,
             Authorization: `Bearer ${SUPABASE_KEY}`,
-            'x-owner-pin': OWNER_PIN
+            'x-user-login': currentUser.username,
+            'x-user-pin': currentUser.pin
           }
         }
       );
@@ -439,15 +699,22 @@ export default function App() {
   };
 
   const handleCleanCloudDuplicates = async () => {
-    if (!isOwner) return;
+    if (!currentUser) return;
     setCloudStatus('syncing');
     try {
-      const res = await fetch(`${SUPABASE_URL}/rest/v1/bp_records?select=*`, {
-        headers: {
-          apikey: SUPABASE_KEY,
-          Authorization: `Bearer ${SUPABASE_KEY}`
+      const res = await fetch(
+        `${SUPABASE_URL}/rest/v1/bp_records?select=*&username=eq.${encodeURIComponent(
+          currentUser.username
+        )}`,
+        {
+          headers: {
+            apikey: SUPABASE_KEY,
+            Authorization: `Bearer ${SUPABASE_KEY}`,
+            'x-user-login': currentUser.username,
+            'x-user-pin': currentUser.pin
+          }
         }
-      });
+      );
       const allRows = await res.json();
       if (!Array.isArray(allRows)) return;
 
@@ -467,7 +734,7 @@ export default function App() {
         await deleteFromCloud(id);
       }
 
-      await fetchFromCloud();
+      await fetchFromCloud(currentUser);
       setActiveSheet(null);
     } catch (e) {
       console.error(e);
@@ -475,17 +742,25 @@ export default function App() {
     }
   };
 
-  const handleAvatarUpload = (e) => {
+  const handleAvatarUpload = async (e) => {
     const file = e.target.files?.[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => {
-      if (typeof reader.result === 'string') {
-        setAvatarSrc(reader.result);
-        localStorage.setItem(AVATAR_STORAGE_KEY, reader.result);
-      }
-    };
-    reader.readAsDataURL(file);
+    if (!file || !currentUser) return;
+    const compressedDataUrl = await compressAvatarImage(file);
+    if (currentUser.username === 'swanex') {
+      localStorage.setItem(LEGACY_AVATAR_KEY, compressedDataUrl);
+    }
+    await updateProfileInCloud(currentUser, { avatar: compressedDataUrl });
+  };
+
+  // Удаление чипса подсказки
+  const handleRemoveTag = async (tagToRemove, e) => {
+    e.stopPropagation();
+    if (!currentUser) return;
+    const nextTags = userTags.filter((t) => t !== tagToRemove);
+    if (noteInput === tagToRemove) {
+      setNoteInput('');
+    }
+    await updateProfileInCloud(currentUser, { tags: nextTags });
   };
 
   useEffect(() => {
@@ -548,7 +823,7 @@ export default function App() {
       return {
         avgSys: 0,
         avgDia: 0,
-        avgPulse: 0,
+        avgPulse: '–',
         firstDate: null,
         lastDate: null,
         latest: sortedRecords[sortedRecords.length - 1] || null
@@ -572,7 +847,7 @@ export default function App() {
     return {
       avgSys: Math.round(sysSum / cnt),
       avgDia: Math.round(diaSum / cnt),
-      avgPulse: pulseCnt > 0 ? Math.round(pulseSum / pulseCnt) : '—',
+      avgPulse: pulseCnt > 0 ? Math.round(pulseSum / pulseCnt) : '–',
       firstDate: filteredRecords[0].date,
       lastDate: filteredRecords[cnt - 1].date,
       latest: sortedRecords[sortedRecords.length - 1]
@@ -601,8 +876,8 @@ export default function App() {
   };
 
   const handleSaveRecord = async () => {
-    if (!isOwner) {
-      requireOwner('add');
+    if (!currentUser) {
+      openAuthOrSheet('add');
       return;
     }
     const s = parseInt(sysInput, 10);
@@ -611,36 +886,47 @@ export default function App() {
 
     if (!s || !d || s < 70 || d < 40) return;
 
+    const cleanNote = noteInput.trim();
+    const recordIdPrefix = currentUser.username === 'swanex' ? 'r' : `r-${currentUser.username}`;
+
     const newItem = {
-      id: `r-${dateInput}-${timeInput.replace(':', '')}`,
+      id: `${recordIdPrefix}-${dateInput}-${timeInput.replace(':', '')}`,
+      username: currentUser.username,
       date: dateInput,
       time: timeInput,
       sys: s,
       dia: d,
       pulse: p,
-      note: noteInput.trim() || 'Замер'
+      note: cleanNote || 'Замер'
     };
+
+    // Если введен новый комментарий и есть свободный слот (меньше 4 чипсов), сохраняем в подсказки
+    if (cleanNote && cleanNote !== 'Замер' && !userTags.includes(cleanNote) && userTags.length < 4) {
+      const updatedTags = [...userTags, cleanNote];
+      updateProfileInCloud(currentUser, { tags: updatedTags });
+    }
 
     const updated = deduplicateRecords([...records, newItem]);
     setRecords(updated);
-    localStorage.setItem(STORAGE_CACHE_KEY, JSON.stringify(updated));
+    localStorage.setItem(`bp_records_cache_${currentUser.username}`, JSON.stringify(updated));
 
     setSysInput('');
     setDiaInput('');
     setPulseInput('');
+    setNoteInput('');
     setActiveSheet(null);
 
     await upsertToCloud([newItem]);
   };
 
   const handleDelete = async (id) => {
-    if (!isOwner) {
-      requireOwner(null);
+    if (!currentUser) {
+      openAuthOrSheet(null);
       return;
     }
     const updated = records.filter((item) => item.id !== id);
     setRecords(updated);
-    localStorage.setItem(STORAGE_CACHE_KEY, JSON.stringify(updated));
+    localStorage.setItem(`bp_records_cache_${currentUser.username}`, JSON.stringify(updated));
     await deleteFromCloud(id);
   };
 
@@ -654,18 +940,18 @@ export default function App() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `pressure_roma_${new Date().toISOString().slice(0, 10)}.csv`;
+    a.download = `pressure_${currentUser?.username || 'demo'}_${new Date().toISOString().slice(0, 10)}.csv`;
     a.click();
     URL.revokeObjectURL(url);
   };
 
   const handleImportSubmit = async () => {
-    if (!isOwner) return;
-    const parsed = parseImportData(importText);
+    if (!currentUser) return;
+    const parsed = parseImportData(importText, currentUser.username);
     if (parsed.length > 0) {
       const updated = deduplicateRecords([...records, ...parsed]);
       setRecords(updated);
-      localStorage.setItem(STORAGE_CACHE_KEY, JSON.stringify(updated));
+      localStorage.setItem(`bp_records_cache_${currentUser.username}`, JSON.stringify(updated));
       setImportText('');
       setActiveSheet(null);
       await upsertToCloud(parsed);
@@ -685,11 +971,11 @@ export default function App() {
   }, [sortedRecords, searchQuery]);
 
   const latestRec = stats.latest;
-  const avgBadge = getStatusLabel(stats.avgSys || 120, stats.avgDia || 80);
+  const avgBadge = getStatusLabel(stats.avgSys, stats.avgDia);
   const greetingText = getGreetingByHour();
 
   const periodRangeLabel = useMemo(() => {
-    if (!stats.firstDate || !stats.lastDate) return '';
+    if (!stats.firstDate || !stats.lastDate) return 'Нет записей за выбранный период';
     const startStr = formatHumanDate(stats.firstDate);
     const endStr = formatHumanDate(stats.lastDate);
     const count = filteredRecords.length;
@@ -700,6 +986,15 @@ export default function App() {
   const latestRecIsEvening = latestRec && parseInt(latestRec.time.split(':')[0], 10) >= 13;
   const latestRecBgColor = latestRecIsEvening ? '#DEE2EA' : '#EAE7DE';
   const latestRecDateColor = latestRecIsEvening ? '#3B4990' : '#8A7545';
+
+  const resolvedAvatar = useMemo(() => {
+    if (!currentUser) return null;
+    if (currentUser.avatar) return currentUser.avatar;
+    if (currentUser.username === 'swanex') {
+      return localStorage.getItem(LEGACY_AVATAR_KEY) || DEFAULT_ROMA_AVATAR_SVG;
+    }
+    return null;
+  }, [currentUser]);
 
   return (
     <div
@@ -744,50 +1039,75 @@ export default function App() {
                 onChange={handleAvatarUpload}
                 className="hidden"
               />
-              <button
-                onClick={() => {
-                  if (isOwner) {
-                    avatarInputRef.current?.click();
-                  } else {
-                    requireOwner(null);
-                  }
-                }}
-                title={isOwner ? 'Нажми, чтобы сменить фото аватара' : 'Режим просмотра (нажми для входа владельца)'}
-                className="w-[50px] h-[50px] rounded-full overflow-hidden bg-[#141A16] shrink-0 relative group cursor-pointer shadow-xs"
-              >
-                <img
-                  src={avatarSrc}
-                  alt="Рома Лебедев"
-                  draggable={false}
-                  className="w-full h-full object-cover pointer-events-none"
-                />
-                <span className="absolute inset-0 bg-black/35 opacity-0 group-hover:opacity-100 flex items-center justify-center text-white transition">
-                  {isOwner ? <Camera className="w-4 h-4" /> : <Lock className="w-4 h-4" />}
-                </span>
-              </button>
 
-              <div className="min-w-0">
-                <div className="text-[13px] text-[#6E7671] font-medium leading-tight whitespace-nowrap flex items-center gap-1">
-                  <span>{greetingText}</span>
-                  {!isOwner && (
-                    <Lock className="w-3 h-3 text-[#8F9691] inline" title="Гостевой режим (только чтение)" />
-                  )}
-                </div>
-                <div className="text-[17px] font-extrabold tracking-tight text-[#141A16] leading-snug whitespace-nowrap">
-                  Рома Лебедев
-                </div>
-              </div>
+              {currentUser ? (
+                <>
+                  <button
+                    onClick={() => avatarInputRef.current?.click()}
+                    title="Нажмите, чтобы сменить аватар"
+                    className="w-[50px] h-[50px] rounded-full overflow-hidden bg-[#141A16] shrink-0 relative group cursor-pointer shadow-xs flex items-center justify-center text-white"
+                  >
+                    {resolvedAvatar ? (
+                      <img
+                        src={resolvedAvatar}
+                        alt={currentUser.display_name}
+                        draggable={false}
+                        className="w-full h-full object-cover pointer-events-none"
+                      />
+                    ) : (
+                      <User className="w-5 h-5 text-white" strokeWidth={2} />
+                    )}
+                    <span className="absolute inset-0 bg-black/35 opacity-0 group-hover:opacity-100 flex items-center justify-center text-white transition">
+                      <Camera className="w-4 h-4" />
+                    </span>
+                  </button>
+
+                  <div className="min-w-0">
+                    <div className="text-[13px] text-[#6E7671] font-medium leading-tight whitespace-nowrap">
+                      {greetingText}
+                    </div>
+                    <div className="text-[17px] font-extrabold tracking-tight text-[#141A16] leading-snug truncate">
+                      {currentUser.display_name}
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <button
+                  onClick={() => openAuthOrSheet(null)}
+                  className="flex items-center gap-3 min-w-0 text-left active:opacity-80 transition cursor-pointer"
+                >
+                  <div className="w-[50px] h-[50px] rounded-full bg-[#141A16] shrink-0 flex items-center justify-center text-white shadow-xs">
+                    <User className="w-5 h-5 text-white" strokeWidth={2} />
+                  </div>
+                  <div className="min-w-0">
+                    <div className="text-[13px] text-[#6E7671] font-medium leading-tight whitespace-nowrap">
+                      Демо-режим
+                    </div>
+                    <div className="text-[17px] font-extrabold tracking-tight text-[#141A16] leading-snug whitespace-nowrap">
+                      Войти ›
+                    </div>
+                  </div>
+                </button>
+              )}
             </div>
 
             <div className="flex items-center gap-2 shrink-0">
               <button
-                onClick={fetchFromCloud}
+                onClick={() => {
+                  if (currentUser) {
+                    fetchFromCloud(currentUser);
+                  } else {
+                    openAuthOrSheet(null);
+                  }
+                }}
                 title={
-                  cloudStatus === 'online'
-                    ? 'Синхронизировано (данные актуальны)'
+                  !currentUser
+                    ? 'Демо-режим (нажмите для входа)'
+                    : cloudStatus === 'online'
+                    ? 'Синхронизировано'
                     : cloudStatus === 'syncing'
-                    ? 'Выполняется синхронизация...'
-                    : 'Ошибка подключения. Нажмите для повтора'
+                    ? 'Синхронизация...'
+                    : 'Ошибка подключения'
                 }
                 style={{
                   backgroundColor:
@@ -821,7 +1141,7 @@ export default function App() {
               </button>
 
               <button
-                onClick={() => requireOwner('data')}
+                onClick={() => openAuthOrSheet('data')}
                 className="w-11 h-11 rounded-full bg-white flex items-center justify-center text-[#141A16] active:scale-95 transition cursor-pointer shadow-2xs"
                 aria-label="Настройки"
               >
@@ -888,7 +1208,7 @@ export default function App() {
             <section className="bg-white rounded-[32px] p-6 shadow-2xs">
               <div className="flex items-center justify-between gap-2 mb-1.5">
                 <span className="text-[50px] font-extrabold tracking-tight leading-none text-[#141A16]">
-                  {stats.avgSys ? `${stats.avgSys}/${stats.avgDia}` : '—/—'}
+                  {stats.avgSys ? `${stats.avgSys}/${stats.avgDia}` : '–/–'}
                 </span>
                 <span
                   className="px-3.5 py-1.5 rounded-full text-sm font-semibold shrink-0"
@@ -900,24 +1220,21 @@ export default function App() {
 
               <div className="text-[15px] leading-snug text-[#7A827D] mb-2.5">
                 <div>Среднее за период</div>
-                <div>
-                  {stats.avgSys ? periodRangeLabel : 'Загрузка измерений из облака...'}
-                </div>
+                <div>{periodRangeLabel}</div>
               </div>
 
               <div className="h-[180px] w-full -mx-2 relative">
-                
-                {/* Тексты легенды перенесены на слой поверх сетки (z-10) */}
+                {/* Подписи в правом верхнем и правом нижнем углах внутри сетки */}
                 {chartData.length > 0 && (
                   <>
                     <div
-                      className="absolute right-3 top-[48px] text-[12px] font-medium pointer-events-none z-10"
+                      className="absolute right-3 top-[18px] text-[12px] leading-none font-medium pointer-events-none z-10"
                       style={{ color: SYS_COLOR }}
                     >
                       Верхнее
                     </div>
                     <div
-                      className="absolute right-3 bottom-[56px] text-[12px] font-medium pointer-events-none z-10"
+                      className="absolute right-3 bottom-[34px] text-[12px] leading-none font-medium pointer-events-none z-10"
                       style={{ color: DIA_COLOR }}
                     >
                       Нижнее
@@ -925,7 +1242,6 @@ export default function App() {
                   </>
                 )}
 
-                {/* График и сетка на нулевом слое (z-0), тултип поверх всего */}
                 {chartData.length > 0 ? (
                   <ResponsiveContainer width="100%" height="100%" className="relative z-0">
                     <AreaChart data={chartData} margin={{ top: 14, right: 12, left: -22, bottom: 0 }}>
@@ -948,7 +1264,7 @@ export default function App() {
                         minTickGap={34}
                       />
                       <YAxis
-                        domain={[65, 140]}
+                        domain={[60, 148]}
                         axisLine={false}
                         tickLine={false}
                         tick={{ fontSize: 13, fill: '#7A827D' }}
@@ -1000,8 +1316,8 @@ export default function App() {
                     </AreaChart>
                   </ResponsiveContainer>
                 ) : (
-                  <div className="h-full flex items-center justify-center text-sm text-[#8F9691]">
-                    Нет данных за выбранный фильтр
+                  <div className="h-full flex items-center justify-center text-center px-6 text-sm text-[#8F9691]">
+                    Нажмите «+» внизу экрана, чтобы добавить первый замер
                   </div>
                 )}
               </div>
@@ -1052,13 +1368,13 @@ export default function App() {
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
                     <div className="text-[25px] font-extrabold tracking-tight leading-none text-[#141A16]">
-                      {latestRec ? `${latestRec.sys}/${latestRec.dia}` : '—'}
+                      {latestRec ? `${latestRec.sys}/${latestRec.dia}` : '–'}
                     </div>
                     <div
                       className="text-[14px] font-medium mt-1.5"
                       style={{ color: latestRecDateColor }}
                     >
-                      {latestRec ? formatHumanDate(latestRec.date) : '—'}
+                      {latestRec ? formatHumanDate(latestRec.date) : '–'}
                     </div>
                   </div>
                   <div className="w-11 h-11 rounded-full bg-white flex items-center justify-center text-[#141A16] shrink-0">
@@ -1130,7 +1446,7 @@ export default function App() {
                     </div>
                   </div>
 
-                  {isOwner && (
+                  {currentUser && (
                     <button
                       onClick={() => handleDelete(item.id)}
                       className="w-10 h-10 rounded-full flex items-center justify-center text-[#B0B7B2] hover:text-[#141A16] active:scale-95 transition cursor-pointer shrink-0"
@@ -1156,7 +1472,7 @@ export default function App() {
             </button>
 
             <button
-              onClick={() => requireOwner('add')}
+              onClick={() => openAuthOrSheet('add')}
               className="w-16 h-16 -mt-6 rounded-full bg-[#141A16] text-white flex items-center justify-center shadow-md active:scale-95 transition cursor-pointer"
               aria-label="Добавить замер"
             >
@@ -1173,6 +1489,7 @@ export default function App() {
           </div>
         </nav>
 
+        {/* ШТОРКА АВТОРИЗАЦИИ И РЕГИСТРАЦИИ */}
         {activeSheet === 'auth' && (
           <div
             className="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs flex items-end justify-center overscroll-none touch-none"
@@ -1191,15 +1508,10 @@ export default function App() {
             >
               <div className="w-12 h-1.5 bg-[#C8CFCB] rounded-full mx-auto mb-5" />
 
-              <div className="flex items-center justify-between mb-3">
-                <div className="flex items-center gap-2.5">
-                  <div className="w-10 h-10 rounded-full bg-[#D8EEB9] flex items-center justify-center text-[#141A16]">
-                    <Lock className="w-5 h-5" />
-                  </div>
-                  <h3 className="text-[24px] font-bold text-[#141A16] leading-none">
-                    Код владельца
-                  </h3>
-                </div>
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-[26px] font-bold text-[#141A16] leading-none">
+                  Профиль
+                </h3>
                 <button
                   type="button"
                   onClick={() => setActiveSheet(null)}
@@ -1209,29 +1521,169 @@ export default function App() {
                 </button>
               </div>
 
-              <p className="text-sm text-[#6E7671] mb-5">
-                Введи 4 цифры один раз. Браузер запомнит тебя, и больше код вводить не придется.
-              </p>
-
-              <div className="bg-white rounded-[26px] p-4 mb-3">
-                <input
-                  type="text"
-                  inputMode="numeric"
-                  autoComplete="off"
-                  autoCorrect="off"
-                  spellCheck={false}
-                  placeholder="••••"
-                  value={pinInput}
-                  onChange={(e) => handlePinChange(e.target.value)}
-                  className="w-full text-center text-[36px] tracking-[14px] font-extrabold text-[#141A16] placeholder-[#D0D5D2] focus:outline-none bg-transparent"
-                  autoFocus
-                />
+              <div className="bg-white rounded-full p-1.5 grid grid-cols-2 mb-4">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setAuthMode('login');
+                    setAuthError('');
+                  }}
+                  className={`py-2.5 rounded-full text-[15px] font-semibold transition cursor-pointer ${
+                    authMode === 'login'
+                      ? 'bg-[#141A16] text-white'
+                      : 'text-[#6E7671] hover:text-[#141A16]'
+                  }`}
+                >
+                  Вход
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setAuthMode('register');
+                    setAuthError('');
+                  }}
+                  className={`py-2.5 rounded-full text-[15px] font-semibold transition cursor-pointer ${
+                    authMode === 'register'
+                      ? 'bg-[#141A16] text-white'
+                      : 'text-[#6E7671] hover:text-[#141A16]'
+                  }`}
+                >
+                  Создать
+                </button>
               </div>
 
-              {pinError && (
-                <p className="text-center text-sm font-semibold text-red-600">
-                  Неверный код доступа
-                </p>
+              {authMode === 'login' ? (
+                <div className="space-y-3">
+                  <div className="bg-white rounded-[22px] px-4 py-3">
+                    <span className="block text-xs font-medium text-[#7A827D] mb-0.5">
+                      Логин (латиницей)
+                    </span>
+                    <input
+                      type="text"
+                      autoComplete="off"
+                      autoCapitalize="off"
+                      spellCheck={false}
+                      placeholder="swanex"
+                      value={loginUsername}
+                      onChange={(e) => {
+                        setLoginUsername(e.target.value.toLowerCase().replace(/[^a-z0-9_.-]/g, ''));
+                        setAuthError('');
+                      }}
+                      className="w-full text-[18px] font-bold text-[#141A16] placeholder-[#C8CFCB] focus:outline-none bg-transparent select-text"
+                    />
+                  </div>
+
+                  <div className="bg-white rounded-[22px] px-4 py-3">
+                    <span className="block text-xs font-medium text-[#7A827D] mb-0.5">
+                      ПИН-код (4 цифры)
+                    </span>
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      autoComplete="off"
+                      spellCheck={false}
+                      placeholder="••••"
+                      value={loginPin}
+                      onChange={(e) => {
+                        const clean = e.target.value.replace(/\D/g, '').slice(0, 4);
+                        setLoginPin(clean);
+                        setAuthError('');
+                        if (clean.length === 4 && loginUsername.trim()) {
+                          handleLoginSubmit(clean);
+                        }
+                      }}
+                      className="w-full text-[24px] tracking-[10px] font-extrabold text-[#141A16] placeholder-[#C8CFCB] focus:outline-none bg-transparent select-text"
+                    />
+                  </div>
+
+                  {authError && (
+                    <p className="text-center text-sm font-semibold text-red-600">
+                      {authError}
+                    </p>
+                  )}
+
+                  <button
+                    type="button"
+                    disabled={authLoading}
+                    onClick={() => handleLoginSubmit()}
+                    className="w-full py-4 rounded-full bg-[#141A16] text-white text-base font-semibold active:scale-[0.99] transition cursor-pointer mt-1"
+                  >
+                    {authLoading ? 'Проверяем...' : 'Войти в дневник'}
+                  </button>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  <div className="bg-white rounded-[22px] px-4 py-3">
+                    <span className="block text-xs font-medium text-[#7A827D] mb-0.5">
+                      Придумайте логин (латиница, без пробелов)
+                    </span>
+                    <input
+                      type="text"
+                      autoComplete="off"
+                      autoCapitalize="off"
+                      spellCheck={false}
+                      placeholder="alex"
+                      value={regUsername}
+                      onChange={(e) => {
+                        setRegUsername(e.target.value.toLowerCase().replace(/[^a-z0-9_.-]/g, ''));
+                        setAuthError('');
+                      }}
+                      className="w-full text-[18px] font-bold text-[#141A16] placeholder-[#C8CFCB] focus:outline-none bg-transparent select-text"
+                    />
+                  </div>
+
+                  <div className="bg-white rounded-[22px] px-4 py-3">
+                    <span className="block text-xs font-medium text-[#7A827D] mb-0.5">
+                      Ваше имя (для шапки профиля)
+                    </span>
+                    <input
+                      type="text"
+                      autoComplete="off"
+                      spellCheck={false}
+                      placeholder="Алексей"
+                      value={regDisplayName}
+                      onChange={(e) => {
+                        setRegDisplayName(e.target.value);
+                        setAuthError('');
+                      }}
+                      className="w-full text-[18px] font-bold text-[#141A16] placeholder-[#C8CFCB] focus:outline-none bg-transparent select-text"
+                    />
+                  </div>
+
+                  <div className="bg-white rounded-[22px] px-4 py-3">
+                    <span className="block text-xs font-medium text-[#7A827D] mb-0.5">
+                      Придумайте ПИН-код (4 цифры)
+                    </span>
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      autoComplete="off"
+                      spellCheck={false}
+                      placeholder="••••"
+                      value={regPin}
+                      onChange={(e) => {
+                        setRegPin(e.target.value.replace(/\D/g, '').slice(0, 4));
+                        setAuthError('');
+                      }}
+                      className="w-full text-[24px] tracking-[10px] font-extrabold text-[#141A16] placeholder-[#C8CFCB] focus:outline-none bg-transparent select-text"
+                    />
+                  </div>
+
+                  {authError && (
+                    <p className="text-center text-sm font-semibold text-red-600">
+                      {authError}
+                    </p>
+                  )}
+
+                  <button
+                    type="button"
+                    disabled={authLoading}
+                    onClick={handleRegisterSubmit}
+                    className="w-full py-4 rounded-full bg-[#141A16] text-white text-base font-semibold active:scale-[0.99] transition cursor-pointer mt-1"
+                  >
+                    {authLoading ? 'Создаем...' : 'Создать дневник'}
+                  </button>
+                </div>
               )}
             </div>
           </div>
@@ -1369,27 +1821,37 @@ export default function App() {
                   </label>
                 </div>
 
-                <div className="flex flex-wrap gap-2">
-                  {[
-                    'После кофе',
-                    'После силовой',
-                    'После кардио',
-                    'Вечером после прогулки'
-                  ].map((tag) => (
-                    <button
-                      type="button"
-                      key={tag}
-                      onClick={() => setNoteInput(tag)}
-                      className={`px-4 py-2.5 rounded-full text-[15px] font-semibold transition cursor-pointer ${
-                        noteInput === tag
-                          ? 'bg-[#141A16] text-white'
-                          : 'bg-white text-[#141A16]'
-                      }`}
-                    >
-                      {tag}
-                    </button>
-                  ))}
-                </div>
+                {/* Настраиваемые чипсы подсказок (до 4 штук) с кнопкой удаления */}
+                {userTags.length > 0 && (
+                  <div className="flex flex-wrap gap-2">
+                    {userTags.map((tag) => {
+                      const active = noteInput === tag;
+                      return (
+                        <div
+                          key={tag}
+                          onClick={() => setNoteInput(active ? '' : tag)}
+                          className={`pl-4 pr-2.5 py-2 rounded-full text-[15px] font-semibold flex items-center gap-1.5 transition cursor-pointer ${
+                            active ? 'bg-[#141A16] text-white' : 'bg-white text-[#141A16]'
+                          }`}
+                        >
+                          <span>{tag}</span>
+                          <button
+                            type="button"
+                            onClick={(e) => handleRemoveTag(tag, e)}
+                            title="Удалить подсказку"
+                            className={`w-5 h-5 rounded-full flex items-center justify-center transition ${
+                              active
+                                ? 'text-white/70 hover:text-white'
+                                : 'text-[#8F9691] hover:text-[#141A16]'
+                            }`}
+                          >
+                            <X className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
 
                 <div className="bg-white rounded-[24px] px-5 py-4">
                   <input
@@ -1405,7 +1867,11 @@ export default function App() {
                     aria-autocomplete="none"
                     value={noteInput}
                     onChange={(e) => setNoteInput(e.target.value)}
-                    placeholder="Комментарий (напр. сахар 5.4)"
+                    placeholder={
+                      userTags.length < 4
+                        ? 'Комментарий (сохранится в подсказки)'
+                        : 'Комментарий (напр. сахар 5.4)'
+                    }
                     className="w-full text-base text-[#141A16] placeholder-[#8F9691] focus:outline-none bg-transparent select-text"
                   />
                 </div>
@@ -1422,7 +1888,7 @@ export default function App() {
           </div>
         )}
 
-        {/* ШТОРКА 2: Управление базой */}
+        {/* ШТОРКА 2: Управление базой и профилем */}
         {activeSheet === 'data' && (
           <div
             className="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs flex items-end justify-center overscroll-none"
@@ -1442,9 +1908,16 @@ export default function App() {
               <div className="w-12 h-1.5 bg-[#C8CFCB] rounded-full mx-auto mb-2" />
 
               <div className="flex items-center justify-between">
-                <h3 className="text-[26px] font-bold text-[#141A16]">
-                  База данных
-                </h3>
+                <div>
+                  <h3 className="text-[26px] font-bold text-[#141A16] leading-tight">
+                    Настройки
+                  </h3>
+                  {currentUser && (
+                    <div className="text-xs text-[#6E7671] font-medium">
+                      Профиль: @{currentUser.username}
+                    </div>
+                  )}
+                </div>
                 <button
                   type="button"
                   onClick={() => setActiveSheet(null)}
@@ -1483,7 +1956,7 @@ export default function App() {
                   rows={3}
                   value={importText}
                   onChange={(e) => setImportText(e.target.value)}
-                  placeholder="[20.10.2026 08:40] Roma Lebedev: 120/80 64"
+                  placeholder="[20.10.2026 08:40] 120/80 64"
                   className="w-full bg-[#EFEFEF] rounded-[18px] p-3 text-sm text-[#141A16] focus:outline-none select-text"
                 />
                 <button
@@ -1508,7 +1981,7 @@ export default function App() {
                 <button
                   type="button"
                   onClick={() => {
-                    fetchFromCloud();
+                    fetchFromCloud(currentUser);
                     setActiveSheet(null);
                   }}
                   className="bg-[#D4ECF4] rounded-[24px] py-3.5 px-4 font-semibold text-sm text-[#141A16] flex items-center justify-center gap-2 cursor-pointer"
@@ -1520,11 +1993,11 @@ export default function App() {
 
               <button
                 type="button"
-                onClick={handleLockDevice}
-                className="w-full py-3 rounded-[22px] bg-white text-[#7A827D] text-xs font-semibold flex items-center justify-center gap-1.5 cursor-pointer"
+                onClick={handleLogout}
+                className="w-full py-3.5 rounded-[22px] bg-white text-red-600 text-sm font-semibold flex items-center justify-center gap-2 cursor-pointer"
               >
-                <Unlock className="w-3.5 h-3.5" />
-                Выйти из режима владельца на этом устройстве
+                <LogOut className="w-4 h-4" />
+                Выйти из профиля ({currentUser?.display_name})
               </button>
             </div>
           </div>
