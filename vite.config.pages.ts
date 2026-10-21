@@ -8,13 +8,13 @@ export default defineConfig({
   // A static host cannot run the TanStack Start server bundle.
   nitro: false,
 
-  // Publish this repository at https://swanex.github.io/app-vision-studio-83/
+  // Publish the app at the root of the custom domain https://bp.swanex.com/
   vite: {
-    base: "/app-vision-studio-83/",
+    base: "/",
   },
 
   // The app uses client-side React state and Supabase directly from the browser.
-  // Generate the SPA shell as index.html, which GitHub Pages can serve at the repo URL.
+  // Generate the SPA shell as index.html for GitHub Pages static hosting.
   tanstackStart: {
     spa: {
       enabled: true,
