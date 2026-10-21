@@ -698,7 +698,7 @@ export default function App() {
   }, [stats.firstDate, stats.lastDate, filteredRecords.length]);
 
   const latestRecIsEvening = latestRec && parseInt(latestRec.time.split(':')[0], 10) >= 13;
-  const latestRecBgColor = latestRecIsEvening ? '#EEF1FA' : '#FCF4E0';
+  const latestRecBgColor = latestRecIsEvening ? '#DEE2EA' : '#EAE7DE';
   const latestRecDateColor = latestRecIsEvening ? '#3B4990' : '#8A7545';
 
   return (
@@ -886,8 +886,8 @@ export default function App() {
             </div>
 
             <section className="bg-white rounded-[32px] p-6 shadow-2xs">
-              <div className="flex items-start justify-between gap-2 mb-1.5">
-                <span className="text-[44px] font-extrabold tracking-tight leading-none text-[#141A16]">
+              <div className="flex items-center justify-between gap-2 mb-1.5">
+                <span className="text-[50px] font-extrabold tracking-tight leading-none text-[#141A16]">
                   {stats.avgSys ? `${stats.avgSys}/${stats.avgDia}` : '—/—'}
                 </span>
                 <span
@@ -1068,7 +1068,7 @@ export default function App() {
                 </div>
               </div>
 
-              <div className="bg-[#ECEEED] rounded-[28px] p-5 flex flex-col justify-between min-h-[148px]">
+              <div className="bg-[#E4E4E4] rounded-[28px] p-5 flex flex-col justify-between min-h-[148px]">
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
                     <div className="text-[25px] font-extrabold tracking-tight leading-none text-[#141A16]">
@@ -1319,7 +1319,7 @@ export default function App() {
                     />
                   </div>
 
-                  <div className="bg-[#ECEEED] rounded-[26px] p-4 text-center">
+                  <div className="bg-[#E4E4E4] rounded-[26px] p-4 text-center">
                     <span className="block text-sm font-medium text-[#5A625D] mb-1">
                       Пульс
                     </span>
