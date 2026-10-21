@@ -906,16 +906,18 @@ export default function App() {
               </div>
 
               <div className="h-[180px] w-full -mx-2 relative">
+                
+                {/* Тексты легенды перенесены на слой поверх сетки (z-10) */}
                 {chartData.length > 0 && (
                   <>
                     <div
-                      className="absolute right-4 top-[35%] text-xs font-medium z-0 pointer-events-none"
+                      className="absolute right-3 top-[48px] text-[12px] font-medium pointer-events-none z-10"
                       style={{ color: SYS_COLOR }}
                     >
                       Верхнее
                     </div>
                     <div
-                      className="absolute right-4 bottom-[23%] text-xs font-medium z-0 pointer-events-none"
+                      className="absolute right-3 bottom-[56px] text-[12px] font-medium pointer-events-none z-10"
                       style={{ color: DIA_COLOR }}
                     >
                       Нижнее
@@ -923,8 +925,9 @@ export default function App() {
                   </>
                 )}
 
+                {/* График и сетка на нулевом слое (z-0), тултип поверх всего */}
                 {chartData.length > 0 ? (
-                  <ResponsiveContainer width="100%" height="100%">
+                  <ResponsiveContainer width="100%" height="100%" className="relative z-0">
                     <AreaChart data={chartData} margin={{ top: 14, right: 12, left: -22, bottom: 0 }}>
                       <defs>
                         <linearGradient id="sysFill" x1="0" y1="0" x2="0" y2="1">
@@ -952,7 +955,7 @@ export default function App() {
                         ticks={[75, 100, 125]}
                       />
                       <Tooltip
-                        wrapperStyle={{ zIndex: 50 }}
+                        wrapperStyle={{ zIndex: 100 }}
                         content={({ active, payload }) => {
                           if (!active || !payload || !payload.length) return null;
                           const item = payload[0].payload;
@@ -972,7 +975,7 @@ export default function App() {
                               {item.note && (
                                 <div className="text-xs text-[#E2E6E3] mt-1 max-w-[200px] leading-snug">
                                   {item.note}
-                                                              </div>
+                                </div>
                               )}
                             </div>
                           );
