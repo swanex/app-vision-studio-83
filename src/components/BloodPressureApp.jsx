@@ -18,8 +18,6 @@ import {
   Download,
   Upload,
   Search,
-  Cloud,
-  CloudOff,
   RefreshCw,
   Sun,
   Moon,
@@ -30,7 +28,7 @@ import {
   ChevronDown
 } from 'lucide-react';
 
-// Подключение к твоей облачной базе Supabase
+// Подключение к облачной базе Supabase
 const SUPABASE_URL = 'https://qgmnldmmhdtqbptbdmjm.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFnbW5sZG1taGR0cWJwdGJkbWptIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTIyODg5MDcsImV4cCI6MjEwNzg2NDkwN30.uEofng_-EPocDFkxHId5b-nMoLaD2RjKqBo_uh6TUYs';
 
@@ -80,6 +78,39 @@ const getStatusLabel = (sys, dia) => {
   if (sys < 140 && dia < 90) return { text: 'Повышенное', bg: '#EFEFEF', textCol: '#141A16' };
   return { text: 'Высокое', bg: '#141A16', textCol: '#FFFFFF' };
 };
+
+// Иконка облака с чекмарком (Icon-cloud-check.svg, 20x20px как соседние иконки)
+const CloudCheckIcon = ({ className = 'w-5 h-5' }) => (
+  <svg
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    className={className}
+  >
+    <path d="M17.5 19H7a5 5 0 0 1-.7-9.95A6.5 6.5 0 0 1 19 10.5c0 .18-.01.35-.03.52A4.25 4.25 0 0 1 17.5 19Z" />
+    <path d="m9.5 13 2 2 3.5-4" />
+  </svg>
+);
+
+// Иконка облака с крестиком (Icon-cloud-x.svg, 20x20px как соседние иконки)
+const CloudXIcon = ({ className = 'w-5 h-5' }) => (
+  <svg
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    className={className}
+  >
+    <path d="M17.5 19H7a5 5 0 0 1-.7-9.95A6.5 6.5 0 0 1 19 10.5c0 .18-.01.35-.03.52A4.25 4.25 0 0 1 17.5 19Z" />
+    <path d="m10 11 4 4" />
+    <path d="m14 11-4 4" />
+  </svg>
+);
 
 // Иконка Домика (Solid / Outline)
 const HomeNavIcon = ({ solid }) =>
@@ -233,13 +264,12 @@ export default function App() {
     return localStorage.getItem(AVATAR_STORAGE_KEY) || DEFAULT_AVATAR_SVG;
   });
 
-  // Авторизация владельца: проверяется в localStorage, поэтому пароль вводится 1 раз в жизни устройства
   const [isOwner, setIsOwner] = useState(() => {
     return localStorage.getItem(AUTH_STORAGE_KEY) === 'true';
   });
   const [pinInput, setPinInput] = useState('');
   const [pinError, setPinError] = useState(false);
-  const [pendingAction, setPendingAction] = useState(null); // какое окно открыть после ввода PIN
+  const [pendingAction, setPendingAction] = useState(null);
 
   const [cloudStatus, setCloudStatus] = useState('syncing'); // 'online' | 'syncing' | 'error'
   const [rawCloudCount, setRawCloudCount] = useState(0);
@@ -251,7 +281,6 @@ export default function App() {
   const [searchQuery, setSearchQuery] = useState('');
   const [activeSheet, setActiveSheet] = useState(null); // 'add' | 'data' | 'auth' | null
 
-  // Хак против белой брови автозаполнения Chrome/Gboard: поля изначально readOnly и разблокируются при фокусе
   const [inputsUnlocked, setInputsUnlocked] = useState(false);
 
   const [dragOffset, setDragOffset] = useState(0);
@@ -271,7 +300,6 @@ export default function App() {
 
   const [importText, setImportText] = useState('');
 
-  // Проверка прав перед любым действием, меняющим базу
   const requireOwner = (targetSheet) => {
     if (isOwner) {
       setActiveSheet(targetSheet);
@@ -307,7 +335,6 @@ export default function App() {
     setActiveSheet(null);
   };
 
-  // Блокируем прокрутку фона под открытой шторкой
   useEffect(() => {
     if (activeSheet) {
       const prevOverflow = document.body.style.overflow;
@@ -615,7 +642,7 @@ export default function App() {
 
   const handleDelete = async (id) => {
     if (!isOwner) {
-      requireOwner( null );
+      requireOwner(null);
       return;
     }
     const updated = records.filter((item) => item.id !== id);
@@ -686,120 +713,145 @@ export default function App() {
         WebkitTouchCallout: 'none'
       }}
     >
-      {/* Глобальное скрытие нативной иконки часов/шеврона в time input, чтобы наш кастомный шеврон стоял с отступом */}
-      <style>{`
-        input[type="time"]::-webkit-calendar-picker-indicator {
-          background: transparent;
-          bottom: 0;
-          color: transparent;
-          cursor: pointer;
-          height: auto;
-          left: 0;
-          position: absolute;
-          right: 0;
-          top: 0;
-          width: auto;
-          opacity: 0;
-        }
-      `}</style>
-
-      <div className="w-full max-w-[440px] min-h-screen bg-[#F2F3F0] pb-28 px-5 pt-6 relative flex flex-col">
+      <div className="w-full max-w-[440px] min-h-screen bg-[#F2F3F0] pb-28 px-5 relative flex flex-col">
         
-        {/* ВЕРХНЯЯ ШАПКА */}
-        <header className="flex items-center justify-between gap-2 mb-5">
-          <div className="flex items-center gap-3 min-w-0">
-            <input
-              ref={avatarInputRef}
-              type="file"
-              accept="image/*"
-              onChange={handleAvatarUpload}
-              className="hidden"
-            />
-            <button
-              onClick={() => {
-                if (isOwner) {
-                  avatarInputRef.current?.click();
-                } else {
-                  requireOwner(null);
-                }
-              }}
-              title={isOwner ? 'Нажми, чтобы сменить фото аватара' : 'Режим просмотра (нажми для входа владельца)'}
-              className="w-[50px] h-[50px] rounded-full overflow-hidden bg-[#141A16] shrink-0 relative group cursor-pointer shadow-xs"
-            >
-              <img
-                src={avatarSrc}
-                alt="Рома Лебедев"
-                draggable={false}
-                className="w-full h-full object-cover pointer-events-none"
+        {/* ВЕРХНЯЯ ОБЛАСТЬ: на Главной обычная, а в Истории фиксируется (sticky top-0) вместе с поиском и счетчиком */}
+        <div
+          className={
+            activeTab === 'history'
+              ? 'sticky top-0 z-20 bg-[#F2F3F0] pt-6 pb-2.5'
+              : 'pt-6 mb-5'
+          }
+        >
+          {/* ШАПКА (одинаковая по отступам и размерам на обоих экранах) */}
+          <header className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-3 min-w-0">
+              <input
+                ref={avatarInputRef}
+                type="file"
+                accept="image/*"
+                onChange={handleAvatarUpload}
+                className="hidden"
               />
-              <span className="absolute inset-0 bg-black/35 opacity-0 group-hover:opacity-100 flex items-center justify-center text-white transition">
-                {isOwner ? <Camera className="w-4 h-4" /> : <Lock className="w-4 h-4" />}
-              </span>
-            </button>
+              <button
+                onClick={() => {
+                  if (isOwner) {
+                    avatarInputRef.current?.click();
+                  } else {
+                    requireOwner(null);
+                  }
+                }}
+                title={isOwner ? 'Нажми, чтобы сменить фото аватара' : 'Режим просмотра (нажми для входа владельца)'}
+                className="w-[50px] h-[50px] rounded-full overflow-hidden bg-[#141A16] shrink-0 relative group cursor-pointer shadow-xs"
+              >
+                <img
+                  src={avatarSrc}
+                  alt="Рома Лебедев"
+                  draggable={false}
+                  className="w-full h-full object-cover pointer-events-none"
+                />
+                <span className="absolute inset-0 bg-black/35 opacity-0 group-hover:opacity-100 flex items-center justify-center text-white transition">
+                  {isOwner ? <Camera className="w-4 h-4" /> : <Lock className="w-4 h-4" />}
+                </span>
+              </button>
 
-            <div className="min-w-0">
-              <div className="text-[13px] text-[#6E7671] font-medium leading-tight whitespace-nowrap flex items-center gap-1">
-                <span>{greetingText}</span>
-                {!isOwner && (
-                  <Lock className="w-3 h-3 text-[#8F9691] inline" title="Гостевой режим (только чтение)" />
-                )}
-              </div>
-              <div className="text-[17px] font-extrabold tracking-tight text-[#141A16] leading-snug whitespace-nowrap">
-                Рома Лебедев
+              <div className="min-w-0">
+                <div className="text-[13px] text-[#6E7671] font-medium leading-tight whitespace-nowrap flex items-center gap-1">
+                  <span>{greetingText}</span>
+                  {!isOwner && (
+                    <Lock className="w-3 h-3 text-[#8F9691] inline" title="Гостевой режим (только чтение)" />
+                  )}
+                </div>
+                <div className="text-[17px] font-extrabold tracking-tight text-[#141A16] leading-snug whitespace-nowrap">
+                  Рома Лебедев
+                </div>
               </div>
             </div>
-          </div>
 
-          <div className="flex items-center gap-2 shrink-0">
-            <button
-              onClick={fetchFromCloud}
-              title={
-                cloudStatus === 'online'
-                  ? 'Синхронизировано (данные актуальны)'
-                  : cloudStatus === 'syncing'
-                  ? 'Выполняется синхронизация...'
-                  : 'Ошибка подключения. Нажмите для повтора'
-              }
-              style={{
-                backgroundColor:
+            <div className="flex items-center gap-2 shrink-0">
+              <button
+                onClick={fetchFromCloud}
+                title={
                   cloudStatus === 'online'
-                    ? '#DDF0BD'
+                    ? 'Синхронизировано (данные актуальны)'
                     : cloudStatus === 'syncing'
-                    ? '#E6F4CF'
-                    : '#F6E6CB'
-              }}
-              className="w-11 h-11 rounded-full flex items-center justify-center active:scale-95 transition cursor-pointer shadow-2xs"
-              aria-label="Статус облачной синхронизации"
-            >
-              {cloudStatus === 'syncing' ? (
-                <RefreshCw className="w-5 h-5 animate-spin text-[#3E5C2A]" />
-              ) : cloudStatus === 'online' ? (
-                <Cloud className="w-5 h-5 text-[#2F4A1E]" />
-              ) : (
-                <CloudOff className="w-5 h-5 text-[#7D531B]" />
+                    ? 'Выполняется синхронизация...'
+                    : 'Ошибка подключения. Нажмите для повтора'
+                }
+                style={{
+                  backgroundColor:
+                    cloudStatus === 'online'
+                      ? '#DDF0BD'
+                      : cloudStatus === 'syncing'
+                      ? '#E6F4CF'
+                      : '#F6E6CB'
+                }}
+                className="w-11 h-11 rounded-full flex items-center justify-center active:scale-95 transition cursor-pointer shadow-2xs"
+                aria-label="Статус облачной синхронизации"
+              >
+                {cloudStatus === 'syncing' ? (
+                  <RefreshCw className="w-5 h-5 animate-spin text-[#3E5C2A]" />
+                ) : cloudStatus === 'online' ? (
+                  <CloudCheckIcon className="w-5 h-5 text-[#141A16]" />
+                ) : (
+                  <CloudXIcon className="w-5 h-5 text-[#7D531B]" />
+                )}
+              </button>
+
+              <button
+                onClick={() => {
+                  setActiveTab('history');
+                  setSearchOpen((prev) => !prev);
+                }}
+                className="w-11 h-11 rounded-full bg-white flex items-center justify-center text-[#141A16] active:scale-95 transition cursor-pointer shadow-2xs"
+                aria-label="Поиск"
+              >
+                <Search className="w-5 h-5" />
+              </button>
+
+              <button
+                onClick={() => requireOwner('data')}
+                className="w-11 h-11 rounded-full bg-white flex items-center justify-center text-[#141A16] active:scale-95 transition cursor-pointer shadow-2xs"
+                aria-label="Настройки"
+              >
+                <Settings className="w-5 h-5" />
+              </button>
+            </div>
+          </header>
+
+          {/* Доп. элементы фиксированной шапки в режиме Истории */}
+          {activeTab === 'history' && (
+            <div className="mt-5">
+              {searchOpen && (
+                <div className="mb-3">
+                  <input
+                    type="text"
+                    inputMode="search"
+                    autoComplete="off"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder="Найти: кофе, трени, сахар, утро..."
+                    className="w-full bg-white rounded-[22px] px-5 py-3.5 text-base text-[#141A16] placeholder-[#858D88] focus:outline-none shadow-2xs select-text"
+                  />
+                </div>
               )}
-            </button>
 
-            <button
-              onClick={() => {
-                setActiveTab('history');
-                setSearchOpen((prev) => !prev);
-              }}
-              className="w-11 h-11 rounded-full bg-white flex items-center justify-center text-[#141A16] active:scale-95 transition cursor-pointer shadow-2xs"
-              aria-label="Поиск"
-            >
-              <Search className="w-5 h-5" />
-            </button>
-
-            <button
-              onClick={() => requireOwner('data')}
-              className="w-11 h-11 rounded-full bg-white flex items-center justify-center text-[#141A16] active:scale-95 transition cursor-pointer shadow-2xs"
-              aria-label="Настройки"
-            >
-              <Settings className="w-5 h-5" />
-            </button>
-          </div>
-        </header>
+              <div className="flex items-center justify-between px-1">
+                <span className="text-sm font-medium text-[#7A827D]">
+                  Уникальных замеров: {historyList.length}
+                </span>
+                {searchQuery && (
+                  <button
+                    onClick={() => setSearchQuery('')}
+                    className="text-xs font-semibold text-[#141A16] underline cursor-pointer"
+                  >
+                    Сбросить поиск
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
 
         {/* ЭКРАН 1: ГЛАВНАЯ */}
         {activeTab === 'home' && (
@@ -910,7 +962,7 @@ export default function App() {
                               {item.note && (
                                 <div className="text-xs text-[#E2E6E3] mt-1 max-w-[200px] leading-snug">
                                   {item.note}
-                                </div>
+                                                              </div>
                               )}
                             </div>
                           );
@@ -1025,37 +1077,9 @@ export default function App() {
           </main>
         )}
 
-        {/* ЭКРАН 2: ИСТОРИЯ ИЗМЕРЕНИЙ */}
+        {/* ЭКРАН 2: СПИСОК ИСТОРИИ (уходит под sticky-шапку при скролле) */}
         {activeTab === 'history' && (
           <main className="space-y-3">
-            {searchOpen && (
-              <div className="mb-3">
-                <input
-                  type="text"
-                  inputMode="search"
-                  autoComplete="off"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Найти: кофе, трени, сахар, утро..."
-                  className="w-full bg-white rounded-[22px] px-5 py-3.5 text-base text-[#141A16] placeholder-[#858D88] focus:outline-none shadow-2xs select-text"
-                />
-              </div>
-            )}
-
-            <div className="flex items-center justify-between px-1 pb-1">
-              <span className="text-sm font-medium text-[#7A827D]">
-                Уникальных замеров: {historyList.length}
-              </span>
-              {searchQuery && (
-                <button
-                  onClick={() => setSearchQuery('')}
-                  className="text-xs font-semibold text-[#141A16] underline"
-                >
-                  Сбросить поиск
-                </button>
-              )}
-            </div>
-
             {historyList.map((item) => {
               const badge = getStatusLabel(item.sys, item.dia);
               return (
@@ -1132,7 +1156,7 @@ export default function App() {
           </div>
         </nav>
 
-        {/* ШТОРКА АВТОРИЗАЦИИ ВЛАДЕЛЬЦА (Спрашивается 1 раз на новом устройстве) */}
+        {/* ШТОРКА АВТОРИЗАЦИИ ВЛАДЕЛЬЦА */}
         {activeSheet === 'auth' && (
           <div
             className="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs flex items-end justify-center overscroll-none touch-none"
@@ -1197,7 +1221,7 @@ export default function App() {
           </div>
         )}
 
-        {/* ШТОРКА 1: Ввод нового замера (без панели паролей/адресов Gboard и с ровным шевроном времени) */}
+        {/* ШТОРКА 1: Ввод нового замера */}
         {activeSheet === 'add' && (
           <div
             className="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs flex items-end justify-center overscroll-none touch-none"
@@ -1229,7 +1253,6 @@ export default function App() {
                 </button>
               </div>
 
-              {/* Поля с readOnly до момента фокуса + type="text" + inputMode="numeric" — полностью отключают белую бровь автозаполнения Chrome */}
               <div role="presentation" className="space-y-5">
                 <div className="grid grid-cols-3 gap-3">
                   <div className="bg-white rounded-[26px] p-4 text-center">
@@ -1352,16 +1375,19 @@ export default function App() {
                     className="flex-1 min-w-0 text-base text-[#141A16] placeholder-[#8F9691] focus:outline-none bg-transparent select-text"
                   />
 
-                  {/* Пилюля времени с аккуратным отступом шеврона справа */}
-                  <label className="relative inline-flex items-center gap-1.5 bg-[#EFEFEF] rounded-full pl-3.5 pr-3 py-1.5 shrink-0 cursor-pointer">
+                  {/* Компактная пилюля времени в 2 раза уже: кастомный текст + невидимый input поверх */}
+                  <label className="relative inline-flex items-center gap-1 bg-[#EFEFEF] rounded-full px-2.5 py-1.5 shrink-0 cursor-pointer">
+                    <span className="text-[15px] font-semibold text-[#141A16] leading-none tabular-nums">
+                      {timeInput}
+                    </span>
+                    <ChevronDown className="w-3.5 h-3.5 text-[#5A625D] shrink-0" />
                     <input
                       type="time"
                       autoComplete="off"
                       value={timeInput}
                       onChange={(e) => setTimeInput(e.target.value)}
-                      className="text-base font-semibold text-[#141A16] bg-transparent focus:outline-none appearance-none cursor-pointer"
+                      className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
                     />
-                    <ChevronDown className="w-4 h-4 text-[#5A625D] pointer-events-none shrink-0" />
                   </label>
                 </div>
 
@@ -1473,7 +1499,6 @@ export default function App() {
                 </button>
               </div>
 
-              {/* Кнопка перевода текущего браузера обратно в гостевой режим (на случай проверки) */}
               <button
                 type="button"
                 onClick={handleLockDevice}
