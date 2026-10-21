@@ -27,7 +27,7 @@ import {
   Camera
 } from 'lucide-react';
 
-// Подключение к твоей облачной базе Supabase
+// Прямое подключение к облачной базе Supabase (REST API)
 const SUPABASE_URL = 'https://qgmnldmmhdtqbptbdmjm.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFnbW5sZG1taGR0cWJwdGJkbWptIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTIyODg5MDcsImV4cCI6MjEwNzg2NDkwN30.uEofng_-EPocDFkxHId5b-nMoLaD2RjKqBo_uh6TUYs';
 
@@ -50,7 +50,6 @@ const formatHumanDate = (isoDate) => {
   return `${parseInt(dd, 10)} ${MONTHS_RU[mIdx] || mm}`;
 };
 
-// Склонение слова «измерение»
 const pluralizeMeasurements = (n) => {
   const abs = Math.abs(n) % 100;
   const n1 = abs % 10;
@@ -68,11 +67,17 @@ const getGreetingByHour = () => {
   return 'Доброй ночи!';
 };
 
-const getStatusLabel = (sys, dia) => {
-  if (sys < 110 || dia < 65) return { text: 'Низкое', bg: '#CDE9F2', textCol: '#141A16' };
-  if (sys < 130 && dia < 85) return { text: 'В норме', bg: '#D6EBB4', textCol: '#141A16' };
-  if (sys < 140 && dia < 90) return { text: 'Повышенное', bg: '#EFEFEF', textCol: '#141A16' };
-  return { text: 'Высокое', bg: '#141A16', textCol: '#FFFFFF' };
+const getStatusPill = (sys, dia) => {
+  if (sys < 110 || dia < 65) {
+    return { text: 'Низкое', bg: '#CDE9F2', color: '#141A16' };
+  }
+  if (sys < 130 && dia < 85) {
+    return { text: 'В норме', bg: '#D6EBB4', color: '#141A16' };
+  }
+  if (sys < 140 && dia < 90) {
+    return { text: 'Повышенное', bg: '#EFEFEF', color: '#141A16' };
+  }
+  return { text: 'Выше нормы', bg: '#141A16', color: '#FFFFFF' };
 };
 
 // Иконка Домика (Solid / Outline)
@@ -124,7 +129,7 @@ const parseImportData = (rawText) => {
   const parsed = [];
 
   lines.forEach((line, idx) => {
-    const chatMatch = line.match(/^\[(\d{2})\.(\d{2})\.(\d{4})\s+(\d{1,2}):(\d{2})\][^:]*:\s*(.+)\$/);
+    const chatMatch = line.match(/^\[(\d{2})\.(\d{2})\.(\d{4})\s+(\d{1,2}):(\d{2})\][^:]*:\s*(.+)$/);
     if (chatMatch) {
       const [, dd, mm, yyyy, hh, min, content] = chatMatch;
       const isoDate = `${yyyy}-${mm}-${dd}`;
@@ -169,7 +174,7 @@ const parseImportData = (rawText) => {
         .replace(nums[0], '')
         .replace(nums[1], '')
         .replace(nums[2] || '', '')
-        .replace(/^[;,\s/|-]+|[;,\s/|-]+\$/g, '')
+        .replace(/^[;,\s/|-]+|[;,\s/|-]+$/g, '')
         .trim();
 
       if (sys >= 75 && sys <= 220 && dia >= 45 && dia <= 140) {
@@ -227,7 +232,7 @@ export default function App() {
     return localStorage.getItem(AVATAR_STORAGE_KEY) || DEFAULT_AVATAR_SVG;
   });
 
-  const [cloudStatus, setCloudStatus] = useState('syncing');
+  const [cloudStatus, setCloudStatus] = useState('syncing'); // 'syncing' | 'online' | 'error'
   const [rawCloudCount, setRawCloudCount] = useState(0);
   const [activeTab, setActiveTab] = useState('home'); // 'home' | 'history'
   const [period, setPeriod] = useState('30d'); // '7d' | '30d' | 'all'
@@ -237,10 +242,11 @@ export default function App() {
   const [searchQuery, setSearchQuery] = useState('');
   const [activeSheet, setActiveSheet] = useState(null); // 'add' | 'data' | null
 
-  // Состояние для свайпа шторки вниз за любое место ее тела
+  // Свайп шторки за тело
   const [dragOffset, setDragOffset] = useState(0);
   const touchStartYRef = useRef(null);
 
+  // Поля ввода нового замера
   const [sysInput, setSysInput] = useState('');
   const [diaInput, setDiaInput] = useState('');
   const [pulseInput, setPulseInput] = useState('');
@@ -255,7 +261,7 @@ export default function App() {
 
   const [importText, setImportText] = useState('');
 
-  // Блокируем скролл экрана под шторкой, когда шторка открыта
+  // Блокируем скролл экрана под открытой шторкой
   useEffect(() => {
     if (activeSheet) {
       const prevOverflow = document.body.style.overflow;
@@ -270,7 +276,6 @@ export default function App() {
     setDragOffset(0);
   }, [activeSheet]);
 
-  // Обработчики смахивания шторки за тело
   const handleSheetTouchStart = (e) => {
     touchStartYRef.current = e.touches[0].clientY;
   };
@@ -291,6 +296,7 @@ export default function App() {
     touchStartYRef.current = null;
   };
 
+  // Чтение актуальной базы из Supabase при запуске
   const fetchFromCloud = useCallback(async () => {
     setCloudStatus('syncing');
     try {
@@ -418,9 +424,10 @@ export default function App() {
       const hh = String(now.getHours()).padStart(2, '0');
       const mm = String(now.getMinutes()).padStart(2, '0');
       setTimeInput(`${hh}:${mm}`);
-      setTimeout(() => {
+      const timer = setTimeout(() => {
         if (sysRef.current) sysRef.current.focus();
-      }, 120);
+      }, 100);
+      return () => clearTimeout(timer);
     }
   }, [activeSheet]);
 
@@ -470,7 +477,7 @@ export default function App() {
       return {
         avgSys: 0,
         avgDia: 0,
-        avgPulse: 0,
+        avgPulse: '—',
         firstDate: null,
         lastDate: null,
         latest: sortedRecords[sortedRecords.length - 1] || null
@@ -598,7 +605,7 @@ export default function App() {
   }, [sortedRecords, searchQuery]);
 
   const latestRec = stats.latest;
-  const avgBadge = getStatusLabel(stats.avgSys || 120, stats.avgDia || 80);
+  const avgBadge = getStatusPill(stats.avgSys || 120, stats.avgDia || 80);
   const greetingText = getGreetingByHour();
 
   const periodRangeLabel = useMemo(() => {
@@ -611,10 +618,10 @@ export default function App() {
   }, [stats.firstDate, stats.lastDate, filteredRecords.length]);
 
   return (
-    <div className="min-h-screen bg-[#E4E7E4] text-[#141A16] flex justify-center selection:bg-[#D6EBB4] font-sans">
+    <div className="min-h-screen bg-[#E2E5E2] text-[#141A16] flex justify-center font-sans selection:bg-[#D6EBB4]">
       <div className="w-full max-w-[440px] min-h-screen bg-[#F2F3F0] pb-28 px-5 pt-6 relative flex flex-col">
         
-        {/* ВЕРХНЯЯ ШАПКА: Аватар + Приветствие и полное имя + 3 круглые нейтральные кнопки */}
+        {/* Верхняя шапка: Аватар + Приветствие и полное имя + 3 круглые кнопки */}
         <header className="flex items-center justify-between gap-2 mb-5">
           <div className="flex items-center gap-3 min-w-0">
             <input
@@ -649,26 +656,33 @@ export default function App() {
             </div>
           </div>
 
-          {/* Три нейтральных кружочка: Облако, Поиск, Настройки */}
           <div className="flex items-center gap-2 shrink-0">
             <button
               onClick={fetchFromCloud}
               title={
                 cloudStatus === 'online'
-                  ? 'Синхронизировано с облаком (нажми для обновления)'
+                  ? 'Синхронизировано (данные актуальны)'
                   : cloudStatus === 'syncing'
-                  ? 'Обновление...'
-                  : 'Офлайн режим'
+                  ? 'Выполняется синхронизация...'
+                  : 'Ошибка подключения. Нажмите для повтора'
               }
-              className="w-11 h-11 rounded-full bg-white flex items-center justify-center text-[#5A625D] active:scale-95 transition cursor-pointer shadow-2xs"
-              aria-label="Синхронизация с облаком"
+              style={{
+                backgroundColor:
+                  cloudStatus === 'online'
+                    ? '#DDF0BD'
+                    : cloudStatus === 'syncing'
+                    ? '#E6F4CF'
+                    : '#F6E6CB'
+              }}
+              className="w-11 h-11 rounded-full flex items-center justify-center active:scale-95 transition cursor-pointer shadow-2xs"
+              aria-label="Статус облачной синхронизации"
             >
               {cloudStatus === 'syncing' ? (
-                <RefreshCw className="w-5 h-5 animate-spin text-[#7A827D]" />
+                <RefreshCw className="w-5 h-5 animate-spin text-[#3E5C2A]" />
               ) : cloudStatus === 'online' ? (
-                <Cloud className="w-5 h-5 text-[#5A625D]" />
+                <Cloud className="w-5 h-5 text-[#2F4A1E]" />
               ) : (
-                <CloudOff className="w-5 h-5 text-[#A0A7A2]" />
+                <CloudOff className="w-5 h-5 text-[#7D531B]" />
               )}
             </button>
 
@@ -693,10 +707,11 @@ export default function App() {
           </div>
         </header>
 
+        {}
         {/* ЭКРАН 1: ГЛАВНАЯ */}
         {activeTab === 'home' && (
           <main className="space-y-4">
-            {/* Сегментированный переключатель периода */}
+            {/* Сегментированный переключатель периода над карточкой графика */}
             <div className="bg-white rounded-full p-1.5 grid grid-cols-3 shadow-2xs">
               {[
                 { id: '7d', label: 'Неделя' },
@@ -717,32 +732,31 @@ export default function App() {
               ))}
             </div>
 
-            {/* Единая белая карточка: Среднее АД + График с легендой + Фильтры суток */}
+            {/* Единая белая карточка: Среднее АД + 2-строчная подпись + График с легендой + Фильтры времени суток */}
             <section className="bg-white rounded-[32px] p-6 shadow-2xs">
-              <div className="flex items-start justify-between gap-2 mb-1">
-                <div className="flex items-baseline gap-1.5 min-w-0">
-                  <span className="text-[42px] font-extrabold tracking-tight leading-none text-[#141A16]">
-                    {stats.avgSys ? `${stats.avgSys}/${stats.avgDia}` : '—/—'}
-                  </span>
-                  <span className="text-[15px] font-normal text-[#7A827D] whitespace-nowrap">
-                    · среднее
-                  </span>
-                </div>
+              <div className="flex items-start justify-between gap-2 mb-1.5">
+                <span className="text-[44px] font-extrabold tracking-tight leading-none text-[#141A16]">
+                  {stats.avgSys ? `${stats.avgSys}/${stats.avgDia}` : '—/—'}
+                </span>
                 <span
                   className="px-3.5 py-1.5 rounded-full text-sm font-semibold shrink-0"
-                  style={{ backgroundColor: avgBadge.bg, color: avgBadge.textCol }}
+                  style={{ backgroundColor: avgBadge.bg, color: avgBadge.color }}
                 >
                   {avgBadge.text}
                 </span>
               </div>
 
-              <p className="text-[15px] text-[#7A827D] mb-4">
-                {stats.avgSys ? periodRangeLabel : 'Загрузка измерений из облака...'}
-              </p>
+              <div className="text-[15px] leading-snug text-[#7A827D] mb-4">
+                <div>Среднее за период</div>
+                <div>
+                  {stats.avgSys
+                    ? periodRangeLabel
+                    : 'Синхронизация измерений с облаком...'}
+                </div>
+              </div>
 
-              {/* Тело графика + компактная легенда справа */}
+              {/* График с легкой пунктирной сеткой и легендой справа */}
               <div className="h-[200px] w-full -mx-2 relative">
-                {/* Небольшая легенда в правой части тела графика */}
                 <div className="absolute top-1.5 right-3 z-10 flex items-center gap-3 bg-white/85 backdrop-blur-xs px-2.5 py-1 rounded-full pointer-events-none">
                   <div className="flex items-center gap-1.5">
                     <span
@@ -839,7 +853,7 @@ export default function App() {
                 )}
               </div>
 
-              {/* Фильтры «Все / Утро / Вечер» по центру карточки */}
+              {/* Фильтры «Все / Утро / Вечер» внутри карточки графика по центру */}
               <div className="mt-5 pt-1 flex items-center justify-center gap-2.5">
                 <button
                   onClick={() => setDayTimeFilter('all')}
@@ -880,13 +894,13 @@ export default function App() {
 
             {/* Два дополнительных показателя рядом */}
             <section className="grid grid-cols-2 gap-3.5 pt-0.5">
-              <div className="bg-[#D4ECF4] rounded-[28px] p-5 flex flex-col justify-between min-h-[144px]">
-                <div className="flex items-start justify-between">
-                  <div>
-                    <div className="text-[30px] font-extrabold tracking-tight leading-none text-[#141A16]">
+              <div className="bg-[#D4ECF4] rounded-[28px] p-5 flex flex-col justify-between min-h-[148px]">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <div className="text-[25px] font-extrabold tracking-tight leading-none text-[#141A16]">
                       {latestRec ? `${latestRec.sys}/${latestRec.dia}` : '—'}
                     </div>
-                    <div className="text-[15px] text-[#5B7077] font-medium mt-1.5">
+                    <div className="text-[14px] text-[#5B7077] font-medium mt-1.5">
                       {latestRec ? formatHumanDate(latestRec.date) : '—'}
                     </div>
                   </div>
@@ -894,18 +908,20 @@ export default function App() {
                     <Activity className="w-5 h-5" />
                   </div>
                 </div>
-                <div className="text-[16px] font-semibold text-[#141A16] mt-4">
-                  Последний замер
+                <div className="text-[16px] font-semibold text-[#141A16] leading-tight mt-4">
+                  Последний
+                  <br />
+                  замер
                 </div>
               </div>
 
-              <div className="bg-[#D8EEB9] rounded-[28px] p-5 flex flex-col justify-between min-h-[144px]">
-                <div className="flex items-start justify-between">
-                  <div>
-                    <div className="text-[30px] font-extrabold tracking-tight leading-none text-[#141A16]">
+              <div className="bg-[#D8EEB9] rounded-[28px] p-5 flex flex-col justify-between min-h-[148px]">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <div className="text-[25px] font-extrabold tracking-tight leading-none text-[#141A16]">
                       {stats.avgPulse}
                     </div>
-                    <div className="text-[15px] text-[#5D7044] font-medium mt-1.5">
+                    <div className="text-[14px] text-[#5D7044] font-medium mt-1.5">
                       уд/мин
                     </div>
                   </div>
@@ -913,14 +929,17 @@ export default function App() {
                     <Heart className="w-5 h-5" />
                   </div>
                 </div>
-                <div className="text-[16px] font-semibold text-[#141A16] mt-4">
-                  Средний пульс
+                <div className="text-[16px] font-semibold text-[#141A16] leading-tight mt-4">
+                  Средний
+                  <br />
+                  пульс
                 </div>
               </div>
             </section>
           </main>
         )}
 
+        {}
         {/* ЭКРАН 2: ИСТОРИЯ ИЗМЕРЕНИЙ */}
         {activeTab === 'history' && (
           <main className="space-y-3">
@@ -953,7 +972,7 @@ export default function App() {
             </div>
 
             {historyList.map((item) => {
-              const badge = getStatusLabel(item.sys, item.dia);
+              const badge = getStatusPill(item.sys, item.dia);
               return (
                 <div
                   key={item.id}
@@ -971,7 +990,7 @@ export default function App() {
                       )}
                       <span
                         className="text-xs font-semibold px-2.5 py-0.5 rounded-full ml-auto sm:ml-1"
-                        style={{ backgroundColor: badge.bg, color: badge.textCol }}
+                        style={{ backgroundColor: badge.bg, color: badge.color }}
                       >
                         {badge.text}
                       </span>
@@ -1026,7 +1045,8 @@ export default function App() {
           </div>
         </nav>
 
-        {/* ШТОРКА 1: Ввод нового замера (смахивается за тело, блокирует фон, без панели паролей Gboard) */}
+        {}
+        {/* ШТОРКА 1: Ввод нового замера */}
         {activeSheet === 'add' && (
           <div
             className="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs flex items-end justify-center overscroll-none touch-none"
@@ -1043,7 +1063,6 @@ export default function App() {
               className="w-full max-w-[440px] bg-[#EFEFEF] rounded-t-[36px] p-6 pb-8 select-none"
               onClick={(e) => e.stopPropagation()}
             >
-              {/* Индикатор смахивания */}
               <div className="w-12 h-1.5 bg-[#C8CFCB] rounded-full mx-auto mb-5" />
 
               <div className="flex items-center justify-between mb-6">
@@ -1059,7 +1078,6 @@ export default function App() {
                 </button>
               </div>
 
-              {/* Используем div вместо form и спец-атрибуты, чтобы Gboard на Android не выводил белую полосу паролей и карт */}
               <div role="group" data-form-type="other" className="space-y-5">
                 <div className="grid grid-cols-3 gap-3">
                   <div className="bg-white rounded-[26px] p-4 text-center">
@@ -1194,7 +1212,7 @@ export default function App() {
           </div>
         )}
 
-        {/* ШТОРКА 2: Управление базой (также поддерживает смахивание за тело) */}
+        {/* ШТОРКА 2: Импорт и экспорт */}
         {activeSheet === 'data' && (
           <div
             className="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs flex items-end justify-center overscroll-none"
@@ -1220,7 +1238,7 @@ export default function App() {
                 <button
                   type="button"
                   onClick={() => setActiveSheet(null)}
-                  className="w-10 h-10 rounded-full bg-white flex items-center justify-center text-[#141A16]"
+                  className="w-10 h-10 rounded-full bg-white flex items-center justify-center text-[#141A16] cursor-pointer"
                 >
                   <X className="w-5 h-5" />
                 </button>
