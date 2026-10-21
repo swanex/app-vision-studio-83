@@ -30,7 +30,9 @@ jobs:
           bun-version: latest
 
       - name: Install dependencies
-        run: bun install
+        run: |
+          bun install
+          bun add -d @vitejs/plugin-react-swc
 
       - name: Build with Vite
         run: bun run build
