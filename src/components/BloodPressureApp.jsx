@@ -898,30 +898,30 @@ export default function App() {
                 </span>
               </div>
 
-              <div className="text-[15px] leading-snug text-[#7A827D] mb-4">
+              <div className="text-[15px] leading-snug text-[#7A827D] mb-2.5">
                 <div>Среднее за период</div>
                 <div>
                   {stats.avgSys ? periodRangeLabel : 'Загрузка измерений из облака...'}
                 </div>
               </div>
 
-              <div className="h-[200px] w-full -mx-2 relative">
-                <div className="absolute top-1.5 right-3 z-10 flex items-center gap-3 bg-white/85 backdrop-blur-xs px-2.5 py-1 rounded-full pointer-events-none">
-                  <div className="flex items-center gap-1.5">
-                    <span
-                      className="w-2.5 h-2.5 rounded-full inline-block"
-                      style={{ backgroundColor: SYS_COLOR }}
-                    />
-                    <span className="text-xs font-medium text-[#5A625D]">Верхнее</span>
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    <span
-                      className="w-2.5 h-2.5 rounded-full inline-block"
-                      style={{ backgroundColor: DIA_COLOR }}
-                    />
-                    <span className="text-xs font-medium text-[#5A625D]">Нижнее</span>
-                  </div>
-                </div>
+              <div className="h-[180px] w-full -mx-2 relative">
+                {chartData.length > 0 && (
+                  <>
+                    <div
+                      className="absolute right-6 top-[42%] text-xs font-medium z-10 pointer-events-none"
+                      style={{ color: SYS_COLOR }}
+                    >
+                      Верхнее
+                    </div>
+                    <div
+                      className="absolute right-6 bottom-[12%] text-xs font-medium z-10 pointer-events-none"
+                      style={{ color: DIA_COLOR }}
+                    >
+                      Нижнее
+                    </div>
+                  </>
+                )}
 
                 {chartData.length > 0 ? (
                   <ResponsiveContainer width="100%" height="100%">
@@ -1002,7 +1002,7 @@ export default function App() {
                 )}
               </div>
 
-              <div className="mt-5 pt-1 flex items-center justify-center gap-2.5">
+              <div className="mt-3 pt-1 flex items-center justify-center gap-2.5">
                 <button
                   onClick={() => setDayTimeFilter('all')}
                   className={`px-6 py-2.5 rounded-full text-[15px] font-semibold transition cursor-pointer ${
