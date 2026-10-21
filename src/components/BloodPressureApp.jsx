@@ -909,13 +909,13 @@ export default function App() {
                 {chartData.length > 0 && (
                   <>
                     <div
-                      className="absolute right-6 top-[42%] text-xs font-medium z-10 pointer-events-none"
+                      className="absolute right-4 top-[35%] text-xs font-medium z-0 pointer-events-none"
                       style={{ color: SYS_COLOR }}
                     >
                       Верхнее
                     </div>
                     <div
-                      className="absolute right-6 bottom-[12%] text-xs font-medium z-10 pointer-events-none"
+                      className="absolute right-4 bottom-[23%] text-xs font-medium z-0 pointer-events-none"
                       style={{ color: DIA_COLOR }}
                     >
                       Нижнее
@@ -952,6 +952,7 @@ export default function App() {
                         ticks={[75, 100, 125]}
                       />
                       <Tooltip
+                        wrapperStyle={{ zIndex: 50 }}
                         content={({ active, payload }) => {
                           if (!active || !payload || !payload.length) return null;
                           const item = payload[0].payload;
