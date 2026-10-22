@@ -10,7 +10,7 @@ export default defineConfig({
 
   // Publish the app at the root of the custom domain https://bp.swanex.com/
   vite: {
-    base: "/",
+    base: "./",
   },
 
   // The app uses client-side React state and Supabase directly from the browser.
