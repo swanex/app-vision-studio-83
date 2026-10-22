@@ -3,21 +3,14 @@ import { createRouter } from "@tanstack/react-router";
 import { routeTree } from "./routeTree.gen";
 
 const resolveBasePath = (): string => {
-  if (typeof window !== "undefined") {
-    if (
-      window.location.hostname.endsWith(".github.io") &&
-      window.location.pathname.startsWith("/app-vision-studio-83")
-    ) {
-      return "/app-vision-studio-83";
-    }
-    return "/";
+  if (
+    typeof window !== "undefined" &&
+    window.location.hostname.endsWith(".github.io") &&
+    window.location.pathname.startsWith("/app-vision-studio-83")
+  ) {
+    return "/app-vision-studio-83";
   }
-
-  const configuredBasePath = import.meta.env.BASE_URL.replace(/\/+$/, "");
-  if (!configuredBasePath || configuredBasePath === ".") {
-    return "/";
-  }
-  return configuredBasePath;
+  return "/";
 };
 
 export const getRouter = () => {
