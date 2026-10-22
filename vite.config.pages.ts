@@ -9,9 +9,9 @@ export default defineConfig({
   nitro: false,
 
   // Publish the app at the root of the custom domain https://bp.swanex.com/
-  vite: {
-    base: "./",
-  },
+vite: {
+  base: "/app-vision-studio-83/",
+},
 
   // The app uses client-side React state and Supabase directly from the browser.
   // Generate the SPA shell as index.html for GitHub Pages static hosting.
