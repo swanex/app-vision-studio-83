@@ -156,6 +156,22 @@ const CloudCheckIcon = ({ className = 'w-5 h-5' }) => (
   </svg>
 );
 
+const CloudXIcon = ({ className = 'w-5 h-5' }) => (
+  <svg
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    className={className}
+  >
+    <path d="M17.5 19H7a5 5 0 0 1-.7-9.95A6.5 6.5 0 0 1 19 10.5c0 .18-.01.35-.03.52A4.25 4.25 0 0 1 17.5 19Z" />
+    <path d="m10 11 4 4" />
+    <path d="m14 11-4 4" />
+  </svg>
+);
+
 const HomeNavIcon = ({ solid }) =>
   solid ? (
     <svg width="28" height="28" viewBox="0 0 24 24" fill="#141A16" xmlns="http://www.w3.org/2000/svg">
@@ -203,6 +219,32 @@ const parseImportData = (rawText, username = 'user') => {
   const parsed = [];
 
   lines.forEach((line, idx) => {
+    const chatMatch = line.match(/^\[(\d{2})\.(\d{2})\.(\d{4})\s+(\d{1,2}):(\d{2})\][^:]*:\s*(.+)$/);
+    if (chatMatch) {
+      const [, dd, mm, yyyy, hh, min, content] = chatMatch;
+      const isoDate = `${yyyy}-${mm}-${dd}`;
+      const timeStr = `${hh.padStart(2, '0')}:${min}`;
+      const bpMatches = [...content.matchAll(/(\d{2,3})\/(\d{2,3})(?:\s+(\d{2,3}))?/g)];
+      if (bpMatches.length > 0) {
+        const last = bpMatches[bpMatches.length - 1];
+        let s = parseInt(last[1], 10);
+        if (s < 40) s += 100;
+        const d = parseInt(last[2], 10);
+        const p = last[3] ? parseInt(last[3], 10) : null;
+        parsed.push({
+          id: `r-${username}-${isoDate}-${timeStr.replace(':', '')}-${Date.now()}-${idx}`,
+          username,
+          date: isoDate,
+          time: timeStr,
+          sys: s,
+          dia: d,
+          pulse: p && p >= 35 && p <= 200 ? p : null,
+          note: content.trim()
+        });
+        return;
+      }
+    }
+
     const dateMatch = line.match(/(\d{4}-\d{2}-\d{2}|\d{2}\.\d{2}\.\d{4})/);
     if (!dateMatch) return;
     let isoDate = dateMatch[1];
@@ -223,12 +265,12 @@ const parseImportData = (rawText, username = 'user') => {
         .replace(nums[0], '')
         .replace(nums[1], '')
         .replace(nums[2] || '', '')
-        .replace(/^[;\s/|-]+|[;\s/|-]+$/g, '')
+        .replace(/^[;,\s/|-]+|[;,\s/|-]+$/g, '')
         .trim();
 
       if (sys >= 75 && sys <= 220 && dia >= 45 && dia <= 140) {
         parsed.push({
-          id: `r-${username}-${isoDate}-${time.replace(':', '')}-${idx}`,
+          id: `r-${username}-${isoDate}-${time.replace(':', '')}-${Date.now()}-${idx}`,
           username,
           date: isoDate,
           time,
@@ -282,6 +324,7 @@ export default function App() {
         const u = JSON.parse(saved);
         const cached = localStorage.getItem(`bp_records_cache_${u.username}`);
         if (cached) return deduplicateRecords(JSON.parse(cached));
+        return [];
       }
     } catch (e) {
       console.error(e);
@@ -299,16 +342,17 @@ export default function App() {
   const [regPin, setRegPin] = useState('');
   const [authError, setAuthError] = useState('');
   const [authLoading, setAuthLoading] = useState(false);
+  const [pendingAction, setPendingAction] = useState(null);
 
   const [cloudStatus, setCloudStatus] = useState('online');
-  const [rawCloudCount, setRawCloudCount] = useState(() => DEMO_RECORDS.length);
+  const [rawCloudCount, setRawCloudCount] = useState(0);
   const [activeTab, setActiveTab] = useState('home');
   const [period, setPeriod] = useState('30d');
   const [dayTimeFilter, setDayTimeFilter] = useState('all');
 
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const [activeSheet, setActiveSheet] = useState(null); // 'add' | 'data' | 'auth' | null
+  const [activeSheet, setActiveSheet] = useState(null);
 
   const [inputsUnlocked, setInputsUnlocked] = useState(false);
 
@@ -374,6 +418,7 @@ export default function App() {
   const fetchFromCloud = useCallback(async (userOverride) => {
     const activeUser = userOverride !== undefined ? userOverride : currentUser;
     if (!activeUser) {
+      setRawCloudCount(records.length);
       emulateCloudSync();
       return;
     }
@@ -408,7 +453,7 @@ export default function App() {
       console.error(err);
       setCloudStatus('error');
     }
-  }, [currentUser, emulateCloudSync]);
+  }, [currentUser, records.length, emulateCloudSync]);
 
   useEffect(() => {
     if (currentUser) {
@@ -416,7 +461,7 @@ export default function App() {
     } else {
       setRawCloudCount(records.length);
     }
-  }, [currentUser, fetchFromCloud]);
+  }, [currentUser, fetchFromCloud, records.length]);
 
   const handleLoginSubmit = async (pinOverride) => {
     const cleanLogin = loginUsername.trim().toLowerCase().replace(/[^a-z0-9_.-]/g, '');
@@ -475,7 +520,10 @@ export default function App() {
 
       await fetchFromCloud(loggedUser);
       setAuthLoading(false);
-      setActiveSheet(null);
+
+      const next = pendingAction;
+      setPendingAction(null);
+      setActiveSheet(next || null);
     } catch (e) {
       console.error(e);
       setAuthError('Не удалось войти. Проверьте подключение');
@@ -535,7 +583,10 @@ export default function App() {
       setRecords([]);
       setRawCloudCount(0);
       setAuthLoading(false);
-      setActiveSheet(null);
+
+      const next = pendingAction;
+      setPendingAction(null);
+      setActiveSheet(next || null);
     } catch (e) {
       console.error(e);
       setAuthError('Ошибка сети при регистрации');
@@ -635,6 +686,50 @@ export default function App() {
       );
     } catch (e) {
       console.error(e);
+    }
+  };
+
+  const handleCleanCloudDuplicates = async () => {
+    if (!currentUser) return;
+    setCloudStatus('syncing');
+    try {
+      const res = await fetch(
+        `${SUPABASE_URL}/rest/v1/bp_records?select=*&username=eq.${encodeURIComponent(
+          currentUser.username
+        )}`,
+        {
+          headers: {
+            apikey: SUPABASE_KEY,
+            Authorization: `Bearer ${SUPABASE_KEY}`,
+            'x-user-login': currentUser.username,
+            'x-user-pin': currentUser.pin
+          }
+        }
+      );
+      const allRows = await res.json();
+      if (!Array.isArray(allRows)) return;
+
+      const seen = new Set();
+      const duplicateIds = [];
+
+      allRows.forEach((row) => {
+        const sig = `${row.date}_${row.time}_${row.sys}_${row.dia}`;
+        if (seen.has(sig)) {
+          duplicateIds.push(row.id);
+        } else {
+          seen.add(sig);
+        }
+      });
+
+      for (const id of duplicateIds) {
+        await deleteFromCloud(id);
+      }
+
+      await fetchFromCloud(currentUser);
+      setActiveSheet(null);
+    } catch (e) {
+      console.error(e);
+      setCloudStatus('error');
     }
   };
 
@@ -1013,8 +1108,22 @@ export default function App() {
 
             <div className="flex items-center gap-2 shrink-0">
               <button
-                onClick={emulateCloudSync}
-                title="Синхронизация"
+                onClick={() => {
+                  if (currentUser) {
+                    fetchFromCloud(currentUser);
+                  } else {
+                    emulateCloudSync();
+                  }
+                }}
+                title={
+                  !currentUser
+                    ? 'Демо-режим (локальная сессия)'
+                    : cloudStatus === 'online'
+                    ? 'Синхронизировано'
+                    : cloudStatus === 'syncing'
+                    ? 'Синхронизация...'
+                    : 'Ошибка подключения'
+                }
                 className="w-11 h-11 rounded-full bg-white flex items-center justify-center active:scale-95 transition cursor-pointer shadow-2xs text-[#141A16]"
                 aria-label="Статус облачной синхронизации"
               >
@@ -1382,7 +1491,7 @@ export default function App() {
           </div>
         </nav>
 
-        {/* ШТОРКА АВТОРИЗАЦИИ И РЕГИСТРАЦИИ (ФИГМА v2) */}
+        {/* ШТОРКА АВТОРИЗАЦИИ И РЕГИСТРАЦИИ */}
         {activeSheet === 'auth' && (
           <div
             className="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs flex items-end justify-center overscroll-none touch-none"
@@ -1598,7 +1707,7 @@ export default function App() {
           </div>
         )}
 
-        {/* ШТОРКА 1: Ввод нового замера */}
+        {/* ШТОРКА 1: Ввод нового замера (дизайн по концепции "Пожилые пользователи" из Figma) */}
         {activeSheet === 'add' && (
           <div
             className="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs flex items-end justify-center overscroll-none touch-none"
@@ -1612,28 +1721,28 @@ export default function App() {
                 transform: `translateY(${dragOffset}px)`,
                 transition: dragOffset === 0 ? 'transform 0.2s ease-out' : 'none'
               }}
-              className="w-full max-w-[440px] bg-[#EFEFEF] rounded-t-[36px] p-6 pb-8"
+              className="w-full max-w-[440px] bg-[#EFEFEF] rounded-t-[36px] px-6 pt-6 pb-8"
               onClick={(e) => e.stopPropagation()}
             >
               <div className="w-12 h-1.5 bg-[#C8CFCB] rounded-full mx-auto mb-5" />
 
               <div className="flex items-center justify-between mb-6">
-                <h3 className="text-[28px] font-bold text-[#141A16] leading-none">
+                <h3 className="text-[36px] font-extrabold text-[#141A16] leading-none tracking-tight">
                   Новый замер
                 </h3>
                 <button
                   type="button"
                   onClick={() => setActiveSheet(null)}
-                  className="w-10 h-10 rounded-full bg-white flex items-center justify-center text-[#141A16] cursor-pointer"
+                  className="w-10 h-10 rounded-full bg-white flex items-center justify-center text-[#141A16] cursor-pointer shadow-2xs"
                 >
-                  <X className="w-5 h-5" />
+                  <X className="w-5 h-5" strokeWidth={1.66} />
                 </button>
               </div>
 
-              <div role="presentation" className="space-y-4">
+              <div role="presentation" className="space-y-5">
                 <div className="grid grid-cols-3 gap-3">
-                  <div className="bg-[#D8EEB9] rounded-[26px] p-4 text-center">
-                    <span className="block text-sm font-medium text-[#4A5D2F] mb-1">
+                  <div className="bg-[#D8EEB9] rounded-[26px] h-[110px] flex flex-col justify-center items-center p-2 relative overflow-hidden">
+                    <span className="block text-[15px] font-bold text-[#4A5D2F] mb-1">
                       Верхнее
                     </span>
                     <input
@@ -1654,12 +1763,12 @@ export default function App() {
                       placeholder="120"
                       value={sysInput}
                       onChange={handleSysChange}
-                      className="w-full text-center text-[34px] font-bold text-[#141A16] placeholder-[#A5C282] focus:outline-none bg-transparent select-text"
+                      className="w-full text-center text-[40px] leading-none font-extrabold text-[#141A16] placeholder-[#A5C282] focus:outline-none bg-transparent select-text"
                     />
                   </div>
 
-                  <div className="bg-[#D4ECF4] rounded-[26px] p-4 text-center">
-                    <span className="block text-sm font-medium text-[#395C66] mb-1">
+                  <div className="bg-[#D4ECF4] rounded-[26px] h-[110px] flex flex-col justify-center items-center p-2 relative overflow-hidden">
+                    <span className="block text-[15px] font-bold text-[#395C66] mb-1">
                       Нижнее
                     </span>
                     <input
@@ -1680,12 +1789,12 @@ export default function App() {
                       placeholder="82"
                       value={diaInput}
                       onChange={handleDiaChange}
-                      className="w-full text-center text-[34px] font-bold text-[#141A16] placeholder-[#A0C9D6] focus:outline-none bg-transparent select-text"
+                      className="w-full text-center text-[40px] leading-none font-extrabold text-[#141A16] placeholder-[#A0C9D6] focus:outline-none bg-transparent select-text"
                     />
                   </div>
 
-                  <div className="bg-[#E4E4E4] rounded-[26px] p-4 text-center">
-                    <span className="block text-sm font-medium text-[#5A625D] mb-1">
+                  <div className="bg-[#E4E4E4] rounded-[26px] h-[110px] flex flex-col justify-center items-center p-2 relative overflow-hidden">
+                    <span className="block text-[15px] font-bold text-[#5A625D] mb-1">
                       Пульс
                     </span>
                     <input
@@ -1706,20 +1815,20 @@ export default function App() {
                       placeholder="64"
                       value={pulseInput}
                       onChange={handlePulseChange}
-                      className="w-full text-center text-[34px] font-bold text-[#141A16] placeholder-[#B0B7B2] focus:outline-none bg-transparent select-text"
+                      className="w-full text-center text-[40px] leading-none font-extrabold text-[#141A16] placeholder-[#B0B7B2] focus:outline-none bg-transparent select-text"
                     />
                   </div>
                 </div>
 
-                <div className="bg-white rounded-[26px] pl-5 pr-4 py-3.5 flex items-center justify-between">
-                  <span className="text-[17px] font-semibold text-[#141A16]">
+                <div className="bg-white rounded-[26px] h-[72px] px-5 flex items-center justify-between shadow-2xs">
+                  <span className="text-[18px] font-bold text-[#7A827D]">
                     Время замера
                   </span>
-                  <label className="relative inline-flex items-center gap-2.5 bg-[#F4F5F2] rounded-[20px] px-5 py-3 cursor-pointer">
-                    <span className="text-[20px] font-bold text-[#141A16] leading-none tabular-nums">
+                  <label className="relative inline-flex items-center gap-2 bg-[#F4F5F2] rounded-[20px] pl-4 pr-3 py-2.5 cursor-pointer">
+                    <span className="text-[22px] font-extrabold text-[#141A16] leading-none tabular-nums">
                       {timeInput}
                     </span>
-                    <ChevronDown className="w-5 h-5 text-[#5A625D] shrink-0" />
+                    <ChevronDown className="w-5 h-5 text-[#5A625D] shrink-0 stroke-[2.5]" />
                     <input
                       type="time"
                       autoComplete="off"
@@ -1738,8 +1847,8 @@ export default function App() {
                         <div
                           key={tag}
                           onClick={() => setNoteInput(active ? '' : tag)}
-                          className={`pl-4 pr-2.5 py-2 rounded-full text-[15px] font-semibold flex items-center gap-1.5 transition cursor-pointer ${
-                            active ? 'bg-[#141A16] text-white' : 'bg-white text-[#141A16]'
+                          className={`pl-5 pr-2.5 py-3 rounded-full text-[16px] font-semibold flex items-center gap-2 transition cursor-pointer ${
+                            active ? 'bg-[#141A16] text-white' : 'bg-[#7A827D] text-white'
                           }`}
                         >
                           <span>{tag}</span>
@@ -1749,11 +1858,11 @@ export default function App() {
                             title="Удалить подсказку"
                             className={`w-5 h-5 rounded-full flex items-center justify-center transition ${
                               active
-                                ? 'text-white/70 hover:text-white'
-                                : 'text-[#8F9691] hover:text-[#141A16]'
+                                ? 'text-white hover:opacity-70'
+                                : 'text-[#C8CFCB] hover:text-white'
                             }`}
                           >
-                            <X className="w-3.5 h-3.5" />
+                            <X className="w-4 h-4" strokeWidth={2.5} />
                           </button>
                         </div>
                       );
@@ -1761,7 +1870,7 @@ export default function App() {
                   </div>
                 )}
 
-                <div className="bg-white rounded-[24px] px-5 py-4">
+                <div className="bg-white rounded-[24px] px-5 py-4 shadow-2xs">
                   <input
                     type="text"
                     readOnly={!inputsUnlocked}
@@ -1780,14 +1889,14 @@ export default function App() {
                         ? 'Комментарий (сохранится в подсказки)'
                         : 'Комментарий (напр. сахар 5.4)'
                     }
-                    className="w-full text-base text-[#141A16] placeholder-[#8F9691] focus:outline-none bg-transparent select-text"
+                    className="w-full text-[16px] font-medium text-[#141A16] placeholder-[#8F9691] focus:outline-none bg-transparent select-text"
                   />
                 </div>
 
                 <button
                   type="button"
                   onClick={handleSaveRecord}
-                  className="w-full py-4 rounded-full bg-[#141A16] text-white text-lg font-semibold active:scale-[0.99] transition cursor-pointer mt-1"
+                  className="w-full py-[18px] rounded-full bg-[#141A16] text-white text-[20px] font-semibold active:scale-[0.99] transition cursor-pointer mt-1 shadow-md"
                 >
                   Сохранить замер
                 </button>
@@ -1821,7 +1930,7 @@ export default function App() {
                     Настройки
                   </h3>
                   <div className="text-xs text-[#6E7671] font-medium">
-                    {currentUser ? `Профиль: @${currentUser.username}` : 'Демо-режим (в памяти сессии)'}
+                    {currentUser ? `Профиль: @${currentUser.username}` : 'Демо-режим (в памяти браузера)'}
                   </div>
                 </div>
                 <button
@@ -1861,7 +1970,7 @@ export default function App() {
                   className="w-full py-3.5 rounded-full bg-[#141A16] text-white font-semibold text-sm flex items-center justify-center gap-2 cursor-pointer"
                 >
                   <Upload className="w-4 h-4" />
-                  {currentUser ? 'Добавить в облако' : 'Добавить в сессию'}
+                  {currentUser ? 'Добавить в облако' : 'Добавить в демо-сессию'}
                 </button>
               </div>
 
