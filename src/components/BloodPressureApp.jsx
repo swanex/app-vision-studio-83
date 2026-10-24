@@ -261,6 +261,61 @@ const DEFAULT_ROMA_AVATAR_SVG = `data:image/svg+xml;utf8,${encodeURIComponent(`
 </svg>
 `)}`;
 
+// Генерация опций для часов и минут
+const HOURS_OPTIONS = Array.from({ length: 24 }, (_, i) => String(i).padStart(2, '0'));
+const MINUTES_OPTIONS = Array.from({ length: 60 }, (_, i) => String(i).padStart(2, '0'));
+
+// Компонент барабана для выбора времени
+const DrumPicker = ({ options, value, onChange }) => {
+  const ITEM_HEIGHT = 72; // Высота одного элемента (для пальцев пожилых)
+  const scrollRef = useRef(null);
+  const [activeIndex, setActiveIndex] = useState(options.indexOf(value));
+
+  // Устанавливаем изначальную позицию скролла
+  useEffect(() => {
+    if (scrollRef.current) {
+      const idx = options.indexOf(value);
+      if (idx !== -1) {
+        scrollRef.current.scrollTop = idx * ITEM_HEIGHT;
+      }
+    }
+  }, []);
+
+  const handleScroll = (e) => {
+    const top = e.target.scrollTop;
+    const index = Math.min(options.length - 1, Math.max(0, Math.round(top / ITEM_HEIGHT)));
+    if (index !== activeIndex) {
+      setActiveIndex(index);
+      onChange(options[index]);
+    }
+  };
+
+  return (
+    <div
+      ref={scrollRef}
+      onScroll={handleScroll}
+      className="w-[145px] h-[360px] overflow-y-auto snap-y snap-mandatory relative z-10 hide-scrollbar"
+    >
+      <div style={{ height: ITEM_HEIGHT * 2 }} />
+      {options.map((opt, i) => (
+        <div
+          key={opt}
+          className="snap-center flex items-center justify-center transition-all duration-200"
+          style={{
+            height: ITEM_HEIGHT,
+            fontSize: i === activeIndex ? '44px' : '32px',
+            fontWeight: i === activeIndex ? '800' : '600',
+            color: i === activeIndex ? '#141A16' : '#A3ABA6',
+          }}
+        >
+          {opt}
+        </div>
+      ))}
+      <div style={{ height: ITEM_HEIGHT * 2 }} />
+    </div>
+  );
+};
+
 export default function App() {
   const [currentUser, setCurrentUser] = useState(() => {
     try {
@@ -306,6 +361,10 @@ export default function App() {
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [activeSheet, setActiveSheet] = useState(null);
+
+  // Состояние для кастомного пикера времени
+  const [timePickerOpen, setTimePickerOpen] = useState(false);
+  const [tempTime, setTempTime] = useState('09:00');
 
   const [inputsUnlocked, setInputsUnlocked] = useState(false);
 
@@ -912,6 +971,9 @@ export default function App() {
       }}
     >
       <style>{`
+        /* Скрываем скроллбар для барабана */
+        .hide-scrollbar::-webkit-scrollbar { display: none; }
+        .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
         input[type="time"]::-webkit-calendar-picker-indicator {
           background: transparent;
           bottom: 0;
@@ -1714,19 +1776,19 @@ export default function App() {
                   <span className="text-[18px] font-bold text-[#141A16]">
                     Время замера
                   </span>
-                  <label className="relative inline-flex items-center gap-2 bg-[#F4F5F2] rounded-[20px] pl-4 pr-3 py-2.5 cursor-pointer">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setTempTime(timeInput);
+                      setTimePickerOpen(true);
+                    }}
+                    className="flex items-center gap-2 bg-[#F4F5F2] rounded-[20px] pl-4 pr-3 py-2.5 cursor-pointer active:scale-95 transition"
+                  >
                     <span className="text-[22px] font-extrabold text-[#141A16] leading-none tabular-nums">
                       {timeInput}
                     </span>
                     <ChevronDown className="w-5 h-5 text-[#5A625D] shrink-0 stroke-[2.5]" />
-                    <input
-                      type="time"
-                      autoComplete="off"
-                      value={timeInput}
-                      onChange={(e) => setTimeInput(e.target.value)}
-                      className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                    />
-                  </label>
+                  </button>
                 </div>
 
                 {userTags.length > 0 && (
@@ -1789,6 +1851,87 @@ export default function App() {
                   className="w-full py-[20px] rounded-[28px] bg-[#141A16] text-white text-[20px] font-bold active:scale-[0.99] transition cursor-pointer mt-1"
                 >
                   Сохранить замер
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ШТОРКА КАСТОМНОГО ВЫБОРА ВРЕМЕНИ */}
+        {timePickerOpen && (
+          <div
+            className="fixed inset-0 z-[60] bg-black/40 backdrop-blur-xs flex items-end justify-center overscroll-none touch-none"
+            onClick={() => setTimePickerOpen(false)}
+          >
+            <div
+              className="w-full max-w-[440px] bg-[#EFEFEF] rounded-t-[36px] px-6 pt-6 pb-8 flex flex-col gap-5"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="w-12 h-1.5 bg-[#C8CFCB] rounded-full mx-auto shrink-0" />
+
+              <div className="flex items-start justify-between">
+                <div className="flex flex-col gap-1">
+                  <h3 className="text-[32px] font-extrabold text-[#141A16] leading-none tracking-tight">
+                    Время замера
+                  </h3>
+                  <div className="text-[15px] font-medium text-[#6E7671]">
+                    Выберите время измерения
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setTimePickerOpen(false)}
+                  className="w-10 h-10 rounded-full bg-white flex items-center justify-center text-[#141A16] shrink-0 cursor-pointer"
+                >
+                  <X className="w-5 h-5" strokeWidth={2} />
+                </button>
+              </div>
+
+              <div className="relative flex items-center justify-center w-full h-[360px] gap-3 mt-2">
+                {/* Подложки колонок */}
+                <div className="absolute left-0 top-0 bottom-0 w-[145px] bg-[#F4F5F2] rounded-[24px]" />
+                <div className="absolute right-0 top-0 bottom-0 w-[145px] bg-[#F4F5F2] rounded-[24px]" />
+
+                {/* Зеленая плашка выбора (по центру) */}
+                <div className="absolute top-1/2 left-0 right-0 h-[72px] -translate-y-1/2 flex items-center justify-between pointer-events-none">
+                  <div className="w-[145px] h-full bg-[#D8EEB9] rounded-[24px]" />
+                  <div className="w-[145px] h-full bg-[#D8EEB9] rounded-[24px]" />
+                </div>
+
+                <DrumPicker
+                  options={HOURS_OPTIONS}
+                  value={tempTime.split(':')[0]}
+                  onChange={(h) => setTempTime(`${h}:${tempTime.split(':')[1]}`)}
+                />
+                
+                <div className="z-10 text-[40px] font-black text-[#141A16] pb-2 shrink-0 w-[20px] text-center">
+                  :
+                </div>
+                
+                <DrumPicker
+                  options={MINUTES_OPTIONS}
+                  value={tempTime.split(':')[1]}
+                  onChange={(m) => setTempTime(`${tempTime.split(':')[0]}:${m}`)}
+                />
+              </div>
+
+              <div className="w-full flex flex-col gap-3 mt-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setTimeInput(tempTime);
+                    setTimePickerOpen(false);
+                  }}
+                  className="w-full py-[18px] rounded-[28px] bg-[#141A16] text-white text-[20px] font-bold active:scale-[0.99] transition cursor-pointer"
+                >
+                  Подтвердить время
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setTimePickerOpen(false)}
+                  className="w-full py-[18px] rounded-[28px] bg-[#E4E4E4] text-[#141A16] text-[20px] font-bold active:scale-[0.99] transition cursor-pointer"
+                >
+                  Отмена
                 </button>
               </div>
             </div>
