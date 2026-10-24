@@ -21,7 +21,6 @@ import {
   RefreshCw,
   Sun,
   Moon,
-  Sparkles,
   Camera,
   ChevronRight,
   ChevronDown,
@@ -156,48 +155,21 @@ const CloudCheckIcon = ({ className = 'w-5 h-5' }) => (
   </svg>
 );
 
-const CloudXIcon = ({ className = 'w-5 h-5' }) => (
-  <svg
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="2"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-    className={className}
-  >
-    <path d="M17.5 19H7a5 5 0 0 1-.7-9.95A6.5 6.5 0 0 1 19 10.5c0 .18-.01.35-.03.52A4.25 4.25 0 0 1 17.5 19Z" />
-    <path d="m10 11 4 4" />
-    <path d="m14 11-4 4" />
+// Кастомная иконка "Главная" на основе макета
+const HomeNavIcon = ({ solid }) => (
+  <svg width="26" height="26" viewBox="0 0 24 24" fill={solid ? "#141A16" : "none"} stroke={solid ? "none" : "#858D88"} strokeWidth={solid ? "0" : "2"}>
+    <path d="M4 12a8 8 0 0 1 16 0v6a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-6z" strokeLinecap="round" />
+    <rect x="10" y="16" width="4" height="2" rx="1" fill={solid ? "white" : "#858D88"} stroke="none" />
   </svg>
 );
 
-const HomeNavIcon = ({ solid }) =>
-  solid ? (
-    <svg width="28" height="28" viewBox="0 0 24 24" fill="#141A16" xmlns="http://www.w3.org/2000/svg">
-      <path d="M11.33 2.59a1.05 1.05 0 0 1 1.34 0l8 6.86A1.05 1.05 0 0 1 21.05 10.25v9.7A2.05 2.05 0 0 1 19 22h-4.5a.75.75 0 0 1-.75-.75v-5.5a.75.75 0 0 0-.75-.75h-2a.75.75 0 0 0-.75.75v5.5a.75.75 0 0 1-.75.75H5a2.05 2.05 0 0 1-2.05-2.05v-9.7a1.05 1.05 0 0 1 .38-.8l8-6.86Z" />
-    </svg>
-  ) : (
-    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#858D88" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M3 9.5L12 3l9 6.5V20a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 20V9.5z" />
-      <path d="M9 21.5V14h6v7.5" />
-    </svg>
-  );
-
-const HistoryNavIcon = ({ solid }) =>
-  solid ? (
-    <svg width="28" height="28" viewBox="0 0 24 24" fill="#141A16" xmlns="http://www.w3.org/2000/svg">
-      <rect x="3" y="3" width="18" height="18" rx="4" fill="#141A16" />
-      <path d="M7.5 8.5H16.5M7.5 12H16.5M7.5 15.5H12.5" stroke="#FFFFFF" strokeWidth="2.2" strokeLinecap="round" />
-    </svg>
-  ) : (
-    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#858D88" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <rect x="3.5" y="3.5" width="17" height="17" rx="3.5" />
-      <line x1="7.5" y1="8.5" x2="16.5" y2="8.5" />
-      <line x1="7.5" y1="12" x2="16.5" y2="12" />
-      <line x1="7.5" y1="15.5" x2="12.5" y2="15.5" />
-    </svg>
-  );
+// Кастомная иконка "История" на основе макета
+const HistoryNavIcon = ({ solid }) => (
+  <svg width="26" height="26" viewBox="0 0 24 24" fill={solid ? "#141A16" : "none"} stroke={solid ? "none" : "#858D88"} strokeWidth={solid ? "0" : "2"}>
+    <circle cx="12" cy="12" r="9" />
+    <path d="M9 10h6M9 14h6" stroke={solid ? "white" : "#858D88"} strokeWidth="2" strokeLinecap="round" />
+  </svg>
+);
 
 const deduplicateRecords = (arr) => {
   const seen = new Map();
@@ -219,32 +191,6 @@ const parseImportData = (rawText, username = 'user') => {
   const parsed = [];
 
   lines.forEach((line, idx) => {
-    const chatMatch = line.match(/^\[(\d{2})\.(\d{2})\.(\d{4})\s+(\d{1,2}):(\d{2})\][^:]*:\s*(.+)$/);
-    if (chatMatch) {
-      const [, dd, mm, yyyy, hh, min, content] = chatMatch;
-      const isoDate = `${yyyy}-${mm}-${dd}`;
-      const timeStr = `${hh.padStart(2, '0')}:${min}`;
-      const bpMatches = [...content.matchAll(/(\d{2,3})\/(\d{2,3})(?:\s+(\d{2,3}))?/g)];
-      if (bpMatches.length > 0) {
-        const last = bpMatches[bpMatches.length - 1];
-        let s = parseInt(last[1], 10);
-        if (s < 40) s += 100;
-        const d = parseInt(last[2], 10);
-        const p = last[3] ? parseInt(last[3], 10) : null;
-        parsed.push({
-          id: `r-${username}-${isoDate}-${timeStr.replace(':', '')}-${Date.now()}-${idx}`,
-          username,
-          date: isoDate,
-          time: timeStr,
-          sys: s,
-          dia: d,
-          pulse: p && p >= 35 && p <= 200 ? p : null,
-          note: content.trim()
-        });
-        return;
-      }
-    }
-
     const dateMatch = line.match(/(\d{4}-\d{2}-\d{2}|\d{2}\.\d{2}\.\d{4})/);
     if (!dateMatch) return;
     let isoDate = dateMatch[1];
@@ -270,7 +216,7 @@ const parseImportData = (rawText, username = 'user') => {
 
       if (sys >= 75 && sys <= 220 && dia >= 45 && dia <= 140) {
         parsed.push({
-          id: `r-${username}-${isoDate}-${time.replace(':', '')}-${Date.now()}-${idx}`,
+          id: `r-${username}-${isoDate}-${time.replace(':', '')}-${idx}`,
           username,
           date: isoDate,
           time,
@@ -324,7 +270,6 @@ export default function App() {
         const u = JSON.parse(saved);
         const cached = localStorage.getItem(`bp_records_cache_${u.username}`);
         if (cached) return deduplicateRecords(JSON.parse(cached));
-        return [];
       }
     } catch (e) {
       console.error(e);
@@ -342,10 +287,9 @@ export default function App() {
   const [regPin, setRegPin] = useState('');
   const [authError, setAuthError] = useState('');
   const [authLoading, setAuthLoading] = useState(false);
-  const [pendingAction, setPendingAction] = useState(null);
 
   const [cloudStatus, setCloudStatus] = useState('online');
-  const [rawCloudCount, setRawCloudCount] = useState(0);
+  const [rawCloudCount, setRawCloudCount] = useState(() => DEMO_RECORDS.length);
   const [activeTab, setActiveTab] = useState('home');
   const [period, setPeriod] = useState('30d');
   const [dayTimeFilter, setDayTimeFilter] = useState('all');
@@ -418,7 +362,6 @@ export default function App() {
   const fetchFromCloud = useCallback(async (userOverride) => {
     const activeUser = userOverride !== undefined ? userOverride : currentUser;
     if (!activeUser) {
-      setRawCloudCount(records.length);
       emulateCloudSync();
       return;
     }
@@ -453,7 +396,7 @@ export default function App() {
       console.error(err);
       setCloudStatus('error');
     }
-  }, [currentUser, records.length, emulateCloudSync]);
+  }, [currentUser, emulateCloudSync]);
 
   useEffect(() => {
     if (currentUser) {
@@ -461,7 +404,7 @@ export default function App() {
     } else {
       setRawCloudCount(records.length);
     }
-  }, [currentUser, fetchFromCloud, records.length]);
+  }, [currentUser, fetchFromCloud]);
 
   const handleLoginSubmit = async (pinOverride) => {
     const cleanLogin = loginUsername.trim().toLowerCase().replace(/[^a-z0-9_.-]/g, '');
@@ -520,10 +463,7 @@ export default function App() {
 
       await fetchFromCloud(loggedUser);
       setAuthLoading(false);
-
-      const next = pendingAction;
-      setPendingAction(null);
-      setActiveSheet(next || null);
+      setActiveSheet(null);
     } catch (e) {
       console.error(e);
       setAuthError('Не удалось войти. Проверьте подключение');
@@ -583,10 +523,7 @@ export default function App() {
       setRecords([]);
       setRawCloudCount(0);
       setAuthLoading(false);
-
-      const next = pendingAction;
-      setPendingAction(null);
-      setActiveSheet(next || null);
+      setActiveSheet(null);
     } catch (e) {
       console.error(e);
       setAuthError('Ошибка сети при регистрации');
@@ -671,9 +608,7 @@ export default function App() {
     if (!currentUser) return;
     try {
       await fetch(
-        `${SUPABASE_URL}/rest/v1/bp_records?id=eq.${encodeURIComponent(
-          id
-        )}&username=eq.${encodeURIComponent(currentUser.username)}`,
+        `${SUPABASE_URL}/rest/v1/bp_records?id=eq.${encodeURIComponent(id)}&username=eq.${encodeURIComponent(currentUser.username)}`,
         {
           method: 'DELETE',
           headers: {
@@ -686,50 +621,6 @@ export default function App() {
       );
     } catch (e) {
       console.error(e);
-    }
-  };
-
-  const handleCleanCloudDuplicates = async () => {
-    if (!currentUser) return;
-    setCloudStatus('syncing');
-    try {
-      const res = await fetch(
-        `${SUPABASE_URL}/rest/v1/bp_records?select=*&username=eq.${encodeURIComponent(
-          currentUser.username
-        )}`,
-        {
-          headers: {
-            apikey: SUPABASE_KEY,
-            Authorization: `Bearer ${SUPABASE_KEY}`,
-            'x-user-login': currentUser.username,
-            'x-user-pin': currentUser.pin
-          }
-        }
-      );
-      const allRows = await res.json();
-      if (!Array.isArray(allRows)) return;
-
-      const seen = new Set();
-      const duplicateIds = [];
-
-      allRows.forEach((row) => {
-        const sig = `${row.date}_${row.time}_${row.sys}_${row.dia}`;
-        if (seen.has(sig)) {
-          duplicateIds.push(row.id);
-        } else {
-          seen.add(sig);
-        }
-      });
-
-      for (const id of duplicateIds) {
-        await deleteFromCloud(id);
-      }
-
-      await fetchFromCloud(currentUser);
-      setActiveSheet(null);
-    } catch (e) {
-      console.error(e);
-      setCloudStatus('error');
     }
   };
 
@@ -993,10 +884,6 @@ export default function App() {
     return `${rangePart} · ${count} ${pluralizeMeasurements(count)}`;
   }, [stats.firstDate, stats.lastDate, filteredRecords.length]);
 
-  const latestRecIsEvening = latestRec && parseInt(latestRec.time.split(':')[0], 10) >= 13;
-  const latestRecBgColor = latestRecIsEvening ? '#DEE2EA' : '#EAE7DE';
-  const latestRecDateColor = latestRecIsEvening ? '#3B4990' : '#8A7545';
-
   const resolvedAvatar = useMemo(() => {
     if (!currentUser) return null;
     if (currentUser.avatar) return currentUser.avatar;
@@ -1190,7 +1077,7 @@ export default function App() {
 
         {activeTab === 'home' && (
           <main className="space-y-4">
-            <div className="bg-white rounded-full p-1.5 grid grid-cols-3 shadow-2xs">
+            <div className="bg-white rounded-[30px] p-1.5 grid grid-cols-3 shadow-2xs">
               {[
                 { id: '7d', label: 'Неделя' },
                 { id: '30d', label: 'Месяц' },
@@ -1199,7 +1086,7 @@ export default function App() {
                 <button
                   key={tab.id}
                   onClick={() => setPeriod(tab.id)}
-                  className={`py-3 rounded-full text-[15px] font-semibold transition cursor-pointer ${
+                  className={`py-3 rounded-[26px] text-[15px] font-semibold transition cursor-pointer ${
                     period === tab.id
                       ? 'bg-[#141A16] text-white'
                       : 'text-[#6E7671] hover:text-[#141A16]'
@@ -1210,35 +1097,35 @@ export default function App() {
               ))}
             </div>
 
-            <section className="bg-white rounded-[32px] p-6 shadow-2xs">
+            <section className="bg-white rounded-[32px] p-5 shadow-2xs">
               <div className="flex items-center justify-between gap-2 mb-1.5">
-                <span className="text-[50px] font-extrabold tracking-tight leading-none text-[#141A16]">
+                <span className="text-[56px] font-black tracking-tighter leading-none text-[#141A16]">
                   {stats.avgSys ? `${stats.avgSys}/${stats.avgDia}` : '–/–'}
                 </span>
                 <span
-                  className="px-3.5 py-1.5 rounded-full text-sm font-semibold shrink-0"
+                  className="px-3.5 py-1.5 rounded-full text-[14px] font-semibold shrink-0"
                   style={{ backgroundColor: avgBadge.bg, color: avgBadge.textCol }}
                 >
                   {avgBadge.text}
                 </span>
               </div>
 
-              <div className="text-[15px] leading-snug text-[#7A827D] mb-2.5">
-                <div>Среднее за период</div>
-                <div>{periodRangeLabel}</div>
+              <div className="mb-4">
+                <div className="text-[16px] font-bold text-[#141A16]">Среднее за период</div>
+                <div className="text-[14px] font-medium text-[#7A827D] mt-0.5">{periodRangeLabel}</div>
               </div>
 
-              <div className="h-[180px] w-full -mx-2 relative">
+              <div className="h-[140px] w-full -mx-2 relative">
                 {chartData.length > 0 && (
                   <>
                     <div
-                      className="absolute right-3 top-[18px] text-[12px] leading-none font-medium pointer-events-none z-10"
+                      className="absolute right-0 top-1 text-[11px] font-bold pointer-events-none z-10"
                       style={{ color: SYS_COLOR }}
                     >
                       Верхнее
                     </div>
                     <div
-                      className="absolute right-3 bottom-[34px] text-[12px] leading-none font-medium pointer-events-none z-10"
+                      className="absolute right-0 bottom-6 text-[11px] font-bold pointer-events-none z-10"
                       style={{ color: DIA_COLOR }}
                     >
                       Нижнее
@@ -1248,7 +1135,8 @@ export default function App() {
 
                 {chartData.length > 0 ? (
                   <ResponsiveContainer width="100%" height="100%" className="relative z-0">
-                    <AreaChart data={chartData} margin={{ top: 14, right: 12, left: -22, bottom: 0 }}>
+                    {/* Обнулили right margin чтобы прижать график к краю */}
+                    <AreaChart data={chartData} margin={{ top: 12, right: 0, left: -26, bottom: 0 }}>
                       <defs>
                         <linearGradient id="sysFill" x1="0" y1="0" x2="0" y2="1">
                           <stop offset="5%" stopColor="#D6EBB4" stopOpacity={0.8} />
@@ -1326,13 +1214,13 @@ export default function App() {
                 )}
               </div>
 
-              <div className="mt-3 pt-1 flex items-center justify-center gap-2.5">
+              <div className="mt-4 flex items-center justify-between gap-2.5">
                 <button
                   onClick={() => setDayTimeFilter('all')}
-                  className={`px-6 py-2.5 rounded-full text-[15px] font-semibold transition cursor-pointer ${
+                  className={`flex-1 py-3 rounded-full text-[15px] font-bold transition cursor-pointer text-center ${
                     dayTimeFilter === 'all'
                       ? 'bg-[#141A16] text-white'
-                      : 'bg-[#F4F5F2] text-[#6E7671] hover:text-[#141A16]'
+                      : 'bg-[#F4F5F2] text-[#141A16] hover:bg-[#E4E7E4]'
                   }`}
                 >
                   Все
@@ -1340,76 +1228,70 @@ export default function App() {
 
                 <button
                   onClick={() => setDayTimeFilter('morning')}
-                  className={`px-5 py-2.5 rounded-full text-[15px] font-semibold flex items-center gap-2 transition cursor-pointer ${
+                  className={`flex-1 py-3 rounded-full text-[15px] font-bold flex items-center justify-center gap-2 transition cursor-pointer ${
                     dayTimeFilter === 'morning'
                       ? 'bg-[#141A16] text-white'
-                      : 'bg-[#F4F5F2] text-[#6E7671] hover:text-[#141A16]'
+                      : 'bg-[#F4F5F2] text-[#5A625D] hover:bg-[#E4E7E4]'
                   }`}
                 >
-                  <Sun className="w-4 h-4 text-amber-500 fill-amber-400" />
+                  <Sun className="w-[18px] h-[18px] text-[#FE9A00] fill-[#FE9A00]" />
                   <span>Утро</span>
                 </button>
 
                 <button
                   onClick={() => setDayTimeFilter('evening')}
-                  className={`px-5 py-2.5 rounded-full text-[15px] font-semibold flex items-center gap-2 transition cursor-pointer ${
+                  className={`flex-1 py-3 rounded-full text-[15px] font-bold flex items-center justify-center gap-2 transition cursor-pointer ${
                     dayTimeFilter === 'evening'
                       ? 'bg-[#141A16] text-white'
                       : 'bg-[#EEF1FA] text-[#3B4990] hover:opacity-90'
                   }`}
                 >
-                  <Moon className="w-4 h-4 text-indigo-500 fill-indigo-500" />
+                  <Moon className="w-[18px] h-[18px] text-[#615FFF] fill-[#615FFF]" />
                   <span>Вечер</span>
                 </button>
               </div>
             </section>
 
-            <section className="grid grid-cols-2 gap-3.5 pt-0.5">
-              <div
-                className="rounded-[28px] p-5 flex flex-col justify-between min-h-[148px]"
-                style={{ backgroundColor: latestRecBgColor }}
-              >
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <div className="text-[25px] font-extrabold tracking-tight leading-none text-[#141A16]">
-                      {latestRec ? `${latestRec.sys}/${latestRec.dia}` : '–'}
-                    </div>
-                    <div
-                      className="text-[14px] font-medium mt-1.5"
-                      style={{ color: latestRecDateColor }}
-                    >
-                      {latestRec ? formatHumanDate(latestRec.date) : '–'}
-                    </div>
+            <section className="grid grid-cols-2 gap-3.5 pt-1">
+              <div className="rounded-[28px] bg-[#DEE2EA] p-5 flex flex-col justify-between h-[152px]">
+                <div>
+                  <div className="text-[36px] font-black tracking-tight leading-none text-[#141A16]">
+                    {latestRec ? `${latestRec.sys}/${latestRec.dia}` : '–'}
                   </div>
-                  <div className="w-11 h-11 rounded-full bg-white flex items-center justify-center text-[#141A16] shrink-0">
-                    <Activity className="w-5 h-5" />
+                  <div className="text-[14px] font-bold text-[#3B4990] mt-1.5">
+                    {latestRec ? formatHumanDate(latestRec.date) : '–'}
                   </div>
                 </div>
-                <div className="text-[16px] font-semibold text-[#141A16] leading-tight mt-4">
-                  Последний
-                  <br />
-                  замер
+                <div className="flex items-end justify-between">
+                  <div className="text-[14px] font-bold leading-tight text-[#141A16]">
+                    Последний
+                    <br />
+                    замер
+                  </div>
+                  <div className="w-[44px] h-[44px] rounded-full bg-white flex items-center justify-center text-[#141A16] shrink-0 shadow-sm">
+                    <Activity className="w-[22px] h-[22px]" strokeWidth={2.2} />
+                  </div>
                 </div>
               </div>
 
-              <div className="bg-[#E4E4E4] rounded-[28px] p-5 flex flex-col justify-between min-h-[148px]">
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <div className="text-[25px] font-extrabold tracking-tight leading-none text-[#141A16]">
-                      {stats.avgPulse}
-                    </div>
-                    <div className="text-[14px] text-[#5A625D] font-medium mt-1.5">
-                      уд/мин
-                    </div>
+              <div className="bg-[#E4E4E4] rounded-[28px] p-5 flex flex-col justify-between h-[152px]">
+                <div>
+                  <div className="text-[36px] font-black tracking-tight leading-none text-[#141A16]">
+                    {stats.avgPulse}
                   </div>
-                  <div className="w-11 h-11 rounded-full bg-white flex items-center justify-center text-[#141A16] shrink-0">
-                    <Heart className="w-5 h-5" />
+                  <div className="text-[14px] text-[#5A625D] font-bold mt-1.5">
+                    уд/мин
                   </div>
                 </div>
-                <div className="text-[16px] font-semibold text-[#141A16] leading-tight mt-4">
-                  Средний
-                  <br />
-                  пульс
+                <div className="flex items-end justify-between">
+                  <div className="text-[14px] font-bold leading-tight text-[#141A16]">
+                    Средний
+                    <br />
+                    пульс
+                  </div>
+                  <div className="w-[44px] h-[44px] rounded-full bg-white flex items-center justify-center text-[#141A16] shrink-0 shadow-sm">
+                    <Heart className="w-[22px] h-[22px]" strokeWidth={2.2} />
+                  </div>
                 </div>
               </div>
             </section>
@@ -1427,25 +1309,25 @@ export default function App() {
                 >
                   <div className="min-w-0 flex-1">
                     <div className="flex items-baseline gap-2.5">
-                      <span className="text-[24px] font-bold tracking-tight text-[#141A16]">
+                      <span className="text-[24px] font-black tracking-tight text-[#141A16]">
                         {item.sys}/{item.dia}
                       </span>
                       {item.pulse && (
-                        <span className="text-base font-semibold text-[#5BA4B6]">
+                        <span className="text-[16px] font-bold text-[#5BA4B6]">
                           ♥ {item.pulse}
                         </span>
                       )}
                       <span
-                        className="text-xs font-semibold px-2.5 py-0.5 rounded-full ml-auto sm:ml-1"
+                        className="text-[12px] font-bold px-2.5 py-1 rounded-full ml-auto sm:ml-1"
                         style={{ backgroundColor: badge.bg, color: badge.textCol }}
                       >
                         {badge.text}
                       </span>
                     </div>
-                    <div className="text-[15px] text-[#5A625D] mt-1 truncate">
+                    <div className="text-[15px] font-medium text-[#5A625D] mt-1.5 truncate">
                       {item.note || 'Замер'}
                     </div>
-                    <div className="text-sm text-[#8F9691] mt-0.5">
+                    <div className="text-[13px] font-medium text-[#8F9691] mt-0.5">
                       {formatHumanDate(item.date)} в {item.time}
                     </div>
                   </div>
@@ -1455,7 +1337,7 @@ export default function App() {
                     className="w-10 h-10 rounded-full flex items-center justify-center text-[#B0B7B2] hover:text-[#141A16] active:scale-95 transition cursor-pointer shrink-0"
                     title="Удалить запись"
                   >
-                    <Trash2 className="w-4 h-4" />
+                    <Trash2 className="w-[18px] h-[18px]" strokeWidth={2.2} />
                   </button>
                 </div>
               );
@@ -1463,7 +1345,7 @@ export default function App() {
           </main>
         )}
 
-        <nav className="fixed bottom-4 left-0 right-0 z-30 flex justify-center px-5 pointer-events-none">
+        <nav className="fixed bottom-5 left-0 right-0 z-30 flex justify-center px-5 pointer-events-none">
           <div className="w-full max-w-[400px] h-[68px] bg-white rounded-[34px] px-12 shadow-lg flex items-center justify-between pointer-events-auto">
             <button
               onClick={() => setActiveTab('home')}
@@ -1475,10 +1357,10 @@ export default function App() {
 
             <button
               onClick={() => setActiveSheet('add')}
-              className="w-16 h-16 -mt-6 rounded-full bg-[#141A16] text-white flex items-center justify-center shadow-md active:scale-95 transition cursor-pointer"
+              className="w-[64px] h-[64px] -mt-6 rounded-full bg-[#141A16] text-white flex items-center justify-center shadow-md active:scale-95 transition cursor-pointer"
               aria-label="Добавить замер"
             >
-              <Plus className="w-8 h-8" strokeWidth={2.2} />
+              <Plus className="w-[32px] h-[32px]" strokeWidth={2.2} />
             </button>
 
             <button
@@ -1512,10 +1394,10 @@ export default function App() {
 
               <div className="self-stretch pt-1 flex items-start justify-between gap-3">
                 <div className="flex-1 flex flex-col items-start gap-4">
-                  <h3 className="text-[36px] font-extrabold text-[#141A16] leading-[25px] tracking-tight">
+                  <h3 className="text-[36px] font-extrabold text-[#141A16] leading-[36px] tracking-tight">
                     Профиль
                   </h3>
-                  <p className="text-[18px] font-normal text-[#5A625D] leading-[25px]">
+                  <p className="text-[16px] font-medium text-[#5A625D] leading-[22px]">
                     {authMode === 'login'
                       ? 'Войдите, чтобы продолжить вести ваши измерения'
                       : 'Создайте аккаунт, чтобы начать сохранять ваши измерения'}
@@ -1527,7 +1409,7 @@ export default function App() {
                   className="w-10 h-10 rounded-full bg-white flex items-center justify-center text-[#141A16] shrink-0 active:scale-95 transition cursor-pointer shadow-2xs"
                   aria-label="Закрыть"
                 >
-                  <X className="w-5 h-5" strokeWidth={1.66} />
+                  <X className="w-5 h-5" strokeWidth={2} />
                 </button>
               </div>
 
@@ -1538,10 +1420,10 @@ export default function App() {
                     setAuthMode('login');
                     setAuthError('');
                   }}
-                  className={`py-2.5 rounded-full text-[16px] leading-6 font-semibold transition cursor-pointer ${
+                  className={`py-3 rounded-full text-[16px] font-bold transition cursor-pointer ${
                     authMode === 'login'
                       ? 'bg-[#141A16] text-white'
-                      : 'text-[#181C24] hover:text-[#141A16]'
+                      : 'text-[#141A16] hover:bg-black/5'
                   }`}
                 >
                   Вход
@@ -1552,10 +1434,10 @@ export default function App() {
                     setAuthMode('register');
                     setAuthError('');
                   }}
-                  className={`py-2.5 rounded-full text-[16px] leading-6 font-semibold transition cursor-pointer ${
+                  className={`py-3 rounded-full text-[16px] font-bold transition cursor-pointer ${
                     authMode === 'register'
                       ? 'bg-[#141A16] text-white'
-                      : 'text-[#181C24] hover:text-[#141A16]'
+                      : 'text-[#141A16] hover:bg-black/5'
                   }`}
                 >
                   Создать
@@ -1565,8 +1447,8 @@ export default function App() {
               {authMode === 'login' ? (
                 <div className="self-stretch flex flex-col items-start gap-5">
                   <div className="self-stretch flex flex-col items-start gap-3">
-                    <label className="self-stretch h-16 px-5 py-3 bg-white rounded-[22px] flex items-center gap-0.5 cursor-text shadow-2xs">
-                      <span className="flex-1 text-[18px] font-bold text-[#7A827D] text-left select-none">
+                    <label className="self-stretch h-[64px] px-5 py-3 bg-white rounded-[22px] flex items-center gap-0.5 cursor-text shadow-2xs">
+                      <span className="w-[85px] text-[16px] font-bold text-[#7A827D] text-left select-none shrink-0">
                         Логин
                       </span>
                       <input
@@ -1586,8 +1468,8 @@ export default function App() {
                       />
                     </label>
 
-                    <label className="self-stretch h-16 px-5 py-3 bg-white rounded-[22px] flex items-center gap-0.5 cursor-text shadow-2xs">
-                      <span className="flex-1 text-[18px] font-bold text-[#7A827D] text-left select-none">
+                    <label className="self-stretch h-[64px] px-5 py-3 bg-white rounded-[22px] flex items-center gap-0.5 cursor-text shadow-2xs">
+                      <span className="w-[85px] text-[16px] font-bold text-[#7A827D] text-left select-none shrink-0">
                         ПИН-код
                       </span>
                       <input
@@ -1611,7 +1493,7 @@ export default function App() {
                   </div>
 
                   {authError && (
-                    <p className="self-stretch text-center text-sm font-semibold text-red-600 -my-1">
+                    <p className="self-stretch text-center text-[14px] font-bold text-red-600 -my-1">
                       {authError}
                     </p>
                   )}
@@ -1620,7 +1502,7 @@ export default function App() {
                     type="button"
                     disabled={authLoading}
                     onClick={() => handleLoginSubmit()}
-                    className="self-stretch py-[18px] rounded-full bg-[#141A16] text-white text-[20px] leading-6 font-semibold flex items-center justify-center active:scale-[0.99] transition cursor-pointer shadow-md"
+                    className="self-stretch py-[18px] rounded-full bg-[#141A16] text-white text-[20px] font-bold flex items-center justify-center active:scale-[0.99] transition cursor-pointer shadow-md"
                   >
                     {authLoading ? 'Проверяем...' : 'Войти в дневник'}
                   </button>
@@ -1628,8 +1510,8 @@ export default function App() {
               ) : (
                 <div className="self-stretch flex flex-col items-start gap-5">
                   <div className="self-stretch flex flex-col items-start gap-3">
-                    <label className="self-stretch h-16 px-5 py-3 bg-white rounded-[22px] flex items-center gap-0.5 cursor-text shadow-2xs">
-                      <span className="flex-1 text-[18px] font-bold text-[#7A827D] text-left select-none">
+                    <label className="self-stretch h-[64px] px-5 py-3 bg-white rounded-[22px] flex items-center gap-0.5 cursor-text shadow-2xs">
+                      <span className="w-[85px] text-[16px] font-bold text-[#7A827D] text-left select-none shrink-0">
                         Ваше имя
                       </span>
                       <input
@@ -1646,8 +1528,8 @@ export default function App() {
                       />
                     </label>
 
-                    <label className="self-stretch h-16 px-5 py-3 bg-white rounded-[22px] flex items-center gap-0.5 cursor-text shadow-2xs">
-                      <span className="flex-1 text-[18px] font-bold text-[#7A827D] text-left select-none">
+                    <label className="self-stretch h-[64px] px-5 py-3 bg-white rounded-[22px] flex items-center gap-0.5 cursor-text shadow-2xs">
+                      <span className="w-[85px] text-[16px] font-bold text-[#7A827D] text-left select-none shrink-0">
                         Логин
                       </span>
                       <input
@@ -1667,8 +1549,8 @@ export default function App() {
                       />
                     </label>
 
-                    <label className="self-stretch h-16 px-5 py-3 bg-white rounded-[22px] flex items-center gap-0.5 cursor-text shadow-2xs">
-                      <span className="flex-1 text-[18px] font-bold text-[#7A827D] text-left select-none">
+                    <label className="self-stretch h-[64px] px-5 py-3 bg-white rounded-[22px] flex items-center gap-0.5 cursor-text shadow-2xs">
+                      <span className="w-[85px] text-[16px] font-bold text-[#7A827D] text-left select-none shrink-0">
                         ПИН-код
                       </span>
                       <input
@@ -1688,7 +1570,7 @@ export default function App() {
                   </div>
 
                   {authError && (
-                    <p className="self-stretch text-center text-sm font-semibold text-red-600 -my-1">
+                    <p className="self-stretch text-center text-[14px] font-bold text-red-600 -my-1">
                       {authError}
                     </p>
                   )}
@@ -1697,7 +1579,7 @@ export default function App() {
                     type="button"
                     disabled={authLoading}
                     onClick={handleRegisterSubmit}
-                    className="self-stretch py-[18px] rounded-full bg-[#141A16] text-white text-[20px] leading-6 font-semibold flex items-center justify-center active:scale-[0.99] transition cursor-pointer shadow-md"
+                    className="self-stretch py-[18px] rounded-full bg-[#141A16] text-white text-[20px] font-bold flex items-center justify-center active:scale-[0.99] transition cursor-pointer shadow-md"
                   >
                     {authLoading ? 'Создаем...' : 'Создать дневник'}
                   </button>
@@ -1707,7 +1589,7 @@ export default function App() {
           </div>
         )}
 
-        {/* ШТОРКА 1: Ввод нового замера (дизайн по концепции "Пожилые пользователи" из Figma) */}
+        {/* ШТОРКА ВВОДА НОВОГО ЗАМЕРА */}
         {activeSheet === 'add' && (
           <div
             className="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs flex items-end justify-center overscroll-none touch-none"
@@ -1735,7 +1617,7 @@ export default function App() {
                   onClick={() => setActiveSheet(null)}
                   className="w-10 h-10 rounded-full bg-white flex items-center justify-center text-[#141A16] cursor-pointer shadow-2xs"
                 >
-                  <X className="w-5 h-5" strokeWidth={1.66} />
+                  <X className="w-5 h-5" strokeWidth={2} />
                 </button>
               </div>
 
@@ -1763,7 +1645,7 @@ export default function App() {
                       placeholder="120"
                       value={sysInput}
                       onChange={handleSysChange}
-                      className="w-full text-center text-[40px] leading-none font-extrabold text-[#141A16] placeholder-[#A5C282] focus:outline-none bg-transparent select-text"
+                      className="w-full text-center text-[40px] tracking-tight leading-none font-extrabold text-[#141A16] placeholder-[#A5C282] focus:outline-none bg-transparent select-text"
                     />
                   </div>
 
@@ -1789,7 +1671,7 @@ export default function App() {
                       placeholder="82"
                       value={diaInput}
                       onChange={handleDiaChange}
-                      className="w-full text-center text-[40px] leading-none font-extrabold text-[#141A16] placeholder-[#A0C9D6] focus:outline-none bg-transparent select-text"
+                      className="w-full text-center text-[40px] tracking-tight leading-none font-extrabold text-[#141A16] placeholder-[#A0C9D6] focus:outline-none bg-transparent select-text"
                     />
                   </div>
 
@@ -1815,7 +1697,7 @@ export default function App() {
                       placeholder="64"
                       value={pulseInput}
                       onChange={handlePulseChange}
-                      className="w-full text-center text-[40px] leading-none font-extrabold text-[#141A16] placeholder-[#B0B7B2] focus:outline-none bg-transparent select-text"
+                      className="w-full text-center text-[40px] tracking-tight leading-none font-extrabold text-[#141A16] placeholder-[#B0B7B2] focus:outline-none bg-transparent select-text"
                     />
                   </div>
                 </div>
@@ -1847,7 +1729,7 @@ export default function App() {
                         <div
                           key={tag}
                           onClick={() => setNoteInput(active ? '' : tag)}
-                          className={`pl-5 pr-2.5 py-3 rounded-full text-[16px] font-semibold flex items-center gap-2 transition cursor-pointer ${
+                          className={`pl-5 pr-2.5 py-3 rounded-full text-[16px] font-bold flex items-center gap-2 transition cursor-pointer ${
                             active ? 'bg-[#141A16] text-white' : 'bg-[#7A827D] text-white'
                           }`}
                         >
@@ -1862,7 +1744,7 @@ export default function App() {
                                 : 'text-[#C8CFCB] hover:text-white'
                             }`}
                           >
-                            <X className="w-4 h-4" strokeWidth={2.5} />
+                            <X className="w-4 h-4" strokeWidth={3} />
                           </button>
                         </div>
                       );
@@ -1889,14 +1771,14 @@ export default function App() {
                         ? 'Комментарий (сохранится в подсказки)'
                         : 'Комментарий (напр. сахар 5.4)'
                     }
-                    className="w-full text-[16px] font-medium text-[#141A16] placeholder-[#8F9691] focus:outline-none bg-transparent select-text"
+                    className="w-full text-[16px] font-bold text-[#141A16] placeholder-[#8F9691] focus:outline-none bg-transparent select-text"
                   />
                 </div>
 
                 <button
                   type="button"
                   onClick={handleSaveRecord}
-                  className="w-full py-[18px] rounded-full bg-[#141A16] text-white text-[20px] font-semibold active:scale-[0.99] transition cursor-pointer mt-1 shadow-md"
+                  className="w-full py-[18px] rounded-full bg-[#141A16] text-white text-[20px] font-bold active:scale-[0.99] transition cursor-pointer mt-1 shadow-md"
                 >
                   Сохранить замер
                 </button>
@@ -1905,7 +1787,7 @@ export default function App() {
           </div>
         )}
 
-        {/* ШТОРКА 2: Управление базой и профилем */}
+        {/* ШТОРКА НАСТРОЕК */}
         {activeSheet === 'data' && (
           <div
             className="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs flex items-end justify-center overscroll-none"
@@ -1936,24 +1818,24 @@ export default function App() {
                 <button
                   type="button"
                   onClick={() => setActiveSheet(null)}
-                  className="w-10 h-10 rounded-full bg-white flex items-center justify-center text-[#141A16]"
+                  className="w-10 h-10 rounded-full bg-white flex items-center justify-center text-[#141A16] shadow-2xs cursor-pointer"
                 >
-                  <X className="w-5 h-5" />
+                  <X className="w-5 h-5" strokeWidth={2} />
                 </button>
               </div>
 
-              <div className="bg-white rounded-[26px] p-4 flex items-center justify-between">
+              <div className="bg-white rounded-[26px] p-4 flex items-center justify-between shadow-2xs">
                 <div>
                   <div className="text-sm font-bold text-[#141A16]">
                     {currentUser ? `Записей в облаке: ${rawCloudCount}` : `Записей в сессии: ${records.length}`}
                   </div>
-                  <div className="text-xs text-[#7A827D]">
+                  <div className="text-xs font-medium text-[#7A827D]">
                     Уникальных замеров: {records.length}
                   </div>
                 </div>
               </div>
 
-              <div className="bg-white rounded-[26px] p-4 space-y-3">
+              <div className="bg-white rounded-[26px] p-4 space-y-3 shadow-2xs">
                 <div className="text-base font-bold text-[#141A16]">
                   Импорт строк из текста
                 </div>
@@ -1962,14 +1844,14 @@ export default function App() {
                   value={importText}
                   onChange={(e) => setImportText(e.target.value)}
                   placeholder="[20.10.2026 08:40] 120/80 64"
-                  className="w-full bg-[#EFEFEF] rounded-[18px] p-3 text-sm text-[#141A16] focus:outline-none select-text"
+                  className="w-full bg-[#EFEFEF] rounded-[18px] p-3 text-sm font-medium text-[#141A16] focus:outline-none select-text"
                 />
                 <button
                   type="button"
                   onClick={handleImportSubmit}
-                  className="w-full py-3.5 rounded-full bg-[#141A16] text-white font-semibold text-sm flex items-center justify-center gap-2 cursor-pointer"
+                  className="w-full py-3.5 rounded-full bg-[#141A16] text-white font-bold text-[15px] flex items-center justify-center gap-2 cursor-pointer shadow-md"
                 >
-                  <Upload className="w-4 h-4" />
+                  <Upload className="w-4 h-4" strokeWidth={2.5} />
                   {currentUser ? 'Добавить в облако' : 'Добавить в демо-сессию'}
                 </button>
               </div>
@@ -1978,10 +1860,10 @@ export default function App() {
                 <button
                   type="button"
                   onClick={handleExportCSV}
-                  className="bg-white rounded-[24px] py-3.5 px-4 font-semibold text-sm text-[#141A16] flex items-center justify-center gap-2 cursor-pointer"
+                  className="bg-white shadow-2xs rounded-[24px] py-4 px-4 font-bold text-[15px] text-[#141A16] flex flex-col items-center justify-center gap-1.5 cursor-pointer"
                 >
-                  <Download className="w-4 h-4" />
-                  Скачать CSV
+                  <Download className="w-5 h-5" strokeWidth={2.5} />
+                  <span>Скачать CSV</span>
                 </button>
                 <button
                   type="button"
@@ -1993,10 +1875,10 @@ export default function App() {
                     }
                     setActiveSheet(null);
                   }}
-                  className="bg-[#D4ECF4] rounded-[24px] py-3.5 px-4 font-semibold text-sm text-[#141A16] flex items-center justify-center gap-2 cursor-pointer"
+                  className="bg-[#D4ECF4] rounded-[24px] py-4 px-4 font-bold text-[15px] text-[#141A16] flex flex-col items-center justify-center gap-1.5 cursor-pointer"
                 >
-                  <RefreshCw className="w-4 h-4" />
-                  Синхронизировать
+                  <RefreshCw className="w-5 h-5" strokeWidth={2.5} />
+                  <span>Синхронизация</span>
                 </button>
               </div>
 
@@ -2004,10 +1886,10 @@ export default function App() {
                 <button
                   type="button"
                   onClick={handleLogout}
-                  className="w-full py-3.5 rounded-[22px] bg-white text-red-600 text-sm font-semibold flex items-center justify-center gap-2 cursor-pointer"
+                  className="w-full py-3.5 rounded-[22px] bg-white text-red-600 text-[15px] font-bold flex items-center justify-center gap-2 cursor-pointer shadow-2xs"
                 >
-                  <LogOut className="w-4 h-4" />
-                  Выйти из профиля ({currentUser.display_name})
+                  <LogOut className="w-4 h-4" strokeWidth={2.5} />
+                  Выйти из профиля
                 </button>
               ) : (
                 <button
@@ -2017,9 +1899,9 @@ export default function App() {
                     setLoginPin('');
                     setActiveSheet('auth');
                   }}
-                  className="w-full py-3.5 rounded-[22px] bg-white text-[#141A16] text-sm font-semibold flex items-center justify-center gap-2 cursor-pointer"
+                  className="w-full py-3.5 rounded-[22px] bg-white text-[#141A16] text-[15px] font-bold flex items-center justify-center gap-2 cursor-pointer shadow-2xs"
                 >
-                  <User className="w-4 h-4" />
+                  <User className="w-4 h-4" strokeWidth={2.5} />
                   Войти или создать профиль
                 </button>
               )}
