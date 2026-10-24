@@ -1354,7 +1354,7 @@ export default function App() {
         )}
 
         <nav className="fixed bottom-5 left-0 right-0 z-30 flex justify-center px-5 pointer-events-none">
-          <div className="w-full max-w-[400px] h-[68px] bg-white rounded-[34px] px-12 flex items-center justify-between pointer-events-auto">
+          <div className="w-full max-w-[400px] h-[68px] bg-white rounded-[34px] px-12 flex items-center justify-between pointer-events-auto border border-black/5">
             <button
               onClick={() => setActiveTab('home')}
               className="active:scale-95 transition cursor-pointer flex items-center justify-center"
@@ -1400,12 +1400,12 @@ export default function App() {
             >
               <div className="w-12 h-1.5 bg-[#C8CFCB] rounded-full shrink-0" />
 
-              <div className="self-stretch pt-1 flex items-start justify-between gap-3">
-                <div className="flex-1 flex flex-col items-start gap-4">
-                  <h3 className="text-[36px] font-extrabold text-[#141A16] leading-[36px] tracking-tight">
+              <div className="self-stretch pt-1 flex items-start justify-between gap-3 mb-2">
+                <div className="flex-1 flex flex-col items-start gap-3">
+                  <h3 className="text-[38px] font-extrabold text-[#141A16] leading-none tracking-tight">
                     Профиль
                   </h3>
-                  <p className="text-[16px] font-medium text-[#5A625D] leading-[22px]">
+                  <p className="text-[15px] font-medium text-[#6E7671] leading-tight">
                     {authMode === 'login'
                       ? 'Войдите, чтобы продолжить вести ваши измерения'
                       : 'Создайте аккаунт, чтобы начать сохранять ваши измерения'}
@@ -1414,7 +1414,7 @@ export default function App() {
                 <button
                   type="button"
                   onClick={() => setActiveSheet(null)}
-                  className="w-10 h-10 rounded-full bg-white flex items-center justify-center text-[#141A16] shrink-0 active:scale-95 transition cursor-pointer"
+                  className="w-10 h-10 rounded-full bg-white flex items-center justify-center text-[#141A16] shrink-0 cursor-pointer mt-1"
                   aria-label="Закрыть"
                 >
                   <X className="w-5 h-5" strokeWidth={2} />
@@ -1453,10 +1453,10 @@ export default function App() {
               </div>
 
               {authMode === 'login' ? (
-                <div className="self-stretch flex flex-col items-start gap-5">
+                <div className="self-stretch flex flex-col items-start gap-4">
                   <div className="self-stretch flex flex-col items-start gap-3">
                     <label className="self-stretch h-[64px] px-5 py-3 bg-white rounded-[22px] flex items-center gap-0.5 cursor-text">
-                      <span className="w-[85px] text-[16px] font-bold text-[#7A827D] text-left select-none shrink-0">
+                      <span className="w-[85px] text-[16px] font-bold text-[#181C24] text-left select-none shrink-0">
                         Логин
                       </span>
                       <input
@@ -1477,7 +1477,7 @@ export default function App() {
                     </label>
 
                     <label className="self-stretch h-[64px] px-5 py-3 bg-white rounded-[22px] flex items-center gap-0.5 cursor-text">
-                      <span className="w-[85px] text-[16px] font-bold text-[#7A827D] text-left select-none shrink-0">
+                      <span className="w-[85px] text-[16px] font-bold text-[#181C24] text-left select-none shrink-0">
                         ПИН-код
                       </span>
                       <input
@@ -1501,7 +1501,7 @@ export default function App() {
                   </div>
 
                   {authError && (
-                    <p className="self-stretch text-center text-[14px] font-bold text-red-600 -my-1">
+                    <p className="self-stretch text-center text-[14px] font-bold text-red-600 -mt-1">
                       {authError}
                     </p>
                   )}
@@ -1510,16 +1510,16 @@ export default function App() {
                     type="button"
                     disabled={authLoading}
                     onClick={() => handleLoginSubmit()}
-                    className="self-stretch py-[18px] rounded-full bg-[#141A16] text-white text-[20px] font-bold flex items-center justify-center active:scale-[0.99] transition cursor-pointer"
+                    className="self-stretch py-[18px] rounded-full bg-[#141A16] text-white text-[20px] font-bold flex items-center justify-center active:scale-[0.99] transition cursor-pointer mt-1"
                   >
                     {authLoading ? 'Проверяем...' : 'Войти в дневник'}
                   </button>
                 </div>
               ) : (
-                <div className="self-stretch flex flex-col items-start gap-5">
+                <div className="self-stretch flex flex-col items-start gap-4">
                   <div className="self-stretch flex flex-col items-start gap-3">
                     <label className="self-stretch h-[64px] px-5 py-3 bg-white rounded-[22px] flex items-center gap-0.5 cursor-text">
-                      <span className="w-[85px] text-[16px] font-bold text-[#7A827D] text-left select-none shrink-0">
+                      <span className="w-[85px] text-[16px] font-bold text-[#181C24] text-left select-none shrink-0">
                         Ваше имя
                       </span>
                       <input
@@ -1537,7 +1537,7 @@ export default function App() {
                     </label>
 
                     <label className="self-stretch h-[64px] px-5 py-3 bg-white rounded-[22px] flex items-center gap-0.5 cursor-text">
-                      <span className="w-[85px] text-[16px] font-bold text-[#7A827D] text-left select-none shrink-0">
+                      <span className="w-[85px] text-[16px] font-bold text-[#181C24] text-left select-none shrink-0">
                         Логин
                       </span>
                       <input
@@ -1558,7 +1558,7 @@ export default function App() {
                     </label>
 
                     <label className="self-stretch h-[64px] px-5 py-3 bg-white rounded-[22px] flex items-center gap-0.5 cursor-text">
-                      <span className="w-[85px] text-[16px] font-bold text-[#7A827D] text-left select-none shrink-0">
+                      <span className="w-[85px] text-[16px] font-bold text-[#181C24] text-left select-none shrink-0">
                         ПИН-код
                       </span>
                       <input
@@ -1578,7 +1578,7 @@ export default function App() {
                   </div>
 
                   {authError && (
-                    <p className="self-stretch text-center text-[14px] font-bold text-red-600 -my-1">
+                    <p className="self-stretch text-center text-[14px] font-bold text-red-600 -mt-1">
                       {authError}
                     </p>
                   )}
@@ -1587,7 +1587,7 @@ export default function App() {
                     type="button"
                     disabled={authLoading}
                     onClick={handleRegisterSubmit}
-                    className="self-stretch py-[18px] rounded-full bg-[#141A16] text-white text-[20px] font-bold flex items-center justify-center active:scale-[0.99] transition cursor-pointer"
+                    className="self-stretch py-[18px] rounded-full bg-[#141A16] text-white text-[20px] font-bold flex items-center justify-center active:scale-[0.99] transition cursor-pointer mt-1"
                   >
                     {authLoading ? 'Создаем...' : 'Создать дневник'}
                   </button>
@@ -1616,20 +1616,20 @@ export default function App() {
             >
               <div className="w-12 h-1.5 bg-[#C8CFCB] rounded-full mx-auto mb-5" />
 
-              <div className="flex items-center justify-between mb-6">
-                <h3 className="text-[36px] font-extrabold text-[#141A16] leading-none tracking-tight">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-[38px] font-extrabold text-[#141A16] leading-none tracking-tight">
                   Новый замер
                 </h3>
                 <button
                   type="button"
                   onClick={() => setActiveSheet(null)}
-                  className="w-10 h-10 rounded-full bg-white flex items-center justify-center text-[#141A16] cursor-pointer"
+                  className="w-10 h-10 rounded-full bg-white flex items-center justify-center text-[#141A16] cursor-pointer shrink-0 mt-1"
                 >
                   <X className="w-5 h-5" strokeWidth={2} />
                 </button>
               </div>
 
-              <div role="presentation" className="space-y-5">
+              <div role="presentation" className="space-y-4">
                 <div className="grid grid-cols-3 gap-3">
                   <div className="bg-[#D8EEB9] rounded-[26px] h-[110px] flex flex-col justify-center items-center p-2 relative overflow-hidden">
                     <span className="block text-[15px] font-bold text-[#4A5D2F] mb-1">
@@ -1653,7 +1653,7 @@ export default function App() {
                       placeholder="120"
                       value={sysInput}
                       onChange={handleSysChange}
-                      className="w-full text-center text-[40px] tracking-tight leading-none font-extrabold text-[#141A16] placeholder-[#A5C282] focus:outline-none bg-transparent select-text"
+                      className="w-full text-center text-[40px] tracking-tight leading-none font-extrabold text-[#4A5D2F] placeholder-[#A5C282] opacity-80 focus:opacity-100 focus:outline-none bg-transparent select-text"
                     />
                   </div>
 
@@ -1679,7 +1679,7 @@ export default function App() {
                       placeholder="82"
                       value={diaInput}
                       onChange={handleDiaChange}
-                      className="w-full text-center text-[40px] tracking-tight leading-none font-extrabold text-[#141A16] placeholder-[#A0C9D6] focus:outline-none bg-transparent select-text"
+                      className="w-full text-center text-[40px] tracking-tight leading-none font-extrabold text-[#395C66] placeholder-[#A0C9D6] opacity-80 focus:opacity-100 focus:outline-none bg-transparent select-text"
                     />
                   </div>
 
@@ -1705,13 +1705,13 @@ export default function App() {
                       placeholder="64"
                       value={pulseInput}
                       onChange={handlePulseChange}
-                      className="w-full text-center text-[40px] tracking-tight leading-none font-extrabold text-[#141A16] placeholder-[#B0B7B2] focus:outline-none bg-transparent select-text"
+                      className="w-full text-center text-[40px] tracking-tight leading-none font-extrabold text-[#5A625D] placeholder-[#B0B7B2] opacity-80 focus:opacity-100 focus:outline-none bg-transparent select-text"
                     />
                   </div>
                 </div>
 
                 <div className="bg-white rounded-[26px] h-[72px] px-5 flex items-center justify-between">
-                  <span className="text-[18px] font-bold text-[#7A827D]">
+                  <span className="text-[18px] font-bold text-[#141A16]">
                     Время замера
                   </span>
                   <label className="relative inline-flex items-center gap-2 bg-[#F4F5F2] rounded-[20px] pl-4 pr-3 py-2.5 cursor-pointer">
@@ -1760,7 +1760,7 @@ export default function App() {
                   </div>
                 )}
 
-                <div className="bg-white rounded-[24px] px-5 py-4">
+                <div className="bg-white rounded-[24px] px-5 py-[18px]">
                   <input
                     type="text"
                     readOnly={!inputsUnlocked}
@@ -1779,14 +1779,14 @@ export default function App() {
                         ? 'Комментарий (сохранится в подсказки)'
                         : 'Комментарий (напр. сахар 5.4)'
                     }
-                    className="w-full text-[16px] font-bold text-[#141A16] placeholder-[#8F9691] focus:outline-none bg-transparent select-text"
+                    className="w-full text-[16px] font-bold text-[#141A16] placeholder-[#B0B7B2] focus:outline-none bg-transparent select-text"
                   />
                 </div>
 
                 <button
                   type="button"
                   onClick={handleSaveRecord}
-                  className="w-full py-[18px] rounded-full bg-[#141A16] text-white text-[20px] font-bold active:scale-[0.99] transition cursor-pointer mt-1"
+                  className="w-full py-[20px] rounded-[28px] bg-[#141A16] text-white text-[20px] font-bold active:scale-[0.99] transition cursor-pointer mt-1"
                 >
                   Сохранить замер
                 </button>
