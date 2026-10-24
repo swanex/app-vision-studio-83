@@ -83,7 +83,6 @@ const getStatusLabel = (sys, dia) => {
 };
 
 const generateDemoRecords = () => {
-  // Последняя цифра в массиве — количество дней назад, чтобы фильтры (7d, 30d, all) работали наглядно
   const base = [
     [122, 80, 64, '08:30', 'После пробуждения', 80],
     [125, 82, 66, '20:20', 'До сна', 75],
@@ -1129,13 +1128,13 @@ export default function App() {
                 {chartData.length > 0 && (
                   <>
                     <div
-                      className="absolute right-0 top-[8px] text-[11px] font-bold pointer-events-none z-10"
+                      className="absolute right-[2px] top-[12px] text-[11px] font-bold pointer-events-none z-10"
                       style={{ color: SYS_COLOR }}
                     >
                       Верхнее
                     </div>
                     <div
-                      className="absolute right-0 top-[130px] text-[11px] font-bold pointer-events-none z-10"
+                      className="absolute right-[2px] top-[100px] text-[11px] font-bold pointer-events-none z-10"
                       style={{ color: DIA_COLOR }}
                     >
                       Нижнее
