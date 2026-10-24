@@ -186,11 +186,10 @@ const MINUTES_OPTIONS = Array.from({ length: 60 }, (_, i) => String(i).padStart(
 
 // Компонент барабана для выбора времени
 const DrumPicker = ({ options, value, onChange }) => {
-  const ITEM_HEIGHT = 72; // Высота одного элемента (для пальцев пожилых)
+  const ITEM_HEIGHT = 72; // Высота одного элемента
   const scrollRef = useRef(null);
   const [activeIndex, setActiveIndex] = useState(options.indexOf(value));
 
-  // Устанавливаем изначальную позицию скролла
   useEffect(() => {
     if (scrollRef.current) {
       const idx = options.indexOf(value);
@@ -362,7 +361,6 @@ export default function App() {
   const [searchQuery, setSearchQuery] = useState('');
   const [activeSheet, setActiveSheet] = useState(null);
 
-  // Состояние для кастомного пикера времени
   const [timePickerOpen, setTimePickerOpen] = useState(false);
   const [tempTime, setTempTime] = useState('09:00');
 
@@ -1952,19 +1950,19 @@ export default function App() {
                 transform: `translateY(${dragOffset}px)`,
                 transition: dragOffset === 0 ? 'transform 0.2s ease-out' : 'none'
               }}
-              className="w-full max-w-[440px] max-h-[90vh] overflow-y-auto bg-[#EFEFEF] rounded-t-[36px] p-6 pb-8 space-y-4"
+              className="w-full max-w-[440px] max-h-[90vh] overflow-y-auto bg-[#EFEFEF] rounded-t-[36px] p-6 pb-8 space-y-3"
               onClick={(e) => e.stopPropagation()}
             >
-              <div className="w-12 h-1.5 bg-[#C8CFCB] rounded-full mx-auto mb-2" />
+              <div className="w-12 h-1.5 bg-[#C8CFCB] rounded-full mx-auto mb-1" />
 
-              <div className="flex items-start justify-between mb-2">
+              <div className="flex items-start justify-between mb-1">
                 <div className="flex flex-col gap-1">
                   <h3 className="text-[38px] font-extrabold text-[#141A16] leading-none tracking-tight">
                     Настройки
                   </h3>
-                  <div className="text-[15px] font-medium text-[#6E7671] leading-tight pr-4">
+                  <div className="text-[18px] font-normal text-[#5A625D] leading-tight pr-4 mt-1">
                     {currentUser
-                      ? `Профиль: @${currentUser.username}`
+                      ? `Профиль · @${currentUser.username}`
                       : 'Демо-режим · без облака'}
                   </div>
                 </div>
@@ -1977,53 +1975,49 @@ export default function App() {
                 </button>
               </div>
 
-              <div className="grid grid-cols-2 gap-3.5">
-                <div className="bg-white rounded-[26px] p-5 flex flex-col justify-center">
-                  <div className="text-[13px] font-bold text-[#7A827D] mb-1">
+              <div className="grid grid-cols-2 gap-2.5">
+                <div className="bg-white rounded-[26px] p-4 flex flex-col justify-center">
+                  <div className="text-[12px] font-semibold text-[#7A827D] mb-1">
                     Записей в сессии
                   </div>
-                  <div className="text-[24px] font-black text-[#141A16] leading-none">
+                  <div className="text-[20px] font-bold text-[#141A16] leading-none">
                     {records.length}
                   </div>
                 </div>
-                <div className="bg-white rounded-[26px] p-5 flex flex-col justify-center">
-                  <div className="text-[13px] font-bold text-[#7A827D] mb-1">
+                <div className="bg-white rounded-[26px] p-4 flex flex-col justify-center">
+                  <div className="text-[12px] font-semibold text-[#7A827D] mb-1">
                     Уникальных замеров
                   </div>
-                  <div className="text-[24px] font-black text-[#141A16] leading-none">
+                  <div className="text-[20px] font-bold text-[#141A16] leading-none">
                     {records.length}
                   </div>
                 </div>
               </div>
 
-              <div className="bg-white rounded-[26px] p-5 space-y-4">
-                <div className="text-[22px] font-bold text-[#141A16] leading-tight">
+              <div className="bg-white rounded-[26px] p-4 space-y-3">
+                <div className="text-[20px] font-bold text-[#141A16] leading-tight">
                   Импорт измерений
                 </div>
-                <textarea
-                  rows={3}
-                  value={importText}
-                  onChange={(e) => setImportText(e.target.value)}
-                  placeholder="[20.10.2026 08:40] 120/80 64"
-                  className="w-full bg-[#F4F5F2] rounded-[20px] p-4 text-[16px] font-medium text-[#141A16] focus:outline-none select-text resize-none placeholder-[#8F9691]"
-                />
+                <div className="w-full bg-[#F4F5F2] rounded-[18px] p-3 text-[12px] font-medium text-[#141A16] opacity-50">
+                  [20.10.2026 08:40] 120/80 64
+                </div>
                 <button
                   type="button"
                   onClick={handleImportSubmit}
-                  className="w-full py-4 rounded-full border-2 border-[#141A16] bg-transparent text-[#141A16] font-bold text-[18px] flex items-center justify-center gap-2 cursor-pointer active:scale-[0.99] transition"
+                  className="w-full h-[50px] rounded-full border border-black bg-transparent text-[#141A16] font-bold text-[15px] flex items-center justify-center gap-2 cursor-pointer active:scale-[0.99] transition"
                 >
-                  <Upload className="w-5 h-5" strokeWidth={2.5} />
+                  <Upload className="w-4 h-4" strokeWidth={2} />
                   {currentUser ? 'Добавить в облако' : 'Добавить в демо-сессию'}
                 </button>
               </div>
 
-              <div className="grid grid-cols-2 gap-3.5">
+              <div className="grid grid-cols-2 gap-3 pt-1">
                 <button
                   type="button"
                   onClick={handleExportCSV}
-                  className="bg-white rounded-[24px] py-6 px-4 font-bold text-[16px] text-[#141A16] flex flex-col items-center justify-center gap-2 cursor-pointer active:scale-95 transition"
+                  className="bg-white rounded-[24px] py-3 px-4 font-bold text-[15px] text-[#141A16] flex flex-col items-center justify-center gap-1 cursor-pointer active:scale-95 transition"
                 >
-                  <Download className="w-6 h-6" strokeWidth={2.5} />
+                  <Download className="w-5 h-5" strokeWidth={2} />
                   <span>Скачать CSV</span>
                 </button>
                 <button
@@ -2036,36 +2030,38 @@ export default function App() {
                     }
                     setActiveSheet(null);
                   }}
-                  className="bg-[#E4E4E4] rounded-[24px] py-6 px-4 font-bold text-[16px] text-[#141A16] flex flex-col items-center justify-center gap-2 cursor-pointer active:scale-95 transition"
+                  className="bg-[#E4E4E4] rounded-[24px] py-3 px-4 font-bold text-[15px] text-[#141A16] flex flex-col items-center justify-center gap-1 cursor-pointer active:scale-95 transition"
                 >
-                  <RefreshCw className="w-6 h-6" strokeWidth={2.5} />
+                  <RefreshCw className="w-5 h-5" strokeWidth={2} />
                   <span>Синхронизация</span>
                 </button>
               </div>
 
-              {currentUser ? (
-                <button
-                  type="button"
-                  onClick={handleLogout}
-                  className="w-full py-5 rounded-[22px] bg-white text-red-600 text-[18px] font-bold flex items-center justify-center gap-2 cursor-pointer mt-1"
-                >
-                  <LogOut className="w-5 h-5" strokeWidth={2.5} />
-                  Выйти из профиля
-                </button>
-              ) : (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setAuthError('');
-                    setLoginPin('');
-                    setActiveSheet('auth');
-                  }}
-                  className="w-full py-5 rounded-[24px] bg-[#141A16] text-white text-[18px] font-bold flex items-center justify-center gap-2.5 cursor-pointer mt-1 active:scale-[0.99] transition"
-                >
-                  <User className="w-5 h-5" strokeWidth={2.5} />
-                  Войти или создать профиль
-                </button>
-              )}
+              <div className="pt-1">
+                {currentUser ? (
+                  <button
+                    type="button"
+                    onClick={handleLogout}
+                    className="w-full py-3.5 rounded-[22px] bg-[#141A16] text-red-400 text-[15px] font-bold flex items-center justify-center gap-2 cursor-pointer active:scale-[0.99] transition"
+                  >
+                    <LogOut className="w-4 h-4" strokeWidth={2} />
+                    Выйти из профиля
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setAuthError('');
+                      setLoginPin('');
+                      setActiveSheet('auth');
+                    }}
+                    className="w-full py-3.5 rounded-[22px] bg-[#141A16] text-white text-[15px] font-bold flex items-center justify-center gap-1.5 cursor-pointer active:scale-[0.99] transition"
+                  >
+                    <User className="w-4 h-4" strokeWidth={2} />
+                    Войти или создать профиль
+                  </button>
+                )}
+              </div>
             </div>
           </div>
         )}
