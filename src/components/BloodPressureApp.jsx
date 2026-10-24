@@ -180,6 +180,61 @@ const HistoryNavIcon = ({ solid }) => solid ? (
   </svg>
 );
 
+// Генерация опций для часов и минут
+const HOURS_OPTIONS = Array.from({ length: 24 }, (_, i) => String(i).padStart(2, '0'));
+const MINUTES_OPTIONS = Array.from({ length: 60 }, (_, i) => String(i).padStart(2, '0'));
+
+// Компонент барабана для выбора времени
+const DrumPicker = ({ options, value, onChange }) => {
+  const ITEM_HEIGHT = 72; // Высота одного элемента (для пальцев пожилых)
+  const scrollRef = useRef(null);
+  const [activeIndex, setActiveIndex] = useState(options.indexOf(value));
+
+  // Устанавливаем изначальную позицию скролла
+  useEffect(() => {
+    if (scrollRef.current) {
+      const idx = options.indexOf(value);
+      if (idx !== -1) {
+        scrollRef.current.scrollTop = idx * ITEM_HEIGHT;
+      }
+    }
+  }, []);
+
+  const handleScroll = (e) => {
+    const top = e.target.scrollTop;
+    const index = Math.min(options.length - 1, Math.max(0, Math.round(top / ITEM_HEIGHT)));
+    if (index !== activeIndex) {
+      setActiveIndex(index);
+      onChange(options[index]);
+    }
+  };
+
+  return (
+    <div
+      ref={scrollRef}
+      onScroll={handleScroll}
+      className="w-[145px] h-[360px] overflow-y-auto snap-y snap-mandatory relative z-10 hide-scrollbar"
+    >
+      <div style={{ height: ITEM_HEIGHT * 2 }} />
+      {options.map((opt, i) => (
+        <div
+          key={opt}
+          className="snap-center flex items-center justify-center transition-all duration-200"
+          style={{
+            height: ITEM_HEIGHT,
+            fontSize: i === activeIndex ? '44px' : '32px',
+            fontWeight: i === activeIndex ? '800' : '600',
+            color: i === activeIndex ? '#141A16' : '#A3ABA6',
+          }}
+        >
+          {opt}
+        </div>
+      ))}
+      <div style={{ height: ITEM_HEIGHT * 2 }} />
+    </div>
+  );
+};
+
 const deduplicateRecords = (arr) => {
   const seen = new Map();
   arr.forEach((item) => {
@@ -260,61 +315,6 @@ const DEFAULT_ROMA_AVATAR_SVG = `data:image/svg+xml;utf8,${encodeURIComponent(`
   <path d="M51 67 Q60 72 69 67" fill="none" stroke="#8c584c" stroke-width="2.5" stroke-linecap="round"/>
 </svg>
 `)}`;
-
-// Генерация опций для часов и минут
-const HOURS_OPTIONS = Array.from({ length: 24 }, (_, i) => String(i).padStart(2, '0'));
-const MINUTES_OPTIONS = Array.from({ length: 60 }, (_, i) => String(i).padStart(2, '0'));
-
-// Компонент барабана для выбора времени
-const DrumPicker = ({ options, value, onChange }) => {
-  const ITEM_HEIGHT = 72; // Высота одного элемента (для пальцев пожилых)
-  const scrollRef = useRef(null);
-  const [activeIndex, setActiveIndex] = useState(options.indexOf(value));
-
-  // Устанавливаем изначальную позицию скролла
-  useEffect(() => {
-    if (scrollRef.current) {
-      const idx = options.indexOf(value);
-      if (idx !== -1) {
-        scrollRef.current.scrollTop = idx * ITEM_HEIGHT;
-      }
-    }
-  }, []);
-
-  const handleScroll = (e) => {
-    const top = e.target.scrollTop;
-    const index = Math.min(options.length - 1, Math.max(0, Math.round(top / ITEM_HEIGHT)));
-    if (index !== activeIndex) {
-      setActiveIndex(index);
-      onChange(options[index]);
-    }
-  };
-
-  return (
-    <div
-      ref={scrollRef}
-      onScroll={handleScroll}
-      className="w-[145px] h-[360px] overflow-y-auto snap-y snap-mandatory relative z-10 hide-scrollbar"
-    >
-      <div style={{ height: ITEM_HEIGHT * 2 }} />
-      {options.map((opt, i) => (
-        <div
-          key={opt}
-          className="snap-center flex items-center justify-center transition-all duration-200"
-          style={{
-            height: ITEM_HEIGHT,
-            fontSize: i === activeIndex ? '44px' : '32px',
-            fontWeight: i === activeIndex ? '800' : '600',
-            color: i === activeIndex ? '#141A16' : '#A3ABA6',
-          }}
-        >
-          {opt}
-        </div>
-      ))}
-      <div style={{ height: ITEM_HEIGHT * 2 }} />
-    </div>
-  );
-};
 
 export default function App() {
   const [currentUser, setCurrentUser] = useState(() => {
@@ -1800,7 +1800,7 @@ export default function App() {
                           key={tag}
                           onClick={() => setNoteInput(active ? '' : tag)}
                           className={`pl-5 pr-2.5 py-3 rounded-full text-[16px] font-bold flex items-center gap-2 transition cursor-pointer ${
-                            active ? 'bg-[#141A16] text-white' : 'bg-[#7A827D] text-white'
+                            active ? 'bg-[#7A827D] text-white' : 'bg-[#7A827D] text-white'
                           }`}
                         >
                           <span>{tag}</span>
@@ -1965,7 +1965,7 @@ export default function App() {
                   <div className="text-[15px] font-medium text-[#6E7671] leading-tight pr-4">
                     {currentUser
                       ? `Профиль: @${currentUser.username}`
-                      : 'Демо-режим · данные не записываются в облако'}
+                      : 'Демо-режим · без облака'}
                   </div>
                 </div>
                 <button
@@ -1977,13 +1977,21 @@ export default function App() {
                 </button>
               </div>
 
-              <div className="bg-white rounded-[26px] p-5 flex items-center justify-between">
-                <div>
-                  <div className="text-[18px] font-bold text-[#141A16] leading-tight">
-                    {currentUser ? `Записей в облаке: ${rawCloudCount}` : `Записей в сессии: ${records.length}`}
+              <div className="grid grid-cols-2 gap-3.5">
+                <div className="bg-white rounded-[26px] p-5 flex flex-col justify-center">
+                  <div className="text-[13px] font-bold text-[#7A827D] mb-1">
+                    Записей в сессии
                   </div>
-                  <div className="text-[15px] font-medium text-[#7A827D] mt-0.5">
-                    Уникальных замеров: {records.length}
+                  <div className="text-[24px] font-black text-[#141A16] leading-none">
+                    {records.length}
+                  </div>
+                </div>
+                <div className="bg-white rounded-[26px] p-5 flex flex-col justify-center">
+                  <div className="text-[13px] font-bold text-[#7A827D] mb-1">
+                    Уникальных замеров
+                  </div>
+                  <div className="text-[24px] font-black text-[#141A16] leading-none">
+                    {records.length}
                   </div>
                 </div>
               </div>
