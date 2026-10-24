@@ -951,7 +951,7 @@ export default function App() {
                   <button
                     onClick={() => avatarInputRef.current?.click()}
                     title="Нажмите, чтобы сменить аватар"
-                    className="w-[50px] h-[50px] rounded-full overflow-hidden bg-[#141A16] shrink-0 relative group cursor-pointer shadow-xs flex items-center justify-center text-white"
+                    className="w-[50px] h-[50px] rounded-full overflow-hidden bg-[#141A16] shrink-0 relative group cursor-pointer flex items-center justify-center text-white"
                   >
                     {resolvedAvatar ? (
                       <img
@@ -986,7 +986,7 @@ export default function App() {
                   }}
                   className="flex items-center gap-3 min-w-0 text-left active:opacity-80 transition cursor-pointer"
                 >
-                  <div className="w-[50px] h-[50px] rounded-full bg-[#141A16] shrink-0 flex items-center justify-center text-white shadow-xs">
+                  <div className="w-[50px] h-[50px] rounded-full bg-[#141A16] shrink-0 flex items-center justify-center text-white">
                     <User className="w-5 h-5 text-white" strokeWidth={2} />
                   </div>
                   <div className="min-w-0">
@@ -1020,7 +1020,7 @@ export default function App() {
                     ? 'Синхронизация...'
                     : 'Ошибка подключения'
                 }
-                className="w-11 h-11 rounded-full bg-white flex items-center justify-center active:scale-95 transition cursor-pointer shadow-2xs text-[#141A16]"
+                className="w-11 h-11 rounded-full bg-white flex items-center justify-center active:scale-95 transition cursor-pointer text-[#141A16]"
                 aria-label="Статус облачной синхронизации"
               >
                 {cloudStatus === 'syncing' ? (
@@ -1035,7 +1035,7 @@ export default function App() {
                   setActiveTab('history');
                   setSearchOpen((prev) => !prev);
                 }}
-                className="w-11 h-11 rounded-full bg-white flex items-center justify-center text-[#141A16] active:scale-95 transition cursor-pointer shadow-2xs"
+                className="w-11 h-11 rounded-full bg-white flex items-center justify-center text-[#141A16] active:scale-95 transition cursor-pointer"
                 aria-label="Поиск"
               >
                 <Search className="w-5 h-5" />
@@ -1043,7 +1043,7 @@ export default function App() {
 
               <button
                 onClick={() => setActiveSheet('data')}
-                className="w-11 h-11 rounded-full bg-white flex items-center justify-center text-[#141A16] active:scale-95 transition cursor-pointer shadow-2xs"
+                className="w-11 h-11 rounded-full bg-white flex items-center justify-center text-[#141A16] active:scale-95 transition cursor-pointer"
                 aria-label="Настройки"
               >
                 <Settings className="w-5 h-5" />
@@ -1062,7 +1062,7 @@ export default function App() {
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     placeholder="Найти: кофе, трени, сахар, утро..."
-                    className="w-full bg-white rounded-[22px] px-5 py-3.5 text-base text-[#141A16] placeholder-[#858D88] focus:outline-none shadow-2xs select-text"
+                    className="w-full bg-white rounded-[22px] px-5 py-3.5 text-base text-[#141A16] placeholder-[#858D88] focus:outline-none select-text"
                   />
                 </div>
               )}
@@ -1086,7 +1086,7 @@ export default function App() {
 
         {activeTab === 'home' && (
           <main className="space-y-4">
-            <div className="bg-white rounded-[30px] p-1.5 grid grid-cols-3 shadow-2xs">
+            <div className="bg-white rounded-[30px] p-1.5 grid grid-cols-3">
               {[
                 { id: '7d', label: 'Неделя' },
                 { id: '30d', label: 'Месяц' },
@@ -1106,7 +1106,7 @@ export default function App() {
               ))}
             </div>
 
-            <section className="bg-white rounded-[32px] p-5 shadow-2xs">
+            <section className="bg-white rounded-[32px] p-5">
               <div className="flex items-center justify-between gap-2 mb-1.5">
                 <span className="text-[56px] font-black tracking-tighter leading-none text-[#141A16]">
                   {stats.avgSys ? `${stats.avgSys}/${stats.avgDia}` : '–/–'}
@@ -1176,7 +1176,7 @@ export default function App() {
                           if (!active || !payload || !payload.length) return null;
                           const item = payload[0].payload;
                           return (
-                            <div className="bg-[#141A16] text-white rounded-[20px] px-4 py-3 shadow-lg">
+                            <div className="bg-[#141A16] text-white rounded-[20px] px-4 py-3">
                               <div className="text-xs text-[#A3ABA6] mb-0.5">
                                 {formatHumanDate(item.date)} · {item.time}
                               </div>
@@ -1276,7 +1276,7 @@ export default function App() {
                     <br />
                     замер
                   </div>
-                  <div className="w-[44px] h-[44px] rounded-full bg-white flex items-center justify-center text-[#141A16] shrink-0 shadow-sm">
+                  <div className="w-[44px] h-[44px] rounded-full bg-white flex items-center justify-center text-[#141A16] shrink-0">
                     <Activity className="w-[22px] h-[22px]" strokeWidth={2.2} />
                   </div>
                 </div>
@@ -1297,7 +1297,7 @@ export default function App() {
                     <br />
                     пульс
                   </div>
-                  <div className="w-[44px] h-[44px] rounded-full bg-white flex items-center justify-center text-[#141A16] shrink-0 shadow-sm">
+                  <div className="w-[44px] h-[44px] rounded-full bg-white flex items-center justify-center text-[#141A16] shrink-0">
                     <Heart className="w-[22px] h-[22px]" strokeWidth={2.2} />
                   </div>
                 </div>
@@ -1313,7 +1313,7 @@ export default function App() {
               return (
                 <div
                   key={item.id}
-                  className="bg-white rounded-[26px] px-5 py-4 flex items-center justify-between gap-3 shadow-2xs"
+                  className="bg-white rounded-[26px] px-5 py-4 flex items-center justify-between gap-3"
                 >
                   <div className="min-w-0 flex-1">
                     <div className="flex items-baseline gap-2.5">
@@ -1354,7 +1354,7 @@ export default function App() {
         )}
 
         <nav className="fixed bottom-5 left-0 right-0 z-30 flex justify-center px-5 pointer-events-none">
-          <div className="w-full max-w-[400px] h-[68px] bg-white rounded-[34px] px-12 shadow-lg flex items-center justify-between pointer-events-auto">
+          <div className="w-full max-w-[400px] h-[68px] bg-white rounded-[34px] px-12 flex items-center justify-between pointer-events-auto">
             <button
               onClick={() => setActiveTab('home')}
               className="active:scale-95 transition cursor-pointer flex items-center justify-center"
@@ -1365,7 +1365,7 @@ export default function App() {
 
             <button
               onClick={() => setActiveSheet('add')}
-              className="w-[64px] h-[64px] -mt-6 rounded-full bg-[#141A16] text-white flex items-center justify-center shadow-md active:scale-95 transition cursor-pointer"
+              className="w-[64px] h-[64px] -mt-6 rounded-full bg-[#141A16] text-white flex items-center justify-center active:scale-95 transition cursor-pointer"
               aria-label="Добавить замер"
             >
               <Plus className="w-[32px] h-[32px]" strokeWidth={2.2} />
@@ -1414,7 +1414,7 @@ export default function App() {
                 <button
                   type="button"
                   onClick={() => setActiveSheet(null)}
-                  className="w-10 h-10 rounded-full bg-white flex items-center justify-center text-[#141A16] shrink-0 active:scale-95 transition cursor-pointer shadow-2xs"
+                  className="w-10 h-10 rounded-full bg-white flex items-center justify-center text-[#141A16] shrink-0 active:scale-95 transition cursor-pointer"
                   aria-label="Закрыть"
                 >
                   <X className="w-5 h-5" strokeWidth={2} />
@@ -1455,7 +1455,7 @@ export default function App() {
               {authMode === 'login' ? (
                 <div className="self-stretch flex flex-col items-start gap-5">
                   <div className="self-stretch flex flex-col items-start gap-3">
-                    <label className="self-stretch h-[64px] px-5 py-3 bg-white rounded-[22px] flex items-center gap-0.5 cursor-text shadow-2xs">
+                    <label className="self-stretch h-[64px] px-5 py-3 bg-white rounded-[22px] flex items-center gap-0.5 cursor-text">
                       <span className="w-[85px] text-[16px] font-bold text-[#7A827D] text-left select-none shrink-0">
                         Логин
                       </span>
@@ -1476,7 +1476,7 @@ export default function App() {
                       />
                     </label>
 
-                    <label className="self-stretch h-[64px] px-5 py-3 bg-white rounded-[22px] flex items-center gap-0.5 cursor-text shadow-2xs">
+                    <label className="self-stretch h-[64px] px-5 py-3 bg-white rounded-[22px] flex items-center gap-0.5 cursor-text">
                       <span className="w-[85px] text-[16px] font-bold text-[#7A827D] text-left select-none shrink-0">
                         ПИН-код
                       </span>
@@ -1510,7 +1510,7 @@ export default function App() {
                     type="button"
                     disabled={authLoading}
                     onClick={() => handleLoginSubmit()}
-                    className="self-stretch py-[18px] rounded-full bg-[#141A16] text-white text-[20px] font-bold flex items-center justify-center active:scale-[0.99] transition cursor-pointer shadow-md"
+                    className="self-stretch py-[18px] rounded-full bg-[#141A16] text-white text-[20px] font-bold flex items-center justify-center active:scale-[0.99] transition cursor-pointer"
                   >
                     {authLoading ? 'Проверяем...' : 'Войти в дневник'}
                   </button>
@@ -1518,7 +1518,7 @@ export default function App() {
               ) : (
                 <div className="self-stretch flex flex-col items-start gap-5">
                   <div className="self-stretch flex flex-col items-start gap-3">
-                    <label className="self-stretch h-[64px] px-5 py-3 bg-white rounded-[22px] flex items-center gap-0.5 cursor-text shadow-2xs">
+                    <label className="self-stretch h-[64px] px-5 py-3 bg-white rounded-[22px] flex items-center gap-0.5 cursor-text">
                       <span className="w-[85px] text-[16px] font-bold text-[#7A827D] text-left select-none shrink-0">
                         Ваше имя
                       </span>
@@ -1536,7 +1536,7 @@ export default function App() {
                       />
                     </label>
 
-                    <label className="self-stretch h-[64px] px-5 py-3 bg-white rounded-[22px] flex items-center gap-0.5 cursor-text shadow-2xs">
+                    <label className="self-stretch h-[64px] px-5 py-3 bg-white rounded-[22px] flex items-center gap-0.5 cursor-text">
                       <span className="w-[85px] text-[16px] font-bold text-[#7A827D] text-left select-none shrink-0">
                         Логин
                       </span>
@@ -1557,7 +1557,7 @@ export default function App() {
                       />
                     </label>
 
-                    <label className="self-stretch h-[64px] px-5 py-3 bg-white rounded-[22px] flex items-center gap-0.5 cursor-text shadow-2xs">
+                    <label className="self-stretch h-[64px] px-5 py-3 bg-white rounded-[22px] flex items-center gap-0.5 cursor-text">
                       <span className="w-[85px] text-[16px] font-bold text-[#7A827D] text-left select-none shrink-0">
                         ПИН-код
                       </span>
@@ -1587,7 +1587,7 @@ export default function App() {
                     type="button"
                     disabled={authLoading}
                     onClick={handleRegisterSubmit}
-                    className="self-stretch py-[18px] rounded-full bg-[#141A16] text-white text-[20px] font-bold flex items-center justify-center active:scale-[0.99] transition cursor-pointer shadow-md"
+                    className="self-stretch py-[18px] rounded-full bg-[#141A16] text-white text-[20px] font-bold flex items-center justify-center active:scale-[0.99] transition cursor-pointer"
                   >
                     {authLoading ? 'Создаем...' : 'Создать дневник'}
                   </button>
@@ -1623,7 +1623,7 @@ export default function App() {
                 <button
                   type="button"
                   onClick={() => setActiveSheet(null)}
-                  className="w-10 h-10 rounded-full bg-white flex items-center justify-center text-[#141A16] cursor-pointer shadow-2xs"
+                  className="w-10 h-10 rounded-full bg-white flex items-center justify-center text-[#141A16] cursor-pointer"
                 >
                   <X className="w-5 h-5" strokeWidth={2} />
                 </button>
@@ -1710,7 +1710,7 @@ export default function App() {
                   </div>
                 </div>
 
-                <div className="bg-white rounded-[26px] h-[72px] px-5 flex items-center justify-between shadow-2xs">
+                <div className="bg-white rounded-[26px] h-[72px] px-5 flex items-center justify-between">
                   <span className="text-[18px] font-bold text-[#7A827D]">
                     Время замера
                   </span>
@@ -1760,7 +1760,7 @@ export default function App() {
                   </div>
                 )}
 
-                <div className="bg-white rounded-[24px] px-5 py-4 shadow-2xs">
+                <div className="bg-white rounded-[24px] px-5 py-4">
                   <input
                     type="text"
                     readOnly={!inputsUnlocked}
@@ -1786,7 +1786,7 @@ export default function App() {
                 <button
                   type="button"
                   onClick={handleSaveRecord}
-                  className="w-full py-[18px] rounded-full bg-[#141A16] text-white text-[20px] font-bold active:scale-[0.99] transition cursor-pointer mt-1 shadow-md"
+                  className="w-full py-[18px] rounded-full bg-[#141A16] text-white text-[20px] font-bold active:scale-[0.99] transition cursor-pointer mt-1"
                 >
                   Сохранить замер
                 </button>
@@ -1814,63 +1814,65 @@ export default function App() {
             >
               <div className="w-12 h-1.5 bg-[#C8CFCB] rounded-full mx-auto mb-2" />
 
-              <div className="flex items-center justify-between">
-                <div>
-                  <h3 className="text-[26px] font-bold text-[#141A16] leading-tight">
+              <div className="flex items-start justify-between mb-2">
+                <div className="flex flex-col gap-1">
+                  <h3 className="text-[38px] font-extrabold text-[#141A16] leading-none tracking-tight">
                     Настройки
                   </h3>
-                  <div className="text-xs text-[#6E7671] font-medium">
-                    {currentUser ? `Профиль: @${currentUser.username}` : 'Демо-режим (в памяти браузера)'}
+                  <div className="text-[15px] font-medium text-[#6E7671] leading-tight pr-4">
+                    {currentUser
+                      ? `Профиль: @${currentUser.username}`
+                      : 'Демо-режим · данные не записываются в облако'}
                   </div>
                 </div>
                 <button
                   type="button"
                   onClick={() => setActiveSheet(null)}
-                  className="w-10 h-10 rounded-full bg-white flex items-center justify-center text-[#141A16] shadow-2xs cursor-pointer"
+                  className="w-10 h-10 rounded-full bg-white flex items-center justify-center text-[#141A16] cursor-pointer shrink-0 mt-1"
                 >
                   <X className="w-5 h-5" strokeWidth={2} />
                 </button>
               </div>
 
-              <div className="bg-white rounded-[26px] p-4 flex items-center justify-between shadow-2xs">
+              <div className="bg-white rounded-[26px] p-5 flex items-center justify-between">
                 <div>
-                  <div className="text-sm font-bold text-[#141A16]">
+                  <div className="text-[18px] font-bold text-[#141A16] leading-tight">
                     {currentUser ? `Записей в облаке: ${rawCloudCount}` : `Записей в сессии: ${records.length}`}
                   </div>
-                  <div className="text-xs font-medium text-[#7A827D]">
+                  <div className="text-[15px] font-medium text-[#7A827D] mt-0.5">
                     Уникальных замеров: {records.length}
                   </div>
                 </div>
               </div>
 
-              <div className="bg-white rounded-[26px] p-4 space-y-3 shadow-2xs">
-                <div className="text-base font-bold text-[#141A16]">
-                  Импорт строк из текста
+              <div className="bg-white rounded-[26px] p-5 space-y-4">
+                <div className="text-[22px] font-bold text-[#141A16] leading-tight">
+                  Импорт измерений
                 </div>
                 <textarea
                   rows={3}
                   value={importText}
                   onChange={(e) => setImportText(e.target.value)}
                   placeholder="[20.10.2026 08:40] 120/80 64"
-                  className="w-full bg-[#EFEFEF] rounded-[18px] p-3 text-sm font-medium text-[#141A16] focus:outline-none select-text"
+                  className="w-full bg-[#F4F5F2] rounded-[20px] p-4 text-[16px] font-medium text-[#141A16] focus:outline-none select-text resize-none placeholder-[#8F9691]"
                 />
                 <button
                   type="button"
                   onClick={handleImportSubmit}
-                  className="w-full py-3.5 rounded-full bg-[#141A16] text-white font-bold text-[15px] flex items-center justify-center gap-2 cursor-pointer shadow-md"
+                  className="w-full py-4 rounded-full border-2 border-[#141A16] bg-transparent text-[#141A16] font-bold text-[18px] flex items-center justify-center gap-2 cursor-pointer active:scale-[0.99] transition"
                 >
-                  <Upload className="w-4 h-4" strokeWidth={2.5} />
+                  <Upload className="w-5 h-5" strokeWidth={2.5} />
                   {currentUser ? 'Добавить в облако' : 'Добавить в демо-сессию'}
                 </button>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-2 gap-3.5">
                 <button
                   type="button"
                   onClick={handleExportCSV}
-                  className="bg-white shadow-2xs rounded-[24px] py-4 px-4 font-bold text-[15px] text-[#141A16] flex flex-col items-center justify-center gap-1.5 cursor-pointer"
+                  className="bg-white rounded-[24px] py-6 px-4 font-bold text-[16px] text-[#141A16] flex flex-col items-center justify-center gap-2 cursor-pointer active:scale-95 transition"
                 >
-                  <Download className="w-5 h-5" strokeWidth={2.5} />
+                  <Download className="w-6 h-6" strokeWidth={2.5} />
                   <span>Скачать CSV</span>
                 </button>
                 <button
@@ -1883,9 +1885,9 @@ export default function App() {
                     }
                     setActiveSheet(null);
                   }}
-                  className="bg-[#D4ECF4] rounded-[24px] py-4 px-4 font-bold text-[15px] text-[#141A16] flex flex-col items-center justify-center gap-1.5 cursor-pointer"
+                  className="bg-[#E4E4E4] rounded-[24px] py-6 px-4 font-bold text-[16px] text-[#141A16] flex flex-col items-center justify-center gap-2 cursor-pointer active:scale-95 transition"
                 >
-                  <RefreshCw className="w-5 h-5" strokeWidth={2.5} />
+                  <RefreshCw className="w-6 h-6" strokeWidth={2.5} />
                   <span>Синхронизация</span>
                 </button>
               </div>
@@ -1894,9 +1896,9 @@ export default function App() {
                 <button
                   type="button"
                   onClick={handleLogout}
-                  className="w-full py-3.5 rounded-[22px] bg-white text-red-600 text-[15px] font-bold flex items-center justify-center gap-2 cursor-pointer shadow-2xs"
+                  className="w-full py-5 rounded-[22px] bg-white text-red-600 text-[18px] font-bold flex items-center justify-center gap-2 cursor-pointer mt-1"
                 >
-                  <LogOut className="w-4 h-4" strokeWidth={2.5} />
+                  <LogOut className="w-5 h-5" strokeWidth={2.5} />
                   Выйти из профиля
                 </button>
               ) : (
@@ -1907,9 +1909,9 @@ export default function App() {
                     setLoginPin('');
                     setActiveSheet('auth');
                   }}
-                  className="w-full py-3.5 rounded-[22px] bg-white text-[#141A16] text-[15px] font-bold flex items-center justify-center gap-2 cursor-pointer shadow-2xs"
+                  className="w-full py-5 rounded-[24px] bg-[#141A16] text-white text-[18px] font-bold flex items-center justify-center gap-2.5 cursor-pointer mt-1 active:scale-[0.99] transition"
                 >
-                  <User className="w-4 h-4" strokeWidth={2.5} />
+                  <User className="w-5 h-5" strokeWidth={2.5} />
                   Войти или создать профиль
                 </button>
               )}
