@@ -110,7 +110,6 @@ const getStatusLabel = (sys, dia) => {
   };
 };
 
-// ВОССТАНОВЛЕННЫЕ ФУНКЦИИ (из-за отсутствия которых падало сохранение)
 const deduplicateRecords = (arr) => {
   const seen = new Map();
   arr.forEach((item) => {
@@ -578,8 +577,6 @@ const TonometerScannerModal = ({ onClose, onDetected, currentUser }) => {
     }
   }, [cameraReady, currentUser, onDetected, stopCamera]);
 
-  // Детектор стабилизации кадра (Frame Differencing):
-  // сравнивает микро-снимки 32x32 каждые 150 мс и отправляет кадр в ИИ только когда рука замерла
   useEffect(() => {
     if (!cameraReady || cameraError) return;
     let timerId;
@@ -617,7 +614,6 @@ const TonometerScannerModal = ({ onClose, onDetected, currentUser }) => {
 
           const avgDiff = diffSum / totalPixels;
 
-          // Если средняя разница яркости пикселей меньше порога (10 из 255) — кадр стабилен
           if (avgDiff < 10) {
             stableFramesCount += 1;
           } else {
@@ -627,7 +623,6 @@ const TonometerScannerModal = ({ onClose, onDetected, currentUser }) => {
 
         prevSmallFrameRef.current = new Uint8ClampedArray(currentData);
 
-        // 4 стабильных замера подряд (~600 мс удержания без тряски) запускают распознавание
         if (stableFramesCount >= 4) {
           stableFramesCount = 0;
           await captureAndRecognize();
@@ -1049,7 +1044,19 @@ export default function App() {
   const sysRef = useRef(null);
   const diaRef = useRef(null);
   const pulseRef = useRef(null);
+  const noteRef = useRef(null);
   const avatarInputRef = useRef(null);
+  const pulseBlurTimerRef = useRef(null);
+
+  // Ссылки на контейнеры шторок и кнопки CTA для автодоводки над мобильной клавиатурой
+  const authSheetRef = useRef(null);
+  const authCtaRef = useRef(null);
+  const dataSheetRef = useRef(null);
+  const importCtaRef = useRef(null);
+  const addSheetRef = useRef(null);
+  const saveCtaRef = useRef(null);
+
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
 
   const [importText, setImportText] = useState('');
 
@@ -1068,6 +1075,35 @@ export default function App() {
       legendShownRef.current = true;
       setLegendVisible(true);
     }
+  }, []);
+
+  // Отслеживание высоты виртуальной клавиатуры через VisualViewport API
+  useEffect(() => {
+    if (typeof window === 'undefined' || !window.visualViewport) return;
+    const vv = window.visualViewport;
+
+    const handleViewportResize = () => {
+      const occupiedBottom = Math.max(0, window.innerHeight - vv.height - vv.offsetTop);
+      setKeyboardHeight(occupiedBottom > 90 ? Math.round(occupiedBottom) : 0);
+    };
+
+    vv.addEventListener('resize', handleViewportResize);
+    vv.addEventListener('scroll', handleViewportResize);
+    handleViewportResize();
+
+    return () => {
+      vv.removeEventListener('resize', handleViewportResize);
+      vv.removeEventListener('scroll', handleViewportResize);
+    };
+  }, []);
+
+  // Плавная прокрутка шторок до главной кнопки CTA при открытии клавиатуры
+  const scrollTargetIntoSheetView = useCallback((targetRef) => {
+    setTimeout(() => {
+      if (targetRef?.current) {
+        targetRef.current.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      }
+    }, 180);
   }, []);
 
   const userTags = useMemo(() => {
@@ -1321,15 +1357,16 @@ export default function App() {
     setInputsUnlocked(false);
     setScannerOpen(false);
     setScanDemoNotice(false);
+    if (pulseBlurTimerRef.current) clearTimeout(pulseBlurTimerRef.current);
   }, [activeSheet]);
 
   const handleSheetTouchStart = (e) => {
-    if (scannerOpen) return;
+    if (scannerOpen || keyboardHeight > 0) return;
     touchStartYRef.current = e.touches[0].clientY;
   };
 
   const handleSheetTouchMove = (e) => {
-    if (scannerOpen || touchStartYRef.current === null) return;
+    if (scannerOpen || keyboardHeight > 0 || touchStartYRef.current === null) return;
     const deltaY = e.touches[0].clientY - touchStartYRef.current;
     if (deltaY > 0) {
       setDragOffset(deltaY);
@@ -1337,7 +1374,7 @@ export default function App() {
   };
 
   const handleSheetTouchEnd = () => {
-    if (scannerOpen) return;
+    if (scannerOpen || keyboardHeight > 0) return;
     if (dragOffset > 85) {
       setActiveSheet(null);
     }
@@ -1543,14 +1580,43 @@ export default function App() {
   const handleDiaChange = (e) => {
     const val = e.target.value.replace(/\D/g, '').slice(0, 3);
     setDiaInput(val);
-    if (val.length === 2 && parseInt(val, 10) >= 45) {
+    if (val.length === 3 || (val.length === 2 && parseInt(val, 10) >= 45)) {
       if (pulseRef.current) pulseRef.current.focus();
     }
   };
 
+  // Умный ввод пульса с деликатным автоскрытием клавиатуры:
+  // - если введено 3 цифры (например, 105) -> прячем клавиатуру сразу;
+  // - если введено 2 цифры от 40 до 99 (например, 64) -> прячем клавиатуру сразу (пульса 400+ не бывает);
+  // - если введено 2 цифры на 1 или 2 (например, 10..29) -> ждём паузу 900 мс на случай ввода 3-й цифры.
   const handlePulseChange = (e) => {
     const val = e.target.value.replace(/\D/g, '').slice(0, 3);
     setPulseInput(val);
+
+    if (pulseBlurTimerRef.current) {
+      clearTimeout(pulseBlurTimerRef.current);
+      pulseBlurTimerRef.current = null;
+    }
+
+    const num = parseInt(val, 10);
+    if (val.length === 3) {
+      pulseRef.current?.blur();
+    } else if (val.length === 2 && num >= 35 && num <= 99) {
+      pulseBlurTimerRef.current = setTimeout(() => {
+        pulseRef.current?.blur();
+      }, 120);
+    } else if (val.length === 2 && (val.startsWith('1') || val.startsWith('2'))) {
+      pulseBlurTimerRef.current = setTimeout(() => {
+        pulseRef.current?.blur();
+      }, 900);
+    }
+  };
+
+  const handleInputEnterBlur = (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      e.currentTarget.blur();
+    }
   };
 
   const handleScanButtonClick = () => {
@@ -1562,13 +1628,24 @@ export default function App() {
       }, 2000);
       return;
     }
+    // Прячем клавиатуру перед открытием камеры
+    if (document.activeElement instanceof HTMLElement) {
+      document.activeElement.blur();
+    }
     setScannerOpen(true);
   };
 
   const handleScannerDetected = useCallback(({ sys, dia, pulse }) => {
+    if (pulseBlurTimerRef.current) clearTimeout(pulseBlurTimerRef.current);
+    // Снимаем фокус со всех инпутов, чтобы клавиатура гарантированно была закрыта
+    sysRef.current?.blur();
+    diaRef.current?.blur();
+    pulseRef.current?.blur();
+    noteRef.current?.blur();
+
     setSysInput(sys);
     setDiaInput(dia);
-    if (pulse) setPulseInput(pulse);
+    setPulseInput(pulse || '');
     setScannerOpen(false);
     
     setTimeout(() => setFlashHighlight(true), 50);
@@ -1581,6 +1658,10 @@ export default function App() {
     const p = pulseInput ? parseInt(pulseInput, 10) : null;
 
     if (!s || !d) return;
+
+    if (document.activeElement instanceof HTMLElement) {
+      document.activeElement.blur();
+    }
 
     const cleanNote = noteInput.trim();
     const activeUsername = currentUser ? currentUser.username : 'demo';
@@ -1657,6 +1738,9 @@ export default function App() {
   };
 
   const handleImportSubmit = async () => {
+    if (document.activeElement instanceof HTMLElement) {
+      document.activeElement.blur();
+    }
     const activeUsername = currentUser ? currentUser.username : 'demo';
     const parsed = parseImportData(importText, activeUsername);
     if (parsed.length > 0) {
@@ -2106,10 +2190,20 @@ export default function App() {
                 <div className="mb-3">
                   <input
                     type="text"
+                    name="nofill_bp_search"
                     inputMode="search"
-                    autoComplete="off"
+                    enterKeyHint="search"
+                    autoComplete="new-password"
+                    autoCorrect="off"
+                    autoCapitalize="off"
+                    spellCheck={false}
+                    data-lpignore="true"
+                    data-1p-ignore="true"
+                    data-bwignore="true"
+                    data-form-type="other"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
+                    onKeyDown={handleInputEnterBlur}
                     placeholder="Найти: кофе, трени, сахар, утро..."
                     className="w-full bg-[var(--surface-card)] rounded-[22px] px-5 py-3.5 text-base text-[var(--text-primary)] placeholder-[var(--text-muted)] focus:outline-none select-text"
                   />
@@ -2444,44 +2538,51 @@ export default function App() {
         {/* ШТОРКА АВТОРИЗАЦИИ И РЕГИСТРАЦИИ */}
         {activeSheet === 'auth' && (
           <div
-            className="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs flex items-end justify-center overscroll-none touch-none"
+            className="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs flex items-end justify-center overscroll-none"
+            style={{ paddingBottom: keyboardHeight > 0 ? `${keyboardHeight}px` : '0px' }}
             onClick={() => setActiveSheet(null)}
           >
-            <div
+            <form
+              ref={authSheetRef}
+              autoComplete="off"
+              onSubmit={(e) => e.preventDefault()}
               onTouchStart={handleSheetTouchStart}
               onTouchMove={handleSheetTouchMove}
               onTouchEnd={handleSheetTouchEnd}
               style={{
                 transform: `translateY(${dragOffset}px)`,
-                transition: dragOffset === 0 ? 'transform 0.2s ease-out' : 'none'
+                transition: dragOffset === 0 ? 'transform 0.2s ease-out' : 'none',
+                maxHeight: keyboardHeight > 0 ? `calc(100vh - ${keyboardHeight + 8}px)` : '92vh'
               }}
-              className="w-full max-w-[440px] bg-[var(--bg-sheet)] rounded-t-[36px] px-6 pt-6 pb-8 flex flex-col items-center gap-5"
+              className="w-full max-w-[440px] overflow-y-auto hide-scrollbar bg-[var(--bg-sheet)] rounded-t-[36px] px-6 pt-5 pb-6 flex flex-col items-center gap-4"
               onClick={(e) => e.stopPropagation()}
             >
               <div className="w-12 h-1.5 bg-[var(--sheet-handle)] rounded-full shrink-0" />
 
-              <div className="self-stretch pt-1 flex items-start justify-between gap-3 mb-2">
-                <div className="flex-1 flex flex-col items-start gap-3">
-                  <h3 className="text-[38px] font-extrabold text-[var(--text-primary)] leading-none tracking-tight">
-                    Профиль
-                  </h3>
-                  <p className="text-[15px] font-medium text-[var(--text-secondary)] leading-tight">
-                    {authMode === 'login'
-                      ? 'Войдите, чтобы продолжить вести ваши измерения'
-                      : 'Создайте аккаунт, чтобы начать сохранять ваши измерения'}
-                  </p>
+              {keyboardHeight === 0 && (
+                <div className="self-stretch pt-1 flex items-start justify-between gap-3 mb-1">
+                  <div className="flex-1 flex flex-col items-start gap-2.5">
+                    <h3 className="text-[38px] font-extrabold text-[var(--text-primary)] leading-none tracking-tight">
+                      Профиль
+                    </h3>
+                    <p className="text-[15px] font-medium text-[var(--text-secondary)] leading-tight">
+                      {authMode === 'login'
+                        ? 'Войдите, чтобы продолжить вести ваши измерения'
+                        : 'Создайте аккаунт, чтобы начать сохранять ваши измерения'}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setActiveSheet(null)}
+                    className="w-10 h-10 rounded-full bg-[var(--surface-input)] flex items-center justify-center text-[var(--text-primary)] shrink-0 cursor-pointer mt-1"
+                    aria-label="Закрыть"
+                  >
+                    <X className="w-5 h-5" strokeWidth={2} />
+                  </button>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => setActiveSheet(null)}
-                  className="w-10 h-10 rounded-full bg-[var(--surface-input)] flex items-center justify-center text-[var(--text-primary)] shrink-0 cursor-pointer mt-1"
-                  aria-label="Закрыть"
-                >
-                  <X className="w-5 h-5" strokeWidth={2} />
-                </button>
-              </div>
+              )}
 
-              <div className="self-stretch p-1.5 bg-[var(--surface-secondary)] rounded-full grid grid-cols-2">
+              <div className="self-stretch p-1.5 bg-[var(--surface-secondary)] rounded-full grid grid-cols-2 shrink-0">
                 <button
                   type="button"
                   onClick={() => {
@@ -2513,19 +2614,29 @@ export default function App() {
               </div>
 
               {authMode === 'login' ? (
-                <div className="self-stretch flex flex-col items-start gap-4">
-                  <div className="self-stretch flex flex-col items-start gap-3">
-                    <label className="self-stretch h-[64px] px-5 py-3 bg-[var(--surface-input)] rounded-[22px] flex items-center gap-0.5 cursor-text">
+                <div className="self-stretch flex flex-col items-start gap-3.5">
+                  <div className="self-stretch flex flex-col items-start gap-2.5">
+                    <label className="self-stretch h-[60px] px-5 py-2.5 bg-[var(--surface-input)] rounded-[22px] flex items-center gap-0.5 cursor-text">
                       <span className="w-[85px] text-[16px] font-bold text-[var(--text-label-strong)] text-left select-none shrink-0">
                         Логин
                       </span>
                       <input
                         type="text"
-                        autoComplete="off"
+                        name="nofill_bp_login_alias"
+                        inputMode="text"
+                        enterKeyHint="next"
+                        autoComplete="new-password"
+                        autoCorrect="off"
                         autoCapitalize="off"
                         spellCheck={false}
+                        data-lpignore="true"
+                        data-1p-ignore="true"
+                        data-bwignore="true"
+                        data-form-type="other"
+                        aria-autocomplete="none"
                         placeholder="Латиницей"
                         value={loginUsername}
+                        onFocus={() => scrollTargetIntoSheetView(authCtaRef)}
                         onChange={(e) => {
                           setLoginUsername(
                             e.target.value.toLowerCase().replace(/[^a-z0-9_.-]/g, '')
@@ -2536,17 +2647,28 @@ export default function App() {
                       />
                     </label>
 
-                    <label className="self-stretch h-[64px] px-5 py-3 bg-[var(--surface-input)] rounded-[22px] flex items-center gap-0.5 cursor-text">
+                    <label className="self-stretch h-[60px] px-5 py-2.5 bg-[var(--surface-input)] rounded-[22px] flex items-center gap-0.5 cursor-text">
                       <span className="w-[85px] text-[16px] font-bold text-[var(--text-label-strong)] text-left select-none shrink-0">
                         ПИН-код
                       </span>
                       <input
                         type="text"
+                        name="nofill_bp_login_code"
                         inputMode="numeric"
-                        autoComplete="off"
+                        enterKeyHint="done"
+                        autoComplete="new-password"
+                        autoCorrect="off"
+                        autoCapitalize="off"
                         spellCheck={false}
+                        data-lpignore="true"
+                        data-1p-ignore="true"
+                        data-bwignore="true"
+                        data-form-type="other"
+                        aria-autocomplete="none"
                         placeholder="••••"
                         value={loginPin}
+                        onFocus={() => scrollTargetIntoSheetView(authCtaRef)}
+                        onKeyDown={handleInputEnterBlur}
                         onChange={(e) => {
                           const clean = e.target.value.replace(/\D/g, '').slice(0, 4);
                           setLoginPin(clean);
@@ -2567,27 +2689,38 @@ export default function App() {
                   )}
 
                   <button
+                    ref={authCtaRef}
                     type="button"
                     disabled={authLoading}
                     onClick={() => handleLoginSubmit()}
-                    className="self-stretch py-[18px] rounded-full bg-[var(--cta-bg)] text-[var(--cta-text)] text-[20px] font-bold flex items-center justify-center active:scale-[0.99] transition cursor-pointer mt-1"
+                    className="self-stretch py-[17px] rounded-full bg-[var(--cta-bg)] text-[var(--cta-text)] text-[20px] font-bold flex items-center justify-center active:scale-[0.99] transition cursor-pointer mt-0.5 shrink-0"
                   >
                     {authLoading ? 'Проверяем...' : 'Войти в дневник'}
                   </button>
                 </div>
               ) : (
-                <div className="self-stretch flex flex-col items-start gap-4">
-                  <div className="self-stretch flex flex-col items-start gap-3">
-                    <label className="self-stretch h-[64px] px-5 py-3 bg-[var(--surface-input)] rounded-[22px] flex items-center gap-0.5 cursor-text">
+                <div className="self-stretch flex flex-col items-start gap-3.5">
+                  <div className="self-stretch flex flex-col items-start gap-2.5">
+                    <label className="self-stretch h-[58px] px-5 py-2 bg-[var(--surface-input)] rounded-[22px] flex items-center gap-0.5 cursor-text">
                       <span className="w-[85px] text-[16px] font-bold text-[var(--text-label-strong)] text-left select-none shrink-0">
                         Ваше имя
                       </span>
                       <input
                         type="text"
-                        autoComplete="off"
+                        name="nofill_bp_reg_label"
+                        inputMode="text"
+                        enterKeyHint="next"
+                        autoComplete="new-password"
+                        autoCorrect="off"
                         spellCheck={false}
+                        data-lpignore="true"
+                        data-1p-ignore="true"
+                        data-bwignore="true"
+                        data-form-type="other"
+                        aria-autocomplete="none"
                         placeholder="Например Нина"
                         value={regDisplayName}
+                        onFocus={() => scrollTargetIntoSheetView(authCtaRef)}
                         onChange={(e) => {
                           setRegDisplayName(e.target.value);
                           setAuthError('');
@@ -2596,17 +2729,27 @@ export default function App() {
                       />
                     </label>
 
-                    <label className="self-stretch h-[64px] px-5 py-3 bg-[var(--surface-input)] rounded-[22px] flex items-center gap-0.5 cursor-text">
+                    <label className="self-stretch h-[58px] px-5 py-2 bg-[var(--surface-input)] rounded-[22px] flex items-center gap-0.5 cursor-text">
                       <span className="w-[85px] text-[16px] font-bold text-[var(--text-label-strong)] text-left select-none shrink-0">
                         Логин
                       </span>
                       <input
                         type="text"
-                        autoComplete="off"
+                        name="nofill_bp_reg_alias"
+                        inputMode="text"
+                        enterKeyHint="next"
+                        autoComplete="new-password"
+                        autoCorrect="off"
                         autoCapitalize="off"
                         spellCheck={false}
+                        data-lpignore="true"
+                        data-1p-ignore="true"
+                        data-bwignore="true"
+                        data-form-type="other"
+                        aria-autocomplete="none"
                         placeholder="Латиницей"
                         value={regUsername}
+                        onFocus={() => scrollTargetIntoSheetView(authCtaRef)}
                         onChange={(e) => {
                           setRegUsername(
                             e.target.value.toLowerCase().replace(/[^a-z0-9_.-]/g, '')
@@ -2617,17 +2760,28 @@ export default function App() {
                       />
                     </label>
 
-                    <label className="self-stretch h-[64px] px-5 py-3 bg-[var(--surface-input)] rounded-[22px] flex items-center gap-0.5 cursor-text">
+                    <label className="self-stretch h-[58px] px-5 py-2 bg-[var(--surface-input)] rounded-[22px] flex items-center gap-0.5 cursor-text">
                       <span className="w-[85px] text-[16px] font-bold text-[var(--text-label-strong)] text-left select-none shrink-0">
                         ПИН-код
                       </span>
                       <input
                         type="text"
+                        name="nofill_bp_reg_code"
                         inputMode="numeric"
-                        autoComplete="off"
+                        enterKeyHint="done"
+                        autoComplete="new-password"
+                        autoCorrect="off"
+                        autoCapitalize="off"
                         spellCheck={false}
+                        data-lpignore="true"
+                        data-1p-ignore="true"
+                        data-bwignore="true"
+                        data-form-type="other"
+                        aria-autocomplete="none"
                         placeholder="••••"
                         value={regPin}
+                        onFocus={() => scrollTargetIntoSheetView(authCtaRef)}
+                        onKeyDown={handleInputEnterBlur}
                         onChange={(e) => {
                           setRegPin(e.target.value.replace(/\D/g, '').slice(0, 4));
                           setAuthError('');
@@ -2644,36 +2798,42 @@ export default function App() {
                   )}
 
                   <button
+                    ref={authCtaRef}
                     type="button"
                     disabled={authLoading}
                     onClick={handleRegisterSubmit}
-                    className="self-stretch py-[18px] rounded-full bg-[var(--cta-bg)] text-[var(--cta-text)] text-[20px] font-bold flex items-center justify-center active:scale-[0.99] transition cursor-pointer mt-1"
+                    className="self-stretch py-[17px] rounded-full bg-[var(--cta-bg)] text-[var(--cta-text)] text-[20px] font-bold flex items-center justify-center active:scale-[0.99] transition cursor-pointer mt-0.5 shrink-0"
                   >
                     {authLoading ? 'Создаем...' : 'Создать дневник'}
                   </button>
                 </div>
               )}
-            </div>
+            </form>
           </div>
         )}
 
         {/* ШТОРКА ВВОДА НОВОГО ЗАМЕРА */}
         {activeSheet === 'add' && (
           <div
-            className="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs flex items-end justify-center overscroll-none touch-none"
+            className="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs flex items-end justify-center overscroll-none"
+            style={{ paddingBottom: keyboardHeight > 0 ? `${keyboardHeight}px` : '0px' }}
             onClick={() => {
               if (!scannerOpen) setActiveSheet(null);
             }}
           >
-            <div
+            <form
+              ref={addSheetRef}
+              autoComplete="off"
+              onSubmit={(e) => e.preventDefault()}
               onTouchStart={handleSheetTouchStart}
               onTouchMove={handleSheetTouchMove}
               onTouchEnd={handleSheetTouchEnd}
               style={{
                 transform: `translateY(${dragOffset}px)`,
-                transition: dragOffset === 0 ? 'transform 0.2s ease-out' : 'none'
+                transition: dragOffset === 0 ? 'transform 0.2s ease-out' : 'none',
+                maxHeight: keyboardHeight > 0 ? `calc(100vh - ${keyboardHeight + 8}px)` : '92vh'
               }}
-              className="w-full max-w-[440px] bg-[var(--bg-sheet)] rounded-t-[36px] px-6 pt-6 pb-8"
+              className="w-full max-w-[440px] overflow-y-auto hide-scrollbar bg-[var(--bg-sheet)] rounded-t-[36px] px-6 pt-6 pb-8"
               onClick={(e) => e.stopPropagation()}
             >
               <div className="w-12 h-1.5 bg-[var(--sheet-handle)] rounded-full mx-auto mb-5" />
@@ -2704,10 +2864,13 @@ export default function App() {
                     <input
                       ref={sysRef}
                       type="text"
+                      name="nofill_bp_val_1"
                       inputMode="numeric"
+                      enterKeyHint="next"
                       readOnly={!inputsUnlocked}
                       onFocus={() => setInputsUnlocked(true)}
-                      autoComplete="off"
+                      onKeyDown={handleInputEnterBlur}
+                      autoComplete="new-password"
                       autoCorrect="off"
                       autoCapitalize="off"
                       spellCheck={false}
@@ -2734,10 +2897,13 @@ export default function App() {
                     <input
                       ref={diaRef}
                       type="text"
+                      name="nofill_bp_val_2"
                       inputMode="numeric"
+                      enterKeyHint="next"
                       readOnly={!inputsUnlocked}
                       onFocus={() => setInputsUnlocked(true)}
-                      autoComplete="off"
+                      onKeyDown={handleInputEnterBlur}
+                      autoComplete="new-password"
                       autoCorrect="off"
                       autoCapitalize="off"
                       spellCheck={false}
@@ -2764,10 +2930,13 @@ export default function App() {
                     <input
                       ref={pulseRef}
                       type="text"
+                      name="nofill_bp_val_3"
                       inputMode="numeric"
+                      enterKeyHint="done"
                       readOnly={!inputsUnlocked}
                       onFocus={() => setInputsUnlocked(true)}
-                      autoComplete="off"
+                      onKeyDown={handleInputEnterBlur}
+                      autoComplete="new-password"
                       autoCorrect="off"
                       autoCapitalize="off"
                       spellCheck={false}
@@ -2815,6 +2984,9 @@ export default function App() {
                   <button
                     type="button"
                     onClick={() => {
+                      if (document.activeElement instanceof HTMLElement) {
+                        document.activeElement.blur();
+                      }
                       setTempTime(timeInput);
                       setTimePickerOpen(true);
                     }}
@@ -2862,14 +3034,22 @@ export default function App() {
 
                 <div className="bg-[var(--surface-input)] rounded-[24px] px-5 py-[18px]">
                   <input
+                    ref={noteRef}
                     type="text"
+                    name="nofill_bp_custom_memo"
+                    enterKeyHint="done"
                     readOnly={!inputsUnlocked}
-                    onFocus={() => setInputsUnlocked(true)}
-                    autoComplete="off"
+                    onFocus={() => {
+                      setInputsUnlocked(true);
+                      scrollTargetIntoSheetView(saveCtaRef);
+                    }}
+                    onKeyDown={handleInputEnterBlur}
+                    autoComplete="new-password"
                     autoCorrect="off"
                     spellCheck={false}
                     data-lpignore="true"
                     data-1p-ignore="true"
+                    data-bwignore="true"
                     data-form-type="other"
                     aria-autocomplete="none"
                     value={noteInput}
@@ -2884,6 +3064,7 @@ export default function App() {
                 </div>
 
                 <button
+                  ref={saveCtaRef}
                   type="button"
                   onClick={handleSaveRecord}
                   className="w-full py-[20px] rounded-[28px] bg-[var(--cta-bg)] text-[var(--cta-text)] text-[20px] font-bold active:scale-[0.99] transition cursor-pointer mt-1"
@@ -2891,7 +3072,7 @@ export default function App() {
                   Сохранить замер
                 </button>
               </div>
-            </div>
+            </form>
           </div>
         )}
 
@@ -2987,59 +3168,66 @@ export default function App() {
         {activeSheet === 'data' && (
           <div
             className="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs flex items-end justify-center overscroll-none"
+            style={{ paddingBottom: keyboardHeight > 0 ? `${keyboardHeight}px` : '0px' }}
             onClick={() => setActiveSheet(null)}
           >
             <div
+              ref={dataSheetRef}
               onTouchStart={handleSheetTouchStart}
               onTouchMove={handleSheetTouchMove}
               onTouchEnd={handleSheetTouchEnd}
               style={{
                 transform: `translateY(${dragOffset}px)`,
-                transition: dragOffset === 0 ? 'transform 0.2s ease-out' : 'none'
+                transition: dragOffset === 0 ? 'transform 0.2s ease-out' : 'none',
+                maxHeight: keyboardHeight > 0 ? `calc(100vh - ${keyboardHeight + 8}px)` : '90vh'
               }}
-              className="w-full max-w-[440px] max-h-[90vh] overflow-y-auto bg-[var(--bg-sheet)] rounded-t-[36px] p-6 pb-8 flex flex-col gap-3"
+              className="w-full max-w-[440px] overflow-y-auto hide-scrollbar bg-[var(--bg-sheet)] rounded-t-[36px] p-6 pb-8 flex flex-col gap-3"
               onClick={(e) => e.stopPropagation()}
             >
               <div className="w-12 h-1.5 bg-[var(--sheet-handle)] rounded-full mx-auto shrink-0" />
 
-              <div className="flex items-start justify-between pb-2">
-                <div className="flex flex-col gap-[6px]">
-                  <h3 className="text-[36px] font-extrabold text-[var(--text-primary)] leading-none tracking-tight">
-                    Настройки
-                  </h3>
-                  <div className="text-[18px] font-normal text-[var(--text-Subtle)] leading-tight pr-4">
-                    {currentUser
-                      ? `Профиль · @${currentUser.username}`
-                      : 'Демо-режим · без облака'}
+              {keyboardHeight === 0 && (
+                <div className="flex items-start justify-between pb-2">
+                  <div className="flex flex-col gap-[6px]">
+                    <h3 className="text-[36px] font-extrabold text-[var(--text-primary)] leading-none tracking-tight">
+                      Настройки
+                    </h3>
+                    <div className="text-[18px] font-normal text-[var(--text-Subtle)] leading-tight pr-4">
+                      {currentUser
+                        ? `Профиль · @${currentUser.username}`
+                        : 'Демо-режим · без облака'}
+                    </div>
                   </div>
+                  <button
+                    type="button"
+                    onClick={() => setActiveSheet(null)}
+                    className="w-10 h-10 rounded-full bg-[var(--surface-input)] flex items-center justify-center text-[var(--text-primary)] cursor-pointer shrink-0"
+                  >
+                    <X className="w-5 h-5" strokeWidth={2} />
+                  </button>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => setActiveSheet(null)}
-                  className="w-10 h-10 rounded-full bg-[var(--surface-input)] flex items-center justify-center text-[var(--text-primary)] cursor-pointer shrink-0"
-                >
-                  <X className="w-5 h-5" strokeWidth={2} />
-                </button>
-              </div>
+              )}
 
-              <div className="grid grid-cols-2 gap-2.5">
-                <div className="bg-[var(--surface-card)] rounded-[26px] p-4 flex flex-col justify-center">
-                  <div className="text-[12px] font-semibold text-[var(--text-muted)] mb-1">
-                    Записей
+              {keyboardHeight === 0 && (
+                <div className="grid grid-cols-2 gap-2.5">
+                  <div className="bg-[var(--surface-card)] rounded-[26px] p-4 flex flex-col justify-center">
+                    <div className="text-[12px] font-semibold text-[var(--text-muted)] mb-1">
+                      Записей
+                    </div>
+                    <div className="text-[20px] font-bold text-[var(--text-primary)] leading-none">
+                      {currentUser ? rawCloudCount : records.length}
+                    </div>
                   </div>
-                  <div className="text-[20px] font-bold text-[var(--text-primary)] leading-none">
-                    {currentUser ? rawCloudCount : records.length}
+                  <div className="bg-[var(--surface-card)] rounded-[26px] p-4 flex flex-col justify-center">
+                    <div className="text-[12px] font-semibold text-[var(--text-muted)] mb-1">
+                      Замеров
+                    </div>
+                    <div className="text-[20px] font-bold text-[var(--text-primary)] leading-none">
+                      {records.length}
+                    </div>
                   </div>
                 </div>
-                <div className="bg-[var(--surface-card)] rounded-[26px] p-4 flex flex-col justify-center">
-                  <div className="text-[12px] font-semibold text-[var(--text-muted)] mb-1">
-                    Замеров
-                  </div>
-                  <div className="text-[20px] font-bold text-[var(--text-primary)] leading-none">
-                    {records.length}
-                  </div>
-                </div>
-              </div>
+              )}
 
               <div className="bg-[var(--surface-card)] rounded-[26px] p-4 flex flex-col gap-3">
                 <div className="text-[20px] font-bold text-[var(--text-primary)] leading-tight">
@@ -3047,12 +3235,23 @@ export default function App() {
                 </div>
                 <textarea
                   rows={3}
+                  name="nofill_bp_raw_import"
+                  autoComplete="off"
+                  autoCorrect="off"
+                  autoCapitalize="off"
+                  spellCheck={false}
+                  data-lpignore="true"
+                  data-1p-ignore="true"
+                  data-bwignore="true"
+                  data-form-type="other"
                   value={importText}
+                  onFocus={() => scrollTargetIntoSheetView(importCtaRef)}
                   onChange={(e) => setImportText(e.target.value)}
                   placeholder="[20.10.2026 08:40] 120/80 64"
                   className="w-full bg-[var(--surface-tertiary)] rounded-[18px] p-3 text-[12px] font-medium text-[var(--text-primary)] focus:outline-none select-text resize-none placeholder-[var(--text-faint)]"
                 />
                 <button
+                  ref={importCtaRef}
                   type="button"
                   onClick={handleImportSubmit}
                   className="w-full h-[50px] rounded-full border border-[var(--import-btn-border)] bg-[var(--import-btn-bg)] text-[var(--import-btn-text)] font-bold text-[15px] flex items-center justify-center gap-2 cursor-pointer active:scale-[0.99] transition"
