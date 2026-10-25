@@ -496,19 +496,29 @@ const TonometerScannerModal = ({ onClose, onDetected, currentUser }) => {
     }
   }, [cameraReady, currentUser, onDetected, stopCamera]);
 
-  useEffect(() => {
+useEffect(() => {
     if (!cameraReady || cameraError) return;
-    const initialTimer = setTimeout(() => {
-      captureAndRecognize();
-    }, 650);
+    let timeoutId;
+    let isLooping = true; // Локальный флаг для остановки цикла при размонтировании
 
-    const interval = setInterval(() => {
-      captureAndRecognize();
-    }, 1600);
+    const scanLoop = async () => {
+      if (!isLooping || !activeRef.current) return;
+      
+      // Ждем полного завершения функции сканирования (включая ответ от API)
+      await captureAndRecognize();
+      
+      // Только после получения ответа запускаем таймер до следующего кадра
+      if (isLooping && activeRef.current) {
+        timeoutId = setTimeout(scanLoop, 1500);
+      }
+    };
+
+    // Первый запуск с небольшой задержкой для фокусировки камеры
+    timeoutId = setTimeout(scanLoop, 650);
 
     return () => {
-      clearTimeout(initialTimer);
-      clearInterval(interval);
+      isLooping = false;
+      clearTimeout(timeoutId);
     };
   }, [cameraReady, cameraError, captureAndRecognize]);
 
