@@ -180,13 +180,11 @@ const HistoryNavIcon = ({ solid }) => solid ? (
   </svg>
 );
 
-// Генерация опций для часов и минут
 const HOURS_OPTIONS = Array.from({ length: 24 }, (_, i) => String(i).padStart(2, '0'));
 const MINUTES_OPTIONS = Array.from({ length: 60 }, (_, i) => String(i).padStart(2, '0'));
 
-// Компонент барабана для выбора времени
 const DrumPicker = ({ options, value, onChange }) => {
-  const ITEM_HEIGHT = 72; // Высота одного элемента
+  const ITEM_HEIGHT = 72;
   const scrollRef = useRef(null);
   const [activeIndex, setActiveIndex] = useState(options.indexOf(value));
 
@@ -231,6 +229,168 @@ const DrumPicker = ({ options, value, onChange }) => {
       ))}
       <div style={{ height: ITEM_HEIGHT * 2 }} />
     </div>
+  );
+};
+
+// Изолированный компонент анимации среднего давления (Сценарии A, B, C)
+const AnimatedAvgPressure = ({ sys, dia, onInitialComplete, isInitialDone }) => {
+  const [display, setDisplay] = useState(() => {
+    if (!sys || !dia) return { sys: 0, dia: 0 };
+    if (isInitialDone) return { sys, dia };
+    return { sys: Math.max(70, sys - 4), dia: Math.max(40, dia - 3) };
+  });
+
+  const [entered, setEntered] = useState(isInitialDone);
+  const currentRef = useRef(display);
+  const rafRef = useRef(null);
+  const hasCompletedInitialRef = useRef(isInitialDone);
+
+  useEffect(() => {
+    currentRef.current = display;
+  }, [display]);
+
+  useEffect(() => {
+    const prefersReducedMotion =
+      typeof window !== 'undefined' &&
+      window.matchMedia &&
+      window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+    if (rafRef.current) cancelAnimationFrame(rafRef.current);
+
+    if (!sys || !dia) {
+      setDisplay({ sys: 0, dia: 0 });
+      setEntered(true);
+      if (!hasCompletedInitialRef.current) {
+        hasCompletedInitialRef.current = true;
+        onInitialComplete?.();
+      }
+      return;
+    }
+
+    if (prefersReducedMotion) {
+      setDisplay({ sys, dia });
+      setEntered(true);
+      if (!hasCompletedInitialRef.current) {
+        hasCompletedInitialRef.current = true;
+        onInitialComplete?.();
+      }
+      return;
+    }
+
+    if (!hasCompletedInitialRef.current) {
+      const startSys = Math.max(70, sys - 4);
+      const startDia = Math.max(40, dia - 3);
+      const duration = 360;
+      const startTime = performance.now();
+
+      requestAnimationFrame(() => setEntered(true));
+
+      const step = (now) => {
+        const elapsed = now - startTime;
+        const progress = Math.min(1, elapsed / duration);
+        const ease = 1 - Math.pow(1 - progress, 3);
+
+        setDisplay({
+          sys: Math.round(startSys + (sys - startSys) * ease),
+          dia: Math.round(startDia + (dia - startDia) * ease)
+        });
+
+        if (progress < 1) {
+          rafRef.current = requestAnimationFrame(step);
+        } else {
+          setDisplay({ sys, dia });
+          hasCompletedInitialRef.current = true;
+          onInitialComplete?.();
+        }
+      };
+
+      rafRef.current = requestAnimationFrame(step);
+    } else {
+      const fromSys = currentRef.current.sys || sys;
+      const fromDia = currentRef.current.dia || dia;
+
+      if (fromSys === sys && fromDia === dia) {
+        return;
+      }
+
+      const duration = 280;
+      const startTime = performance.now();
+
+      const step = (now) => {
+        const elapsed = now - startTime;
+        const progress = Math.min(1, elapsed / duration);
+        const ease = 1 - Math.pow(1 - progress, 3);
+
+        setDisplay({
+          sys: Math.round(fromSys + (sys - fromSys) * ease),
+          dia: Math.round(fromDia + (dia - fromDia) * ease)
+        });
+
+        if (progress < 1) {
+          rafRef.current = requestAnimationFrame(step);
+        } else {
+          setDisplay({ sys, dia });
+        }
+      };
+
+      rafRef.current = requestAnimationFrame(step);
+    }
+
+    return () => {
+      if (rafRef.current) cancelAnimationFrame(rafRef.current);
+    };
+  }, [sys, dia, onInitialComplete]);
+
+  return (
+    <span
+      className="text-[56px] font-black tracking-tighter leading-none text-[#141A16] tabular-nums inline-block bp-avg-transition"
+      style={{
+        opacity: entered ? 1 : 0,
+        transform: entered ? 'translateY(0px)' : 'translateY(6px)'
+      }}
+    >
+      {sys && dia ? `${display.sys}/${display.dia}` : '–/–'}
+    </span>
+  );
+};
+
+// Изолированный компонент бейджа статуса с плавной сменой только при изменении статуса
+const AnimatedStatusBadge = ({ badge, visible }) => {
+  const [renderedBadge, setRenderedBadge] = useState(badge);
+  const [textFade, setTextFade] = useState(false);
+  const prevTextRef = useRef(badge.text);
+
+  useEffect(() => {
+    if (prevTextRef.current !== badge.text) {
+      prevTextRef.current = badge.text;
+      setTextFade(true);
+      const t = setTimeout(() => {
+        setRenderedBadge(badge);
+        setTextFade(false);
+      }, 85);
+      return () => clearTimeout(t);
+    } else {
+      setRenderedBadge(badge);
+    }
+  }, [badge]);
+
+  return (
+    <span
+      className="px-3.5 py-1.5 rounded-full text-[14px] font-semibold shrink-0 inline-flex items-center justify-center bp-badge-transition"
+      style={{
+        backgroundColor: renderedBadge.bg,
+        color: renderedBadge.textCol,
+        opacity: visible ? 1 : 0,
+        transform: visible ? 'translateY(0px) scale(1)' : 'translateY(5px) scale(0.97)'
+      }}
+    >
+      <span
+        className="bp-badge-text-transition"
+        style={{ opacity: textFade ? 0 : 1 }}
+      >
+        {renderedBadge.text}
+      </span>
+    </span>
   );
 };
 
@@ -382,6 +542,24 @@ export default function App() {
   const avatarInputRef = useRef(null);
 
   const [importText, setImportText] = useState('');
+
+  // Флаги и состояния для однократной стартовой синхронизации анимаций главного экрана
+  const initialAvgDoneRef = useRef(false);
+  const legendShownRef = useRef(false);
+  const [badgeVisible, setBadgeVisible] = useState(false);
+  const [legendVisible, setLegendVisible] = useState(false);
+
+  const handleInitialAvgComplete = useCallback(() => {
+    initialAvgDoneRef.current = true;
+    setBadgeVisible(true);
+  }, []);
+
+  const handleChartInitialAnimationEnd = useCallback(() => {
+    if (!legendShownRef.current) {
+      legendShownRef.current = true;
+      setLegendVisible(true);
+    }
+  }, []);
 
   const userTags = useMemo(() => {
     if (!currentUser) return demoTags.slice(0, 4);
@@ -768,6 +946,31 @@ export default function App() {
     }));
   }, [filteredRecords]);
 
+  // Страховочный триггер проявления легенды после первого появления данных графика
+  useEffect(() => {
+    if (chartData.length > 0 && !legendShownRef.current) {
+      const prefersReducedMotion =
+        typeof window !== 'undefined' &&
+        window.matchMedia &&
+        window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+      if (prefersReducedMotion) {
+        legendShownRef.current = true;
+        setLegendVisible(true);
+        return;
+      }
+
+      const fallbackTimer = setTimeout(() => {
+        if (!legendShownRef.current) {
+          legendShownRef.current = true;
+          setLegendVisible(true);
+        }
+      }, 430);
+
+      return () => clearTimeout(fallbackTimer);
+    }
+  }, [chartData.length]);
+
   const stats = useMemo(() => {
     if (filteredRecords.length === 0) {
       return {
@@ -969,7 +1172,6 @@ export default function App() {
       }}
     >
       <style>{`
-        /* Скрываем скроллбар для барабана */
         .hide-scrollbar::-webkit-scrollbar { display: none; }
         .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
         input[type="time"]::-webkit-calendar-picker-indicator {
@@ -984,6 +1186,29 @@ export default function App() {
           top: 0;
           width: auto;
           opacity: 0;
+        }
+        .bp-avg-transition {
+          transition: opacity 340ms cubic-bezier(0.22, 1, 0.36, 1), transform 340ms cubic-bezier(0.22, 1, 0.36, 1);
+          will-change: opacity, transform;
+        }
+        .bp-badge-transition {
+          transition: opacity 200ms cubic-bezier(0.22, 1, 0.36, 1), transform 200ms cubic-bezier(0.22, 1, 0.36, 1), background-color 180ms ease, color 180ms ease;
+          will-change: opacity, transform, background-color, color;
+        }
+        .bp-badge-text-transition {
+          transition: opacity 85ms ease;
+        }
+        .bp-legend-opacity {
+          transition: opacity 160ms ease-out;
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .bp-avg-transition,
+          .bp-badge-transition,
+          .bp-badge-text-transition,
+          .bp-legend-opacity {
+            transition: none !important;
+            transform: none !important;
+          }
         }
       `}</style>
 
@@ -1168,15 +1393,16 @@ export default function App() {
 
             <section className="bg-white rounded-[32px] p-5">
               <div className="flex items-center justify-between gap-2 mb-1.5">
-                <span className="text-[56px] font-black tracking-tighter leading-none text-[#141A16]">
-                  {stats.avgSys ? `${stats.avgSys}/${stats.avgDia}` : '–/–'}
-                </span>
-                <span
-                  className="px-3.5 py-1.5 rounded-full text-[14px] font-semibold shrink-0"
-                  style={{ backgroundColor: avgBadge.bg, color: avgBadge.textCol }}
-                >
-                  {avgBadge.text}
-                </span>
+                <AnimatedAvgPressure
+                  sys={stats.avgSys}
+                  dia={stats.avgDia}
+                  isInitialDone={initialAvgDoneRef.current}
+                  onInitialComplete={handleInitialAvgComplete}
+                />
+                <AnimatedStatusBadge
+                  badge={avgBadge}
+                  visible={badgeVisible || initialAvgDoneRef.current}
+                />
               </div>
 
               <div className="mb-4">
@@ -1188,13 +1414,17 @@ export default function App() {
                 {chartData.length > 0 && (
                   <>
                     <div
-                      className="absolute right-[2px] top-[12px] text-[11px] font-bold pointer-events-none z-10"
+                      className={`absolute right-[2px] top-[12px] text-[11px] font-bold pointer-events-none z-10 bp-legend-opacity ${
+                        legendVisible || legendShownRef.current ? 'opacity-100' : 'opacity-0'
+                      }`}
                       style={{ color: SYS_COLOR }}
                     >
                       Верхнее
                     </div>
                     <div
-                      className="absolute right-[2px] top-[100px] text-[11px] font-bold pointer-events-none z-10"
+                      className={`absolute right-[2px] top-[100px] text-[11px] font-bold pointer-events-none z-10 bp-legend-opacity ${
+                        legendVisible || legendShownRef.current ? 'opacity-100' : 'opacity-0'
+                      }`}
                       style={{ color: DIA_COLOR }}
                     >
                       Нижнее
@@ -1263,6 +1493,8 @@ export default function App() {
                         stroke={SYS_COLOR}
                         strokeWidth={2.4}
                         fill="url(#sysFill)"
+                        animationDuration={380}
+                        onAnimationEnd={handleChartInitialAnimationEnd}
                         activeDot={{ r: 5, fill: SYS_COLOR, stroke: '#FFFFFF', strokeWidth: 2 }}
                       />
                       <Area
@@ -1271,6 +1503,7 @@ export default function App() {
                         stroke={DIA_COLOR}
                         strokeWidth={2.4}
                         fill="url(#diaFill)"
+                        animationDuration={380}
                         activeDot={{ r: 5, fill: DIA_COLOR, stroke: '#FFFFFF', strokeWidth: 2 }}
                       />
                     </AreaChart>
@@ -1886,11 +2119,9 @@ export default function App() {
               </div>
 
               <div className="relative flex items-center justify-center w-full h-[360px] gap-3 mt-2">
-                {/* Подложки колонок */}
                 <div className="absolute left-0 top-0 bottom-0 w-[145px] bg-[#F4F5F2] rounded-[24px]" />
                 <div className="absolute right-0 top-0 bottom-0 w-[145px] bg-[#F4F5F2] rounded-[24px]" />
 
-                {/* Зеленая плашка выбора (по центру) */}
                 <div className="absolute top-1/2 left-0 right-0 h-[72px] -translate-y-1/2 flex items-center justify-between pointer-events-none">
                   <div className="w-[145px] h-full bg-[#D8EEB9] rounded-[24px]" />
                   <div className="w-[145px] h-full bg-[#D8EEB9] rounded-[24px]" />
