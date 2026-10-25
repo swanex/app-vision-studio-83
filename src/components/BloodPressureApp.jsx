@@ -110,6 +110,86 @@ const getStatusLabel = (sys, dia) => {
   };
 };
 
+// ВОССТАНОВЛЕННЫЕ ФУНКЦИИ (из-за отсутствия которых падало сохранение)
+const deduplicateRecords = (arr) => {
+  const seen = new Map();
+  arr.forEach((item) => {
+    const key = item.id || `${item.date}_${item.time}_${item.sys}_${item.dia}`;
+    seen.set(key, item);
+  });
+  return Array.from(seen.values());
+};
+
+const parseImportData = (rawText, username = 'user') => {
+  const lines = rawText
+    .split('\n')
+    .map((l) => l.trim())
+    .filter((l) => l.length > 0);
+
+  const parsed = [];
+
+  lines.forEach((line, idx) => {
+    const dateMatch = line.match(/(\d{4}-\d{2}-\d{2}|\d{2}\.\d{2}\.\d{4})/);
+    if (!dateMatch) return;
+    let isoDate = dateMatch[1];
+    if (isoDate.includes('.')) {
+      const [dd, mm, yyyy] = isoDate.split('.');
+      isoDate = `${yyyy}-${mm}-${dd}`;
+    }
+    const timeMatch = line.match(/\b([01]?\d|2[0-3]):([0-5]\d)\b/);
+    const time = timeMatch ? `${timeMatch[1].padStart(2, '0')}:${timeMatch[2]}` : '09:00';
+    let rest = line.replace(dateMatch[1], '').replace(timeMatch ? timeMatch[0] : '', '');
+
+    const nums = rest.match(/\b\d{2,3}\b/g);
+    if (nums && nums.length >= 2) {
+      const sys = parseInt(nums[0], 10);
+      const dia = parseInt(nums[1], 10);
+      const pulse = nums[2] ? parseInt(nums[2], 10) : null;
+      const cleanNote = rest
+        .replace(nums[0], '')
+        .replace(nums[1], '')
+        .replace(nums[2] || '', '')
+        .replace(/^[;,\s/|-]+|[;,\s/|-]+$/g, '')
+        .trim();
+
+      if (sys >= 75 && sys <= 220 && dia >= 45 && dia <= 140) {
+        parsed.push({
+          id: `r-${username}-${isoDate}-${time.replace(':', '')}-${idx}-${Date.now().toString().slice(-4)}`,
+          username,
+          date: isoDate,
+          time,
+          sys,
+          dia,
+          pulse: pulse && pulse >= 35 && pulse <= 200 ? pulse : null,
+          note: cleanNote || 'Замер'
+        });
+      }
+    }
+  });
+
+  return parsed;
+};
+
+const DEFAULT_ROMA_AVATAR_SVG = `data:image/svg+xml;utf8,${encodeURIComponent(`
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#1e2530"/>
+      <stop offset="100%" stop-color="#0f141c"/>
+    </linearGradient>
+  </defs>
+  <rect width="120" height="120" rx="60" fill="url(#bg)"/>
+  <circle cx="60" cy="54" r="24" fill="#d8a98c"/>
+  <path d="M24 114 C28 88 92 88 96 114" fill="#181c24"/>
+  <path d="M34 44 C34 24 86 24 86 44 Z" fill="#23272e"/>
+  <path d="M22 43 Q55 37 88 44 L86 48 Q54 43 22 46 Z" fill="#14171c"/>
+  <rect x="40" y="47" width="17" height="12" rx="3" fill="none" stroke="#181b20" stroke-width="3.2"/>
+  <rect x="63" y="47" width="17" height="12" rx="3" fill="none" stroke="#181b20" stroke-width="3.2"/>
+  <line x1="57" y1="51" x2="63" y2="51" stroke="#181b20" stroke-width="3"/>
+  <path d="M51 67 Q60 72 69 67" fill="none" stroke="#8c584c" stroke-width="2.5" stroke-linecap="round"/>
+</svg>
+`)}`;
+
 const generateDemoRecords = () => {
   const base = [
     [122, 80, 64, '08:30', 'После пробуждения', 80],
@@ -126,7 +206,7 @@ const generateDemoRecords = () => {
     [122, 80, 65, '20:10', 'Вечерняя прогулка', 2],
     [117, 76, 60, '08:15', 'После пробуждения', 1],
     [124, 82, 68, '19:45', 'До сна', 1],
-    [119, 78, 62, '08:30', 'После пробуждения', 1]
+    [119, 78, 62, '08:30', 'После пробуждения', 0]
   ];
   const now = new Date();
   return base.map((item, idx) => {
@@ -279,17 +359,19 @@ const DrumPicker = ({ options, value, onChange }) => {
 };
 
 // Полноэкранный модальный слой сканирования тонометра поверх шторки «Новый замер»
+// С локальным детектором стабилизации кадра (Motion Detection) перед отправкой в Gemini
 const TonometerScannerModal = ({ onClose, onDetected, currentUser }) => {
   const videoRef = useRef(null);
   const streamRef = useRef(null);
   const isScanningRef = useRef(false);
   const activeRef = useRef(true);
   const attemptsRef = useRef(0);
+  const prevSmallFrameRef = useRef(null);
 
   const [cameraReady, setCameraReady] = useState(false);
   const [cameraError, setCameraError] = useState('');
   const [isProcessingFrame, setIsProcessingFrame] = useState(false);
-  const [hintMessage, setHintMessage] = useState('Сканирование начнётся автоматически');
+  const [hintMessage, setHintMessage] = useState('Наведите на экран и удерживайте телефон ровно');
   const [torchSupported, setTorchSupported] = useState(false);
   const [torchOn, setTorchOn] = useState(false);
   const [retryTrigger, setRetryTrigger] = useState(0);
@@ -426,7 +508,7 @@ const TonometerScannerModal = ({ onClose, onDetected, currentUser }) => {
       const base64Image = dataUrl.split(',')[1];
 
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 8500);
+      const timeoutId = setTimeout(() => controller.abort(), 12000);
 
       const res = await fetch(`${SUPABASE_URL}/functions/v1/scan-tonometer`, {
         method: 'POST',
@@ -496,24 +578,76 @@ const TonometerScannerModal = ({ onClose, onDetected, currentUser }) => {
     }
   }, [cameraReady, currentUser, onDetected, stopCamera]);
 
+  // Детектор стабилизации кадра (Frame Differencing):
+  // сравнивает микро-снимки 32x32 каждые 150 мс и отправляет кадр в ИИ только когда рука замерла
   useEffect(() => {
     if (!cameraReady || cameraError) return;
-    let timeoutId;
+    let timerId;
     let isLooping = true;
+    let stableFramesCount = 0;
 
-    const scanLoop = async () => {
+    const motionCanvas = document.createElement('canvas');
+    motionCanvas.width = 32;
+    motionCanvas.height = 32;
+    const motionCtx = motionCanvas.getContext('2d', { willReadFrequently: true });
+
+    const checkStabilityAndScan = async () => {
       if (!isLooping || !activeRef.current) return;
-      await captureAndRecognize();
+
+      const video = videoRef.current;
+      if (video && video.readyState >= 2 && video.videoWidth > 0 && !isScanningRef.current) {
+        const minDim = Math.min(video.videoWidth, video.videoHeight);
+        const cropSize = Math.floor(minDim * 0.7);
+        const sx = Math.floor((video.videoWidth - cropSize) / 2);
+        const sy = Math.floor((video.videoHeight - cropSize) / 2);
+
+        motionCtx.drawImage(video, sx, sy, cropSize, cropSize, 0, 0, 32, 32);
+        const currentData = motionCtx.getImageData(0, 0, 32, 32).data;
+
+        if (prevSmallFrameRef.current) {
+          let diffSum = 0;
+          const prevData = prevSmallFrameRef.current;
+          const totalPixels = 32 * 32;
+
+          for (let i = 0; i < currentData.length; i += 4) {
+            const grayCurr = currentData[i] * 0.3 + currentData[i + 1] * 0.59 + currentData[i + 2] * 0.11;
+            const grayPrev = prevData[i] * 0.3 + prevData[i + 1] * 0.59 + prevData[i + 2] * 0.11;
+            diffSum += Math.abs(grayCurr - grayPrev);
+          }
+
+          const avgDiff = diffSum / totalPixels;
+
+          // Если средняя разница яркости пикселей меньше порога (10 из 255) — кадр стабилен
+          if (avgDiff < 10) {
+            stableFramesCount += 1;
+          } else {
+            stableFramesCount = 0;
+          }
+        }
+
+        prevSmallFrameRef.current = new Uint8ClampedArray(currentData);
+
+        // 4 стабильных замера подряд (~600 мс удержания без тряски) запускают распознавание
+        if (stableFramesCount >= 4) {
+          stableFramesCount = 0;
+          await captureAndRecognize();
+          if (isLooping && activeRef.current) {
+            timerId = setTimeout(checkStabilityAndScan, 1100);
+          }
+          return;
+        }
+      }
+
       if (isLooping && activeRef.current) {
-        timeoutId = setTimeout(scanLoop, 1500);
+        timerId = setTimeout(checkStabilityAndScan, 150);
       }
     };
 
-    timeoutId = setTimeout(scanLoop, 650);
+    timerId = setTimeout(checkStabilityAndScan, 450);
 
     return () => {
       isLooping = false;
-      clearTimeout(timeoutId);
+      clearTimeout(timerId);
     };
   }, [cameraReady, cameraError, captureAndRecognize]);
 
@@ -625,7 +759,11 @@ const TonometerScannerModal = ({ onClose, onDetected, currentUser }) => {
                 }`}
               />
               <span className="text-[18px] font-bold text-[#F1F3EF] tracking-tight">
-                {!cameraReady ? 'Запускаем камеру...' : 'Ищем показания...'}
+                {!cameraReady
+                  ? 'Запускаем камеру...'
+                  : isProcessingFrame
+                  ? 'Распознаём цифры...'
+                  : 'Ищем показания...'}
               </span>
             </div>
           )}
@@ -1433,7 +1571,6 @@ export default function App() {
     if (pulse) setPulseInput(pulse);
     setScannerOpen(false);
     
-    // Запускаем CSS анимацию вспышки с микро-задержкой, чтобы React успел отрендерить новые цифры
     setTimeout(() => setFlashHighlight(true), 50);
     setTimeout(() => setFlashHighlight(false), 1250);
   }, []);
@@ -2749,12 +2886,7 @@ export default function App() {
                 <button
                   type="button"
                   onClick={handleSaveRecord}
-                  disabled={!sysInput || !diaInput}
-                  className={`w-full py-[20px] rounded-[28px] text-[20px] font-bold transition cursor-pointer mt-1 ${
-                    sysInput && diaInput
-                      ? 'bg-[var(--cta-bg)] text-[var(--cta-text)] active:scale-[0.99]'
-                      : 'bg-[var(--surface-secondary)] text-[var(--text-muted)] cursor-not-allowed'
-                  }`}
+                  className="w-full py-[20px] rounded-[28px] bg-[var(--cta-bg)] text-[var(--cta-text)] text-[20px] font-bold active:scale-[0.99] transition cursor-pointer mt-1"
                 >
                   Сохранить замер
                 </button>
@@ -2893,7 +3025,7 @@ export default function App() {
               <div className="grid grid-cols-2 gap-2.5">
                 <div className="bg-[var(--surface-card)] rounded-[26px] p-4 flex flex-col justify-center">
                   <div className="text-[12px] font-semibold text-[var(--text-muted)] mb-1">
-                    Записей в сессии
+                    Записей
                   </div>
                   <div className="text-[20px] font-bold text-[var(--text-primary)] leading-none">
                     {currentUser ? rawCloudCount : records.length}
@@ -2901,7 +3033,7 @@ export default function App() {
                 </div>
                 <div className="bg-[var(--surface-card)] rounded-[26px] p-4 flex flex-col justify-center">
                   <div className="text-[12px] font-semibold text-[var(--text-muted)] mb-1">
-                    Уникальных замеров
+                    Замеров
                   </div>
                   <div className="text-[20px] font-bold text-[var(--text-primary)] leading-none">
                     {records.length}
