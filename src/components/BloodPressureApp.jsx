@@ -25,7 +25,8 @@ import {
   ChevronRight,
   ChevronDown,
   User,
-  LogOut
+  LogOut,
+  Zap
 } from 'lucide-react';
 
 const SUPABASE_URL = 'https://qgmnldmmhdtqbptbdmjm.supabase.co';
@@ -183,6 +184,25 @@ const CloudCheckIcon = ({ className = 'w-5 h-5' }) => (
   </svg>
 );
 
+// Иконка сканирования прибора в соответствии с макетом
+const ScanFrameIcon = ({ className = 'w-5 h-5' }) => (
+  <svg
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2.2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    className={className}
+  >
+    <path d="M4 8V6a2 2 0 0 1 2-2h2" />
+    <path d="M4 16v2a2 2 0 0 0 2 2h2" />
+    <path d="M16 4h2a2 2 0 0 1 2 2v2" />
+    <path d="M16 20h2a2 2 0 0 0 2-2v-2" />
+    <line x1="4" y1="12" x2="20" y2="12" />
+  </svg>
+);
+
 const HomeNavIcon = ({ solid }) => solid ? (
   <svg width="44" height="44" viewBox="0 0 44 44" fill="none" xmlns="http://www.w3.org/2000/svg">
     <path d="M25.3926 27.6992H18.6084C18.1254 27.6992 17.7334 27.3072 17.7334 26.8242C17.7334 26.3412 18.1254 25.9492 18.6084 25.9492H25.3926C25.8756 25.9492 26.2676 26.3412 26.2676 26.8242C26.2676 27.3072 25.8756 27.6992 25.3926 27.6992ZM30.4571 15.1843C30.0336 14.811 29.5517 14.3887 28.9777 13.8578C28.7176 13.6478 28.4329 13.4075 28.1307 13.1532C26.4274 11.717 24.0941 9.75 21.9672 9.75C19.8649 9.75 17.6821 11.6073 15.9286 13.0995C15.6042 13.3748 15.3009 13.6338 14.9917 13.8847C14.4481 14.3887 13.9662 14.8122 13.5416 15.1867C10.7567 17.6378 10.2329 18.2807 10.2329 23.9985C10.2329 34.25 13.1974 34.25 21.9999 34.25C30.8012 34.25 33.7669 34.25 33.7669 23.9985C33.7669 18.2795 33.2431 17.6367 30.4571 15.1843Z" fillRule="evenodd" clipRule="evenodd" fill="var(--text-primary)"/>
@@ -255,6 +275,372 @@ const DrumPicker = ({ options, value, onChange }) => {
         </div>
       ))}
       <div style={{ height: ITEM_HEIGHT * 2 }} />
+    </div>
+  );
+};
+
+// Полноэкранный модальный слой сканирования тонометра поверх шторки «Новый замер»
+const TonometerScannerModal = ({ onClose, onDetected, currentUser }) => {
+  const videoRef = useRef(null);
+  const streamRef = useRef(null);
+  const isScanningRef = useRef(false);
+  const activeRef = useRef(true);
+  const attemptsRef = useRef(0);
+
+  const [cameraReady, setCameraReady] = useState(false);
+  const [cameraError, setCameraError] = useState('');
+  const [isProcessingFrame, setIsProcessingFrame] = useState(false);
+  const [hintMessage, setHintMessage] = useState('Сканирование начнётся автоматически');
+  const [torchSupported, setTorchSupported] = useState(false);
+  const [torchOn, setTorchOn] = useState(false);
+  const [retryTrigger, setRetryTrigger] = useState(0);
+
+  const stopCamera = useCallback(() => {
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach((track) => {
+        try {
+          track.stop();
+        } catch (e) {
+          console.error(e);
+        }
+      });
+      streamRef.current = null;
+    }
+  }, []);
+
+  // Перехват системной кнопки «Назад» на мобильных устройствах, чтобы закрыть только сканер
+  useEffect(() => {
+    window.history.pushState({ tonometerScanner: true }, '');
+    const handlePopState = () => {
+      stopCamera();
+      onClose();
+    };
+    window.addEventListener('popstate', handlePopState);
+    return () => {
+      window.removeEventListener('popstate', handlePopState);
+    };
+  }, [onClose, stopCamera]);
+
+  useEffect(() => {
+    activeRef.current = true;
+    setCameraError('');
+    setCameraReady(false);
+
+    const startCamera = async () => {
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        setCameraError('Ваш браузер не поддерживает доступ к камере.');
+        return;
+      }
+
+      try {
+        let stream;
+        try {
+          stream = await navigator.mediaDevices.getUserMedia({
+            audio: false,
+            video: {
+              facingMode: { ideal: 'environment' },
+              width: { ideal: 1280 },
+              height: { ideal: 720 }
+            }
+          });
+        } catch {
+          // Фолбэк для ноутбуков и десктопов с обычной веб-камерой
+          stream = await navigator.mediaDevices.getUserMedia({
+            audio: false,
+            video: true
+          });
+        }
+
+        if (!activeRef.current) {
+          stream.getTracks().forEach((t) => t.stop());
+          return;
+        }
+
+        streamRef.current = stream;
+
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream;
+          await videoRef.current.play().catch(() => {});
+          setCameraReady(true);
+        }
+
+        const videoTrack = stream.getVideoTracks()[0];
+        if (videoTrack && typeof videoTrack.getCapabilities === 'function') {
+          const caps = videoTrack.getCapabilities();
+          if (caps && caps.torch) {
+            setTorchSupported(true);
+          }
+        }
+      } catch (err) {
+        if (!activeRef.current) return;
+        if (err?.name === 'NotAllowedError' || err?.name === 'PermissionDeniedError') {
+          setCameraError('Доступ к камере запрещён. Разрешите использование камеры в настройках браузера.');
+        } else if (err?.name === 'NotFoundError' || err?.name === 'DevicesNotFoundError') {
+          setCameraError('Камера не найдена на этом устройстве.');
+        } else {
+          setCameraError('Не удалось запустить камеру. Проверьте, не занята ли она другим приложением.');
+        }
+      }
+    };
+
+    startCamera();
+
+    return () => {
+      activeRef.current = false;
+      stopCamera();
+    };
+  }, [retryTrigger, stopCamera]);
+
+  const toggleTorch = async () => {
+    if (!streamRef.current) return;
+    const track = streamRef.current.getVideoTracks()[0];
+    if (!track) return;
+    try {
+      const next = !torchOn;
+      await track.applyConstraints({ advanced: [{ torch: next }] });
+      setTorchOn(next);
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const captureAndRecognize = useCallback(async () => {
+    if (!activeRef.current || !cameraReady || isScanningRef.current || !videoRef.current) return;
+    const video = videoRef.current;
+    if (video.readyState < 2 || !video.videoWidth || !video.videoHeight) return;
+
+    isScanningRef.current = true;
+    setIsProcessingFrame(true);
+
+    try {
+      const canvas = document.createElement('canvas');
+      const targetSize = 640;
+      canvas.width = targetSize;
+      canvas.height = targetSize;
+      const ctx = canvas.getContext('2d');
+
+      const minDim = Math.min(video.videoWidth, video.videoHeight);
+      const cropSize = Math.floor(minDim * 0.84);
+      const sx = Math.floor((video.videoWidth - cropSize) / 2);
+      const sy = Math.floor((video.videoHeight - cropSize) / 2);
+
+      ctx.drawImage(video, sx, sy, cropSize, cropSize, 0, 0, targetSize, targetSize);
+      const dataUrl = canvas.toDataURL('image/jpeg', 0.78);
+      const base64Image = dataUrl.split(',')[1];
+
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 8500);
+
+      const res = await fetch(`${SUPABASE_URL}/functions/v1/scan-tonometer`, {
+        method: 'POST',
+        headers: {
+          apikey: SUPABASE_KEY,
+          Authorization: `Bearer ${SUPABASE_KEY}`,
+          'Content-Type': 'application/json',
+          'x-user-login': currentUser?.username || '',
+          'x-user-pin': currentUser?.pin || ''
+        },
+        body: JSON.stringify({ imageBase64: base64Image }),
+        signal: controller.signal
+      });
+
+      clearTimeout(timeoutId);
+
+      if (!res.ok) {
+        throw new Error(`HTTP ${res.status}`);
+      }
+
+      const result = await res.json();
+      if (!activeRef.current) return;
+
+      const sys = parseInt(result?.sys, 10);
+      const dia = parseInt(result?.dia, 10);
+      const pulse = result?.pulse ? parseInt(result.pulse, 10) : null;
+
+      const isValidPattern =
+        result?.found &&
+        !isNaN(sys) &&
+        !isNaN(dia) &&
+        sys >= 75 &&
+        sys <= 240 &&
+        dia >= 40 &&
+        dia <= 150 &&
+        sys > dia + 10 &&
+        (pulse === null || (!isNaN(pulse) && pulse >= 35 && pulse <= 210));
+
+      if (isValidPattern) {
+        if (typeof navigator !== 'undefined' && navigator.vibrate) {
+          navigator.vibrate(60);
+        }
+        stopCamera();
+        onDetected({
+          sys: String(sys),
+          dia: String(dia),
+          pulse: pulse ? String(pulse) : ''
+        });
+        return;
+      }
+
+      attemptsRef.current += 1;
+      if (attemptsRef.current >= 2) {
+        setHintMessage('Не удаётся прочитать цифры. Попробуйте изменить угол или освещение');
+      }
+    } catch (err) {
+      if (!activeRef.current) return;
+      attemptsRef.current += 1;
+      if (attemptsRef.current >= 2) {
+        setHintMessage('Не удаётся прочитать цифры. Попробуйте изменить угол');
+      }
+    } finally {
+      if (activeRef.current) {
+        setIsProcessingFrame(false);
+        isScanningRef.current = false;
+      }
+    }
+  }, [cameraReady, currentUser, onDetected, stopCamera]);
+
+  useEffect(() => {
+    if (!cameraReady || cameraError) return;
+    const initialTimer = setTimeout(() => {
+      captureAndRecognize();
+    }, 650);
+
+    const interval = setInterval(() => {
+      captureAndRecognize();
+    }, 1600);
+
+    return () => {
+      clearTimeout(initialTimer);
+      clearInterval(interval);
+    };
+  }, [cameraReady, cameraError, captureAndRecognize]);
+
+  return (
+    <div
+      className="fixed inset-0 z-[70] bg-black/80 flex justify-center select-none touch-none"
+      onClick={(e) => e.stopPropagation()}
+    >
+      <div className="w-full max-w-[440px] h-full bg-[#141A16] relative flex flex-col justify-between overflow-hidden">
+        {/* Живой видеопоток камеры */}
+        <video
+          ref={videoRef}
+          playsInline
+          muted
+          autoPlay
+          className="absolute inset-0 w-full h-full object-cover pointer-events-none"
+        />
+
+        {/* Мягкое затемнение краёв для читаемости заголовка и нижней подсказки */}
+        <div
+          className="absolute inset-0 pointer-events-none"
+          style={{
+            background:
+              'linear-gradient(180deg, rgba(17,24,19,0.88) 0%, rgba(17,24,19,0.22) 24%, rgba(17,24,19,0.22) 72%, rgba(17,24,19,0.92) 100%)'
+          }}
+        />
+
+        {/* Верхняя шапка сканера */}
+        <div className="relative z-20 px-6 pt-7 pb-4">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <h3 className="text-[36px] font-extrabold text-[#F1F3EF] leading-none tracking-tight">
+                Сканирование
+              </h3>
+              <p className="text-[16px] font-normal text-[#D5DDD8] mt-2.5 leading-snug">
+                Наведите камеру на экран тонометра
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                stopCamera();
+                onClose();
+              }}
+              className="w-11 h-11 rounded-full bg-[#29322C]/90 flex items-center justify-center text-[#F1F3EF] active:scale-95 transition cursor-pointer shrink-0"
+              aria-label="Закрыть сканер"
+            >
+              <X className="w-5 h-5" strokeWidth={2.2} />
+            </button>
+          </div>
+
+          {torchSupported && (
+            <div className="flex justify-end mt-4">
+              <button
+                type="button"
+                onClick={toggleTorch}
+                className={`w-11 h-11 rounded-full flex items-center justify-center transition cursor-pointer ${
+                  torchOn
+                    ? 'bg-[#D6EBB4] text-[#141A16]'
+                    : 'bg-[#202722]/85 text-[#F1F3EF]'
+                }`}
+                aria-label="Переключить фонарик"
+              >
+                <Zap className="w-5 h-5 fill-current" strokeWidth={2} />
+              </button>
+            </div>
+          )}
+        </div>
+
+        {/* Центральная зона с белыми уголками-прицелом или сообщением об ошибке камеры */}
+        <div className="relative z-20 flex-1 flex items-center justify-center px-8">
+          {cameraError ? (
+            <div className="w-full bg-[#202722]/95 rounded-[28px] p-6 text-center space-y-4">
+              <div className="text-[18px] font-bold text-[#F1F3EF] leading-snug">
+                {cameraError}
+              </div>
+              <div className="flex flex-col gap-2.5 pt-1">
+                <button
+                  type="button"
+                  onClick={() => setRetryTrigger((prev) => prev + 1)}
+                  className="w-full py-3.5 rounded-full bg-[#EAF3EF] text-[#141A16] font-bold text-[16px] active:scale-95 transition cursor-pointer"
+                >
+                  Попробовать снова
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    stopCamera();
+                    onClose();
+                  }}
+                  className="w-full py-3.5 rounded-full bg-[#29322C] text-[#F1F3EF] font-bold text-[16px] active:scale-95 transition cursor-pointer"
+                >
+                  Вернуться к ручному вводу
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="w-full max-w-[290px] aspect-[4/4.3] relative pointer-events-none">
+              {/* 4 скругленных уголка прицела в стиле эскиза */}
+              <div className="absolute top-0 left-0 w-12 h-12 border-t-[5px] border-l-[5px] border-[#F1F3EF] rounded-tl-[20px]" />
+              <div className="absolute top-0 right-0 w-12 h-12 border-t-[5px] border-r-[5px] border-[#F1F3EF] rounded-tr-[20px]" />
+              <div className="absolute bottom-0 left-0 w-12 h-12 border-b-[5px] border-l-[5px] border-[#F1F3EF] rounded-bl-[20px]" />
+              <div className="absolute bottom-0 right-0 w-12 h-12 border-b-[5px] border-r-[5px] border-[#F1F3EF] rounded-br-[20px]" />
+            </div>
+          )}
+        </div>
+
+        {/* Нижний информационный блок со спиннером и подсказкой */}
+        <div className="relative z-20 px-6 pb-8 pt-2 space-y-4">
+          {!cameraError && (
+            <div className="flex items-center justify-center gap-3">
+              <div
+                className={`w-7 h-7 rounded-full border-[3.5px] border-[#F1F3EF]/25 border-t-[#F1F3EF] ${
+                  isProcessingFrame || !cameraReady ? 'animate-spin' : 'animate-pulse'
+                }`}
+              />
+              <span className="text-[18px] font-bold text-[#F1F3EF] tracking-tight">
+                {!cameraReady ? 'Запускаем камеру...' : 'Ищем показания...'}
+              </span>
+            </div>
+          )}
+
+          <div className="w-full bg-[#18201B]/95 rounded-[24px] px-5 py-5 text-center">
+            <span className="text-[15px] font-medium text-[#D5DDD8] leading-snug block">
+              {hintMessage}
+            </span>
+          </div>
+        </div>
+      </div>
     </div>
   );
 };
@@ -511,7 +897,6 @@ export default function App() {
     return null;
   });
 
-  // Состояние темы: для авторизованного пользователя восстанавливается из localStorage, для демо — живет в сессии
   const [theme, setTheme] = useState(() => {
     try {
       const savedSession = localStorage.getItem(SESSION_STORAGE_KEY);
@@ -589,6 +974,11 @@ export default function App() {
 
   const [timePickerOpen, setTimePickerOpen] = useState(false);
   const [tempTime, setTempTime] = useState('09:00');
+
+  // Состояния для функции сканирования тонометра
+  const [scannerOpen, setScannerOpen] = useState(false);
+  const [scanDemoNotice, setScanDemoNotice] = useState(false);
+  const demoNoticeTimerRef = useRef(null);
 
   const [inputsUnlocked, setInputsUnlocked] = useState(false);
 
@@ -875,14 +1265,17 @@ export default function App() {
     }
     setDragOffset(0);
     setInputsUnlocked(false);
+    setScannerOpen(false);
+    setScanDemoNotice(false);
   }, [activeSheet]);
 
   const handleSheetTouchStart = (e) => {
+    if (scannerOpen) return;
     touchStartYRef.current = e.touches[0].clientY;
   };
 
   const handleSheetTouchMove = (e) => {
-    if (touchStartYRef.current === null) return;
+    if (scannerOpen || touchStartYRef.current === null) return;
     const deltaY = e.touches[0].clientY - touchStartYRef.current;
     if (deltaY > 0) {
       setDragOffset(deltaY);
@@ -890,6 +1283,7 @@ export default function App() {
   };
 
   const handleSheetTouchEnd = () => {
+    if (scannerOpen) return;
     if (dragOffset > 85) {
       setActiveSheet(null);
     }
@@ -1105,6 +1499,25 @@ export default function App() {
     setPulseInput(val);
   };
 
+  const handleScanButtonClick = () => {
+    if (!currentUser) {
+      if (demoNoticeTimerRef.current) clearTimeout(demoNoticeTimerRef.current);
+      setScanDemoNotice(true);
+      demoNoticeTimerRef.current = setTimeout(() => {
+        setScanDemoNotice(false);
+      }, 2000);
+      return;
+    }
+    setScannerOpen(true);
+  };
+
+  const handleScannerDetected = useCallback(({ sys, dia, pulse }) => {
+    setSysInput(sys);
+    setDiaInput(dia);
+    if (pulse) setPulseInput(pulse);
+    setScannerOpen(false);
+  }, []);
+
   const handleSaveRecord = async () => {
     const s = parseInt(sysInput, 10);
     const d = parseInt(diaInput, 10);
@@ -1273,7 +1686,9 @@ export default function App() {
           --cta-logout-text: #F87171;
           --import-btn-bg: transparent;
           --import-btn-text: #141A16;
-          --import-btn-border: #000000;
+          --import-btn-border: #141A16;
+          --scan-btn-disabled-border: #C8CFCB;
+          --scan-btn-disabled-text: #8F9691;
           --tab-active-bg: #141A16;
           --tab-active-text: #FFFFFF;
           --period-active-bg: #141A16;
@@ -1330,6 +1745,8 @@ export default function App() {
           --delete-icon: #B0B7B2;
           --avatar-bg: #141A16;
           --avatar-icon: #FFFFFF;
+          --nav-shadow: 0 8px 32px rgba(20, 26, 22, 0.08);
+          --nav-border: rgba(20, 26, 22, 0.05);
         }
 
         [data-theme="dark"] {
@@ -1353,9 +1770,11 @@ export default function App() {
           --cta-text: #141A16;
           --cta-logout-bg: #EAF3EF;
           --cta-logout-text: #DC2626;
-          --import-btn-bg: #EAF3EF;
-          --import-btn-text: #141A16;
-          --import-btn-border: transparent;
+          --import-btn-bg: transparent;
+          --import-btn-text: #F1F3EF;
+          --import-btn-border: #49544D;
+          --scan-btn-disabled-border: #354139;
+          --scan-btn-disabled-text: #6E7872;
           --tab-active-bg: #D6EBB4;
           --tab-active-text: #141A16;
           --period-active-bg: #111813;
@@ -1412,11 +1831,12 @@ export default function App() {
           --delete-icon: #858F88;
           --avatar-bg: #232C26;
           --avatar-icon: #F1F3EF;
+          --nav-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
+          --nav-border: rgba(241, 243, 239, 0.05);
         }
 
         .bp-theme-surface,
         .bp-theme-surface section,
-        .bp-theme-surface nav > div,
         .bp-theme-surface header button,
         .bp-theme-surface main > div {
           transition: background-color 180ms ease, color 180ms ease;
@@ -1897,7 +2317,10 @@ export default function App() {
         )}
 
         <nav className="fixed bottom-5 left-0 right-0 z-30 flex justify-center px-5 pointer-events-none">
-          <div className="w-full max-w-[400px] h-[68px] bg-[var(--surface-card)] rounded-[34px] px-12 flex items-center justify-between pointer-events-auto">
+          <div 
+            className="w-full max-w-[400px] h-[68px] bg-[var(--surface-card)] rounded-[34px] px-12 flex items-center justify-between pointer-events-auto"
+            style={{ boxShadow: 'var(--nav-shadow)', border: '1px solid var(--nav-border)' }}
+          >
             <button
               onClick={() => setActiveTab('home')}
               className="active:scale-95 transition cursor-pointer flex items-center justify-center"
@@ -2144,7 +2567,9 @@ export default function App() {
         {activeSheet === 'add' && (
           <div
             className="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs flex items-end justify-center overscroll-none touch-none"
-            onClick={() => setActiveSheet(null)}
+            onClick={() => {
+              if (!scannerOpen) setActiveSheet(null);
+            }}
           >
             <div
               onTouchStart={handleSheetTouchStart}
@@ -2253,6 +2678,31 @@ export default function App() {
                   </div>
                 </div>
 
+                {/* Кнопка сканирования прибора камерой */}
+                <button
+                  type="button"
+                  onClick={handleScanButtonClick}
+                  className={`w-full h-[52px] rounded-full border bg-transparent font-bold text-[16px] flex items-center justify-center gap-2.5 transition cursor-pointer ${
+                    currentUser
+                      ? 'text-[var(--import-btn-text)] active:scale-[0.99]'
+                      : 'text-[var(--scan-btn-disabled-text)]'
+                  }`}
+                  style={{
+                    borderColor: currentUser
+                      ? 'var(--import-btn-border)'
+                      : 'var(--scan-btn-disabled-border)'
+                  }}
+                >
+                  {scanDemoNotice ? (
+                    <span>Только в режиме пользователя</span>
+                  ) : (
+                    <>
+                      <ScanFrameIcon className="w-5 h-5 shrink-0" />
+                      <span>Сканировать прибор</span>
+                    </>
+                  )}
+                </button>
+
                 <div className="bg-[var(--surface-input)] rounded-[26px] h-[72px] px-5 flex items-center justify-between">
                   <span className="text-[18px] font-bold text-[var(--text-primary)]">
                     Время замера
@@ -2338,6 +2788,15 @@ export default function App() {
               </div>
             </div>
           </div>
+        )}
+
+        {/* МОДАЛЬНЫЙ ЭКРАН СКАНИРОВАНИЯ ТОНОМЕТРА (ПОВЕРХ ШТОРКИ НОВОГО ЗАМЕРА) */}
+        {activeSheet === 'add' && scannerOpen && (
+          <TonometerScannerModal
+            currentUser={currentUser}
+            onClose={() => setScannerOpen(false)}
+            onDetected={handleScannerDetected}
+          />
         )}
 
         {/* ШТОРКА КАСТОМНОГО ВЫБОРА ВРЕМЕНИ */}
@@ -2492,6 +2951,7 @@ export default function App() {
                   type="button"
                   onClick={handleImportSubmit}
                   className="w-full h-[50px] rounded-full border border-[var(--import-btn-border)] bg-[var(--import-btn-bg)] text-[var(--import-btn-text)] font-bold text-[15px] flex items-center justify-center gap-2 cursor-pointer active:scale-[0.99] transition"
+                  style={{ borderColor: 'var(--import-btn-border)' }}
                 >
                   <Upload className="w-4 h-4" strokeWidth={2} />
                   {currentUser ? 'Добавить в облако' : 'Добавить в демо-сессию'}
@@ -2508,7 +2968,6 @@ export default function App() {
                   <span>Скачать CSV</span>
                 </button>
 
-                {/* Переключатель темы вместо плитки синхронизации */}
                 <div
                   role="group"
                   aria-label="Выбор темы оформления"
