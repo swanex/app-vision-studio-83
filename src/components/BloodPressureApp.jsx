@@ -496,24 +496,19 @@ const TonometerScannerModal = ({ onClose, onDetected, currentUser }) => {
     }
   }, [cameraReady, currentUser, onDetected, stopCamera]);
 
-useEffect(() => {
+  useEffect(() => {
     if (!cameraReady || cameraError) return;
     let timeoutId;
-    let isLooping = true; // Локальный флаг для остановки цикла при размонтировании
+    let isLooping = true;
 
     const scanLoop = async () => {
       if (!isLooping || !activeRef.current) return;
-      
-      // Ждем полного завершения функции сканирования (включая ответ от API)
       await captureAndRecognize();
-      
-      // Только после получения ответа запускаем таймер до следующего кадра
       if (isLooping && activeRef.current) {
         timeoutId = setTimeout(scanLoop, 1500);
       }
     };
 
-    // Первый запуск с небольшой задержкой для фокусировки камеры
     timeoutId = setTimeout(scanLoop, 650);
 
     return () => {
@@ -898,6 +893,8 @@ export default function App() {
   const [scannerOpen, setScannerOpen] = useState(false);
   const [scanDemoNotice, setScanDemoNotice] = useState(false);
   const demoNoticeTimerRef = useRef(null);
+  
+  const [flashHighlight, setFlashHighlight] = useState(false);
 
   const [inputsUnlocked, setInputsUnlocked] = useState(false);
 
@@ -1435,6 +1432,11 @@ export default function App() {
     setDiaInput(dia);
     if (pulse) setPulseInput(pulse);
     setScannerOpen(false);
+    
+    setFlashHighlight(true);
+    setTimeout(() => {
+      setFlashHighlight(false);
+    }, 1000);
   }, []);
 
   const handleSaveRecord = async () => {
@@ -1442,14 +1444,15 @@ export default function App() {
     const d = parseInt(diaInput, 10);
     const p = pulseInput ? parseInt(pulseInput, 10) : null;
 
-    if (!s || !d || s < 70 || d < 40) return;
+    if (!s || !d) return;
 
     const cleanNote = noteInput.trim();
     const activeUsername = currentUser ? currentUser.username : 'demo';
     const recordIdPrefix = activeUsername === 'swanex' ? 'r' : `r-${activeUsername}`;
 
+    const uniqueTimeId = Date.now().toString().slice(-5);
     const newItem = {
-      id: `${recordIdPrefix}-${dateInput}-${timeInput.replace(':', '')}-${Date.now()}`,
+      id: `${recordIdPrefix}-${dateInput}-${timeInput.replace(':', '')}-${uniqueTimeId}`,
       username: activeUsername,
       date: dateInput,
       time: timeInput,
@@ -1642,14 +1645,17 @@ export default function App() {
           --sys-box-label: #4A5D2F;
           --sys-box-value: #4A5D2F;
           --sys-box-placeholder: #A5C282;
+          --sys-box-highlight: #C5E59B;
           --dia-box-bg: #D4ECF4;
           --dia-box-label: #395C66;
           --dia-box-value: #395C66;
           --dia-box-placeholder: #A0C9D6;
+          --dia-box-highlight: #C0E3EE;
           --pulse-box-bg: #E4E4E4;
           --pulse-box-label: #5A625D;
           --pulse-box-value: #5A625D;
           --pulse-box-placeholder: #B0B7B2;
+          --pulse-box-highlight: #D8D8D8;
           --tag-bg: #7A827D;
           --tag-text: #FFFFFF;
           --tag-x: #C8CFCB;
@@ -1728,14 +1734,17 @@ export default function App() {
           --sys-box-label: #D6EBB4;
           --sys-box-value: #D6EBB4;
           --sys-box-placeholder: #8CB068;
+          --sys-box-highlight: #3F5234;
           --dia-box-bg: #22353D;
           --dia-box-label: #9CE1F2;
           --dia-box-value: #9CE1F2;
           --dia-box-placeholder: #6298A8;
+          --dia-box-highlight: #2A4550;
           --pulse-box-bg: #2D3530;
           --pulse-box-label: #D5DDD8;
           --pulse-box-value: #F1F3EF;
           --pulse-box-placeholder: #858F88;
+          --pulse-box-highlight: #3D4741;
           --tag-bg: #323C36;
           --tag-text: #F1F3EF;
           --tag-x: #858F88;
@@ -1790,11 +1799,15 @@ export default function App() {
         .bp-legend-opacity {
           transition: opacity 160ms ease-out;
         }
+        .bp-input-highlight {
+          transition: background-color 0.4s ease-out;
+        }
         @media (prefers-reduced-motion: reduce) {
           .bp-avg-transition,
           .bp-badge-transition,
           .bp-badge-text-transition,
-          .bp-legend-opacity {
+          .bp-legend-opacity,
+          .bp-input-highlight {
             transition: none !important;
             transform: none !important;
           }
@@ -2518,7 +2531,11 @@ export default function App() {
 
               <div role="presentation" className="space-y-4">
                 <div className="grid grid-cols-3 gap-3">
-                  <div className="bg-[var(--sys-box-bg)] rounded-[26px] h-[110px] flex flex-col justify-center items-center p-2 relative overflow-hidden">
+                  <div 
+                    className={`rounded-[26px] h-[110px] flex flex-col justify-center items-center p-2 relative overflow-hidden bp-input-highlight ${
+                      flashHighlight ? 'bg-[var(--sys-box-highlight)]' : 'bg-[var(--sys-box-bg)]'
+                    }`}
+                  >
                     <span className="block text-[15px] font-bold text-[var(--sys-box-label)] mb-1">
                       Верхнее
                     </span>
@@ -2544,7 +2561,11 @@ export default function App() {
                     />
                   </div>
 
-                  <div className="bg-[var(--dia-box-bg)] rounded-[26px] h-[110px] flex flex-col justify-center items-center p-2 relative overflow-hidden">
+                  <div 
+                    className={`rounded-[26px] h-[110px] flex flex-col justify-center items-center p-2 relative overflow-hidden bp-input-highlight ${
+                      flashHighlight ? 'bg-[var(--dia-box-highlight)]' : 'bg-[var(--dia-box-bg)]'
+                    }`}
+                  >
                     <span className="block text-[15px] font-bold text-[var(--dia-box-label)] mb-1">
                       Нижнее
                     </span>
@@ -2570,7 +2591,11 @@ export default function App() {
                     />
                   </div>
 
-                  <div className="bg-[var(--pulse-box-bg)] rounded-[26px] h-[110px] flex flex-col justify-center items-center p-2 relative overflow-hidden">
+                  <div 
+                    className={`rounded-[26px] h-[110px] flex flex-col justify-center items-center p-2 relative overflow-hidden bp-input-highlight ${
+                      flashHighlight ? 'bg-[var(--pulse-box-highlight)]' : 'bg-[var(--pulse-box-bg)]'
+                    }`}
+                  >
                     <span className="block text-[15px] font-bold text-[var(--pulse-box-label)] mb-1">
                       Пульс
                     </span>
@@ -2641,7 +2666,7 @@ export default function App() {
                 </div>
 
                 {userTags.length > 0 && (
-                  <div className="flex flex-nowrap overflow-x-auto gap-2 hide-scrollbar pb-1">
+                  <div className="flex flex-nowrap overflow-x-auto gap-2 hide-scrollbar pb-1 -mx-6 px-6">
                     {userTags.map((tag) => {
                       const active = noteInput === tag;
                       return (
@@ -2869,6 +2894,7 @@ export default function App() {
                   type="button"
                   onClick={handleImportSubmit}
                   className="w-full h-[50px] rounded-full border border-[var(--import-btn-border)] bg-[var(--import-btn-bg)] text-[var(--import-btn-text)] font-bold text-[15px] flex items-center justify-center gap-2 cursor-pointer active:scale-[0.99] transition"
+                  style={{ borderColor: 'var(--import-btn-border)' }}
                 >
                   <Upload className="w-4 h-4" strokeWidth={2} />
                   {currentUser ? 'Добавить в облако' : 'Добавить в демо-сессию'}
@@ -2884,24 +2910,40 @@ export default function App() {
                   <Download className="w-5 h-5" strokeWidth={2} />
                   <span>Скачать CSV</span>
                 </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (currentUser) {
-                      fetchFromCloud(currentUser);
-                    } else {
-                      emulateCloudSync();
-                    }
-                    setActiveSheet(null);
-                  }}
-                  className="bg-[var(--surface-secondary)] rounded-[24px] py-3 px-4 font-bold text-[15px] text-[var(--text-primary)] flex flex-col items-center justify-center gap-1 cursor-pointer active:scale-95 transition"
+
+                <div
+                  role="group"
+                  aria-label="Выбор темы оформления"
+                  className="bg-[var(--surface-secondary)] rounded-[24px] p-1.5 grid grid-cols-2 gap-1"
                 >
-                  <RefreshCw className="w-5 h-5" strokeWidth={2} />
-                  <span>Синхронизация</span>
-                </button>
+                  <button
+                    type="button"
+                    onClick={() => handleSelectTheme('dark')}
+                    className={`rounded-[19px] py-1.5 px-1 font-bold text-[12px] leading-tight flex flex-col items-center justify-center gap-1 cursor-pointer transition ${
+                      theme === 'dark'
+                        ? 'bg-[var(--tab-active-bg)] text-[var(--tab-active-text)]'
+                        : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
+                    }`}
+                  >
+                    <Moon className="w-4 h-4" strokeWidth={2.2} />
+                    <span>Тёмная</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleSelectTheme('light')}
+                    className={`rounded-[19px] py-1.5 px-1 font-bold text-[12px] leading-tight flex flex-col items-center justify-center gap-1 cursor-pointer transition ${
+                      theme === 'light'
+                        ? 'bg-[var(--surface-card)] text-[var(--text-primary)]'
+                        : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
+                    }`}
+                  >
+                    <Sun className="w-4 h-4" strokeWidth={2.2} />
+                    <span>Светлая</span>
+                  </button>
+                </div>
               </div>
 
-              <div className="pt-1">
+              <div>
                 {currentUser ? (
                   <button
                     type="button"
