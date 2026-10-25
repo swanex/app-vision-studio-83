@@ -308,51 +308,103 @@ const HistoryNavIcon = ({ solid }) => solid ? (
 const HOURS_OPTIONS = Array.from({ length: 24 }, (_, i) => String(i).padStart(2, '0'));
 const MINUTES_OPTIONS = Array.from({ length: 60 }, (_, i) => String(i).padStart(2, '0'));
 
+// Барабан выбора времени с индивидуальной мягкой капсулой, идеальной центровкой
+// и плавным растворением соседних цифр в полную прозрачность по мере удаления от центра
 const DrumPicker = ({ options, value, onChange }) => {
-  const ITEM_HEIGHT = 72;
+  const ITEM_HEIGHT = 68;
   const scrollRef = useRef(null);
-  const [activeIndex, setActiveIndex] = useState(options.indexOf(value));
+  const initialIdx = Math.max(0, options.indexOf(value));
+  const [scrollPos, setScrollPos] = useState(initialIdx);
+  const lastReportedIdxRef = useRef(initialIdx);
 
   useEffect(() => {
+    const idx = Math.max(0, options.indexOf(value));
+    lastReportedIdxRef.current = idx;
+    setScrollPos(idx);
     if (scrollRef.current) {
-      const idx = options.indexOf(value);
-      if (idx !== -1) {
-        scrollRef.current.scrollTop = idx * ITEM_HEIGHT;
-      }
+      scrollRef.current.scrollTop = idx * ITEM_HEIGHT;
     }
   }, []);
 
   const handleScroll = (e) => {
     const top = e.target.scrollTop;
-    const index = Math.min(options.length - 1, Math.max(0, Math.round(top / ITEM_HEIGHT)));
-    if (index !== activeIndex) {
-      setActiveIndex(index);
-      onChange(options[index]);
+    const exactPos = top / ITEM_HEIGHT;
+    setScrollPos(exactPos);
+
+    const roundedIdx = Math.min(options.length - 1, Math.max(0, Math.round(exactPos)));
+    if (roundedIdx !== lastReportedIdxRef.current) {
+      lastReportedIdxRef.current = roundedIdx;
+      onChange(options[roundedIdx]);
     }
   };
 
   return (
-    <div
-      ref={scrollRef}
-      onScroll={handleScroll}
-      className="w-[145px] h-[360px] overflow-y-auto snap-y snap-mandatory relative z-10 hide-scrollbar"
-    >
-      <div style={{ height: ITEM_HEIGHT * 2 }} />
-      {options.map((opt, i) => (
-        <div
-          key={opt}
-          className="snap-center flex items-center justify-center transition-all duration-200"
-          style={{
-            height: ITEM_HEIGHT,
-            fontSize: i === activeIndex ? '44px' : '32px',
-            fontWeight: i === activeIndex ? '800' : '600',
-            color: i === activeIndex ? 'var(--drum-active-text)' : 'var(--drum-inactive-text)',
-          }}
-        >
-          {opt}
-        </div>
-      ))}
-      <div style={{ height: ITEM_HEIGHT * 2 }} />
+    <div className="relative w-[148px] h-[340px] flex items-center justify-center select-none">
+      {/* Индивидуальная мягкая капсула строго по центру колонки барабана */}
+      <div
+        className="absolute inset-x-0 top-1/2 -translate-y-1/2 h-[68px] rounded-full pointer-events-none"
+        style={{ backgroundColor: 'var(--drum-highlight)' }}
+      />
+
+      <div
+        ref={scrollRef}
+        onScroll={handleScroll}
+        className="w-full h-full overflow-y-auto snap-y snap-mandatory relative z-10 hide-scrollbar"
+      >
+        <div style={{ height: ITEM_HEIGHT * 2 }} />
+        {options.map((opt, i) => {
+          const distance = Math.abs(i - scrollPos);
+          const isSelected = distance < 0.45;
+
+          // Плавное затухание контраста по мере удаления от центральной капсулы
+          // и уход в полную прозрачность (0) до касания края контейнера
+          let opacity = 0;
+          if (distance <= 0.35) {
+            opacity = 1;
+          } else if (distance <= 1) {
+            const t = (distance - 0.35) / 0.65;
+            opacity = 1 - t * 0.48; // на 1-й соседней строке ~0.52
+          } else if (distance <= 2) {
+            const t = distance - 1;
+            opacity = 0.52 - t * 0.30; // на 2-й соседней строке ~0.22
+          } else if (distance < 2.65) {
+            const t = (distance - 2) / 0.65;
+            opacity = 0.22 * (1 - t); // плавно растворяется в 0
+          } else {
+            opacity = 0;
+          }
+
+          // Плавный переход размера шрифта от 44px в капсуле к 31px и 28px на краях
+          let fontSize = 28;
+          if (distance < 1) {
+            fontSize = 44 - distance * 13;
+          } else if (distance < 2) {
+            fontSize = 31 - (distance - 1) * 3;
+          }
+
+          return (
+            <div
+              key={opt}
+              onClick={() => {
+                if (scrollRef.current) {
+                  scrollRef.current.scrollTo({ top: i * ITEM_HEIGHT, behavior: 'smooth' });
+                }
+              }}
+              className="snap-center w-full flex items-center justify-center tabular-nums leading-none cursor-pointer"
+              style={{
+                height: ITEM_HEIGHT,
+                fontSize: `${fontSize.toFixed(1)}px`,
+                fontWeight: isSelected ? 800 : distance < 1.5 ? 500 : 400,
+                color: isSelected ? 'var(--drum-active-text)' : 'var(--drum-inactive-text)',
+                opacity
+              }}
+            >
+              <span className="block text-center w-full">{opt}</span>
+            </div>
+          );
+        })}
+        <div style={{ height: ITEM_HEIGHT * 2 }} />
+      </div>
     </div>
   );
 };
@@ -500,7 +552,6 @@ const TonometerScannerModal = ({ onClose, onDetected, currentUser }) => {
 
       let base64Image = '';
 
-      // Попытка №1: одиночный быстрый снимок (0 сек задержки)
       if (attemptsRef.current === 0) {
         const canvas = document.createElement('canvas');
         const targetSize = 600;
@@ -510,21 +561,17 @@ const TonometerScannerModal = ({ onClose, onDetected, currentUser }) => {
         ctx.drawImage(video, sx, sy, cropSize, cropSize, 0, 0, targetSize, targetSize);
         base64Image = canvas.toDataURL('image/jpeg', 0.78).split(',')[1];
       } else {
-        // Попытка №2 и далее: склейка 2 кадров с интервалом 850 мс для мигающих экранов памяти
         const canvas = document.createElement('canvas');
         const halfSize = 520;
         canvas.width = halfSize * 2;
         canvas.height = halfSize;
         const ctx = canvas.getContext('2d');
 
-        // Кадр 1 (слева)
         ctx.drawImage(video, sx, sy, cropSize, cropSize, 0, 0, halfSize, halfSize);
 
-        // Пауза 850 мс, чтобы мигающий тонометр сменил фазу (122/77 <-> P 75 или n90 <-> 151/71/66)
         await new Promise((r) => setTimeout(r, 850));
         if (!activeRef.current || !videoRef.current) return;
 
-        // Кадр 2 (справа)
         ctx.drawImage(videoRef.current, sx, sy, cropSize, cropSize, halfSize, 0, halfSize, halfSize);
         base64Image = canvas.toDataURL('image/jpeg', 0.76).split(',')[1];
       }
@@ -571,8 +618,6 @@ const TonometerScannerModal = ({ onClose, onDetected, currentUser }) => {
       const isValidPulse = pulse !== null && !isNaN(pulse) && pulse >= 35 && pulse <= 210;
 
       if (isValidSysDia) {
-        // Если на 1-й быстрой попытке схватили только давление без пульса (например, 1-й экран B.Well),
-        // придержим его в буфере и дадим 2-й попытке (со склейкой) добрать пульс!
         if (!isValidPulse && attemptsRef.current === 0) {
           partialReadingRef.current = { sys: String(sys), dia: String(dia) };
           attemptsRef.current += 1;
@@ -592,7 +637,6 @@ const TonometerScannerModal = ({ onClose, onDetected, currentUser }) => {
         return;
       }
 
-      // Если на 1-й попытке мы уже запомнили валидное давление (122/77), а 2-я не дала новых данных — отдаём сохранённое давление
       if (partialReadingRef.current && attemptsRef.current >= 1) {
         if (typeof navigator !== 'undefined' && navigator.vibrate) {
           navigator.vibrate(60);
@@ -662,7 +706,6 @@ const TonometerScannerModal = ({ onClose, onDetected, currentUser }) => {
 
           const avgDiff = diffSum / totalPixels;
 
-          // Порог 13 прощает мигание мелких индикаторов (01) на экране прибора
           if (avgDiff < 13) {
             stableFramesCount += 1;
           } else {
@@ -673,8 +716,6 @@ const TonometerScannerModal = ({ onClose, onDetected, currentUser }) => {
         prevSmallFrameRef.current = new Uint8ClampedArray(currentData);
         totalChecksWithoutScan += 1;
 
-        // Запускаем распознавание при 3 стабильных замерах (~450 мс) ИЛИ принудительно раз в 1.8 сек,
-        // если на экране активно чередуются крупные цифры (122/77 <-> P 75)
         if (stableFramesCount >= 3 || totalChecksWithoutScan >= 12) {
           stableFramesCount = 0;
           totalChecksWithoutScan = 0;
@@ -1926,7 +1967,8 @@ export default function App() {
           --sheet-handle: #C8CFCB;
           --drum-highlight: #D8EEB9;
           --drum-active-text: #141A16;
-          --drum-inactive-text: #A3ABA6;
+          --drum-inactive-text: #5A625D;
+          --drum-colon: #141A16;
           --tooltip-bg: #141A16;
           --tooltip-text: #FFFFFF;
           --tooltip-sub: #A3ABA6;
@@ -2013,9 +2055,10 @@ export default function App() {
           --tag-text: #F1F3EF;
           --tag-x: #858F88;
           --sheet-handle: #49544D;
-          --drum-highlight: #D6EBB4;
-          --drum-active-text: #141A16;
-          --drum-inactive-text: #858F88;
+          --drum-highlight: #2D3D24;
+          --drum-active-text: #F1F3EF;
+          --drum-inactive-text: #ADB6B0;
+          --drum-colon: #ADB6B0;
           --tooltip-bg: #111813;
           --tooltip-text: #F1F3EF;
           --tooltip-sub: #ADB6B0;
@@ -3129,7 +3172,7 @@ export default function App() {
           />
         )}
 
-        {/* ШТОРКА КАСТОМНОГО ВЫБОРА ВРЕМЕНИ */}
+        {/* ШТОРКА КАСТОМНОГО ВЫБОРА ВРЕМЕНИ (БЕЗ СТАКАНОВ, С МЯГКИМИ КАПСУЛАМИ И РАСТВОРЕНИЕМ КРАЕВ) */}
         {timePickerOpen && (
           <div
             className="fixed inset-0 z-[60] bg-black/40 backdrop-blur-xs flex items-end justify-center overscroll-none touch-none"
@@ -3159,25 +3202,20 @@ export default function App() {
                 </button>
               </div>
 
-              <div className="relative flex items-center justify-center w-full h-[360px] gap-3 mt-2">
-                <div className="absolute left-0 top-0 bottom-0 w-[145px] bg-[var(--surface-card)] rounded-[24px]" />
-                <div className="absolute right-0 top-0 bottom-0 w-[145px] bg-[var(--surface-card)] rounded-[24px]" />
-
-                <div className="absolute top-1/2 left-0 right-0 h-[72px] -translate-y-1/2 flex items-center justify-between pointer-events-none">
-                  <div className="w-[145px] h-full bg-[var(--drum-highlight)] rounded-[24px]" />
-                  <div className="w-[145px] h-full bg-[var(--drum-highlight)] rounded-[24px]" />
-                </div>
-
+              <div className="relative flex items-center justify-center w-full h-[340px] gap-4 mt-1">
                 <DrumPicker
                   options={HOURS_OPTIONS}
                   value={tempTime.split(':')[0]}
                   onChange={(h) => setTempTime(`${h}:${tempTime.split(':')[1]}`)}
                 />
-                
-                <div className="z-10 text-[40px] font-black text-[var(--text-primary)] pb-2 shrink-0 w-[20px] text-center">
+
+                <div
+                  className="z-10 text-[38px] font-extrabold leading-none pb-1.5 shrink-0 w-[20px] text-center select-none"
+                  style={{ color: 'var(--drum-colon)' }}
+                >
                   :
                 </div>
-                
+
                 <DrumPicker
                   options={MINUTES_OPTIONS}
                   value={tempTime.split(':')[1]}
