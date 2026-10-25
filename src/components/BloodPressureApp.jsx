@@ -184,7 +184,6 @@ const CloudCheckIcon = ({ className = 'w-5 h-5' }) => (
   </svg>
 );
 
-// Иконка сканирования прибора в соответствии с макетом
 const ScanFrameIcon = ({ className = 'w-5 h-5' }) => (
   <svg
     viewBox="0 0 24 24"
@@ -308,7 +307,6 @@ const TonometerScannerModal = ({ onClose, onDetected, currentUser }) => {
     }
   }, []);
 
-  // Перехват системной кнопки «Назад» на мобильных устройствах, чтобы закрыть только сканер
   useEffect(() => {
     window.history.pushState({ tonometerScanner: true }, '');
     const handlePopState = () => {
@@ -344,7 +342,6 @@ const TonometerScannerModal = ({ onClose, onDetected, currentUser }) => {
             }
           });
         } catch {
-          // Фолбэк для ноутбуков и десктопов с обычной веб-камерой
           stream = await navigator.mediaDevices.getUserMedia({
             audio: false,
             video: true
@@ -521,7 +518,6 @@ const TonometerScannerModal = ({ onClose, onDetected, currentUser }) => {
       onClick={(e) => e.stopPropagation()}
     >
       <div className="w-full max-w-[440px] h-full bg-[#141A16] relative flex flex-col justify-between overflow-hidden">
-        {/* Живой видеопоток камеры */}
         <video
           ref={videoRef}
           playsInline
@@ -530,7 +526,6 @@ const TonometerScannerModal = ({ onClose, onDetected, currentUser }) => {
           className="absolute inset-0 w-full h-full object-cover pointer-events-none"
         />
 
-        {/* Мягкое затемнение краёв для читаемости заголовка и нижней подсказки */}
         <div
           className="absolute inset-0 pointer-events-none"
           style={{
@@ -539,7 +534,6 @@ const TonometerScannerModal = ({ onClose, onDetected, currentUser }) => {
           }}
         />
 
-        {/* Верхняя шапка сканера */}
         <div className="relative z-20 px-6 pt-7 pb-4">
           <div className="flex items-start justify-between gap-3">
             <div>
@@ -581,7 +575,6 @@ const TonometerScannerModal = ({ onClose, onDetected, currentUser }) => {
           )}
         </div>
 
-        {/* Центральная зона с белыми уголками-прицелом или сообщением об ошибке камеры */}
         <div className="relative z-20 flex-1 flex items-center justify-center px-8">
           {cameraError ? (
             <div className="w-full bg-[#202722]/95 rounded-[28px] p-6 text-center space-y-4">
@@ -610,7 +603,6 @@ const TonometerScannerModal = ({ onClose, onDetected, currentUser }) => {
             </div>
           ) : (
             <div className="w-full max-w-[290px] aspect-[4/4.3] relative pointer-events-none">
-              {/* 4 скругленных уголка прицела в стиле эскиза */}
               <div className="absolute top-0 left-0 w-12 h-12 border-t-[5px] border-l-[5px] border-[#F1F3EF] rounded-tl-[20px]" />
               <div className="absolute top-0 right-0 w-12 h-12 border-t-[5px] border-r-[5px] border-[#F1F3EF] rounded-tr-[20px]" />
               <div className="absolute bottom-0 left-0 w-12 h-12 border-b-[5px] border-l-[5px] border-[#F1F3EF] rounded-bl-[20px]" />
@@ -619,7 +611,6 @@ const TonometerScannerModal = ({ onClose, onDetected, currentUser }) => {
           )}
         </div>
 
-        {/* Нижний информационный блок со спиннером и подсказкой */}
         <div className="relative z-20 px-6 pb-8 pt-2 space-y-4">
           {!cameraError && (
             <div className="flex items-center justify-center gap-3">
@@ -805,87 +796,6 @@ const AnimatedStatusBadge = ({ badge, visible }) => {
   );
 };
 
-const deduplicateRecords = (arr) => {
-  const seen = new Map();
-  arr.forEach((item) => {
-    const signature = `${item.date}_${item.time}_${item.sys}_${item.dia}`;
-    if (!seen.has(signature)) {
-      seen.set(signature, item);
-    }
-  });
-  return Array.from(seen.values());
-};
-
-const parseImportData = (rawText, username = 'user') => {
-  const lines = rawText
-    .split('\n')
-    .map((l) => l.trim())
-    .filter((l) => l.length > 0);
-
-  const parsed = [];
-
-  lines.forEach((line, idx) => {
-    const dateMatch = line.match(/(\d{4}-\d{2}-\d{2}|\d{2}\.\d{2}\.\d{4})/);
-    if (!dateMatch) return;
-    let isoDate = dateMatch[1];
-    if (isoDate.includes('.')) {
-      const [dd, mm, yyyy] = isoDate.split('.');
-      isoDate = `${yyyy}-${mm}-${dd}`;
-    }
-    const timeMatch = line.match(/\b([01]?\d|2[0-3]):([0-5]\d)\b/);
-    const time = timeMatch ? `${timeMatch[1].padStart(2, '0')}:${timeMatch[2]}` : '09:00';
-    let rest = line.replace(dateMatch[1], '').replace(timeMatch ? timeMatch[0] : '', '');
-
-    const nums = rest.match(/\b\d{2,3}\b/g);
-    if (nums && nums.length >= 2) {
-      const sys = parseInt(nums[0], 10);
-      const dia = parseInt(nums[1], 10);
-      const pulse = nums[2] ? parseInt(nums[2], 10) : null;
-      const cleanNote = rest
-        .replace(nums[0], '')
-        .replace(nums[1], '')
-        .replace(nums[2] || '', '')
-        .replace(/^[;,\s/|-]+|[;,\s/|-]+$/g, '')
-        .trim();
-
-      if (sys >= 75 && sys <= 220 && dia >= 45 && dia <= 140) {
-        parsed.push({
-          id: `r-${username}-${isoDate}-${time.replace(':', '')}-${idx}`,
-          username,
-          date: isoDate,
-          time,
-          sys,
-          dia,
-          pulse: pulse && pulse >= 35 && pulse <= 200 ? pulse : null,
-          note: cleanNote || 'Замер'
-        });
-      }
-    }
-  });
-
-  return parsed;
-};
-
-const DEFAULT_ROMA_AVATAR_SVG = `data:image/svg+xml;utf8,${encodeURIComponent(`
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120">
-  <defs>
-    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0%" stop-color="#1e2530"/>
-      <stop offset="100%" stop-color="#0f141c"/>
-    </linearGradient>
-  </defs>
-  <rect width="120" height="120" rx="60" fill="url(#bg)"/>
-  <circle cx="60" cy="54" r="24" fill="#d8a98c"/>
-  <path d="M24 114 C28 88 92 88 96 114" fill="#181c24"/>
-  <path d="M34 44 C34 24 86 24 86 44 Z" fill="#23272e"/>
-  <path d="M22 43 Q55 37 88 44 L86 48 Q54 43 22 46 Z" fill="#14171c"/>
-  <rect x="40" y="47" width="17" height="12" rx="3" fill="none" stroke="#181b20" stroke-width="3.2"/>
-  <rect x="63" y="47" width="17" height="12" rx="3" fill="none" stroke="#181b20" stroke-width="3.2"/>
-  <line x1="57" y1="51" x2="63" y2="51" stroke="#181b20" stroke-width="3"/>
-  <path d="M51 67 Q60 72 69 67" fill="none" stroke="#8c584c" stroke-width="2.5" stroke-linecap="round"/>
-</svg>
-`)}`;
-
 export default function App() {
   const [currentUser, setCurrentUser] = useState(() => {
     try {
@@ -975,7 +885,6 @@ export default function App() {
   const [timePickerOpen, setTimePickerOpen] = useState(false);
   const [tempTime, setTempTime] = useState('09:00');
 
-  // Состояния для функции сканирования тонометра
   const [scannerOpen, setScannerOpen] = useState(false);
   const [scanDemoNotice, setScanDemoNotice] = useState(false);
   const demoNoticeTimerRef = useRef(null);
@@ -2678,7 +2587,6 @@ export default function App() {
                   </div>
                 </div>
 
-                {/* Кнопка сканирования прибора камерой */}
                 <button
                   type="button"
                   onClick={handleScanButtonClick}
@@ -2723,14 +2631,14 @@ export default function App() {
                 </div>
 
                 {userTags.length > 0 && (
-                  <div className="flex flex-wrap gap-2">
+                  <div className="flex flex-nowrap overflow-x-auto gap-2 hide-scrollbar pb-1">
                     {userTags.map((tag) => {
                       const active = noteInput === tag;
                       return (
                         <div
                           key={tag}
                           onClick={() => setNoteInput(active ? '' : tag)}
-                          className={`pl-5 pr-2.5 py-3 rounded-full text-[16px] font-bold flex items-center gap-2 transition cursor-pointer ${
+                          className={`shrink-0 pl-5 pr-2.5 py-3 rounded-full text-[16px] font-bold flex items-center gap-2 transition cursor-pointer ${
                             active
                               ? 'bg-[var(--tab-active-bg)] text-[var(--tab-active-text)]'
                               : 'bg-[var(--tag-bg)] text-[var(--tag-text)]'
@@ -2790,7 +2698,7 @@ export default function App() {
           </div>
         )}
 
-        {/* МОДАЛЬНЫЙ ЭКРАН СКАНИРОВАНИЯ ТОНОМЕТРА (ПОВЕРХ ШТОРКИ НОВОГО ЗАМЕРА) */}
+        {/* МОДАЛЬНЫЙ ЭКРАН СКАНИРОВАНИЯ ТОНОМЕТРА */}
         {activeSheet === 'add' && scannerOpen && (
           <TonometerScannerModal
             currentUser={currentUser}
@@ -2892,7 +2800,7 @@ export default function App() {
                 transform: `translateY(${dragOffset}px)`,
                 transition: dragOffset === 0 ? 'transform 0.2s ease-out' : 'none'
               }}
-              className="w-full max-w-[440px] max-h-[90vh] overflow-y-auto bg-[var(--bg-sheet)] rounded-t-[36px] px-6 pt-6 pb-8 flex flex-col gap-3"
+              className="w-full max-w-[440px] max-h-[90vh] overflow-y-auto bg-[var(--bg-sheet)] rounded-t-[36px] p-6 pb-8 flex flex-col gap-3"
               onClick={(e) => e.stopPropagation()}
             >
               <div className="w-12 h-1.5 bg-[var(--sheet-handle)] rounded-full mx-auto shrink-0" />
@@ -2920,7 +2828,7 @@ export default function App() {
               <div className="grid grid-cols-2 gap-2.5">
                 <div className="bg-[var(--surface-card)] rounded-[26px] p-4 flex flex-col justify-center">
                   <div className="text-[12px] font-semibold text-[var(--text-muted)] mb-1">
-                    Записей
+                    Записей в сессии
                   </div>
                   <div className="text-[20px] font-bold text-[var(--text-primary)] leading-none">
                     {currentUser ? rawCloudCount : records.length}
@@ -2928,7 +2836,7 @@ export default function App() {
                 </div>
                 <div className="bg-[var(--surface-card)] rounded-[26px] p-4 flex flex-col justify-center">
                   <div className="text-[12px] font-semibold text-[var(--text-muted)] mb-1">
-                    Замеров
+                    Уникальных замеров
                   </div>
                   <div className="text-[20px] font-bold text-[var(--text-primary)] leading-none">
                     {records.length}
@@ -2951,7 +2859,6 @@ export default function App() {
                   type="button"
                   onClick={handleImportSubmit}
                   className="w-full h-[50px] rounded-full border border-[var(--import-btn-border)] bg-[var(--import-btn-bg)] text-[var(--import-btn-text)] font-bold text-[15px] flex items-center justify-center gap-2 cursor-pointer active:scale-[0.99] transition"
-                  style={{ borderColor: 'var(--import-btn-border)' }}
                 >
                   <Upload className="w-4 h-4" strokeWidth={2} />
                   {currentUser ? 'Добавить в облако' : 'Добавить в демо-сессию'}
@@ -2967,40 +2874,24 @@ export default function App() {
                   <Download className="w-5 h-5" strokeWidth={2} />
                   <span>Скачать CSV</span>
                 </button>
-
-                <div
-                  role="group"
-                  aria-label="Выбор темы оформления"
-                  className="bg-[var(--surface-secondary)] rounded-[24px] p-1.5 grid grid-cols-2 gap-1"
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (currentUser) {
+                      fetchFromCloud(currentUser);
+                    } else {
+                      emulateCloudSync();
+                    }
+                    setActiveSheet(null);
+                  }}
+                  className="bg-[var(--surface-secondary)] rounded-[24px] py-3 px-4 font-bold text-[15px] text-[var(--text-primary)] flex flex-col items-center justify-center gap-1 cursor-pointer active:scale-95 transition"
                 >
-                  <button
-                    type="button"
-                    onClick={() => handleSelectTheme('dark')}
-                    className={`rounded-[19px] py-1.5 px-1 font-bold text-[12px] leading-tight flex flex-col items-center justify-center gap-1 cursor-pointer transition ${
-                      theme === 'dark'
-                        ? 'bg-[var(--tab-active-bg)] text-[var(--tab-active-text)]'
-                        : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
-                    }`}
-                  >
-                    <Moon className="w-4 h-4" strokeWidth={2.2} />
-                    <span>Тёмная</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleSelectTheme('light')}
-                    className={`rounded-[19px] py-1.5 px-1 font-bold text-[12px] leading-tight flex flex-col items-center justify-center gap-1 cursor-pointer transition ${
-                      theme === 'light'
-                        ? 'bg-[var(--surface-card)] text-[var(--text-primary)]'
-                        : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
-                    }`}
-                  >
-                    <Sun className="w-4 h-4" strokeWidth={2.2} />
-                    <span>Светлая</span>
-                  </button>
-                </div>
+                  <RefreshCw className="w-5 h-5" strokeWidth={2} />
+                  <span>Синхронизация</span>
+                </button>
               </div>
 
-              <div>
+              <div className="pt-1">
                 {currentUser ? (
                   <button
                     type="button"
