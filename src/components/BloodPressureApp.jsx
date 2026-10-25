@@ -358,7 +358,8 @@ const DrumPicker = ({ options, value, onChange }) => {
 };
 
 // Полноэкранный модальный слой сканирования тонометра поверх шторки «Новый замер»
-// С локальным детектором стабилизации кадра (Motion Detection) перед отправкой в Gemini
+// 1-я попытка: быстрый одиночный кадр (для обычного замера сразу после измерения).
+// 2-я и далее попытки: склейка 2 кадров с интервалом 850 мс (для мигающих экранов памяти B.Well / AND).
 const TonometerScannerModal = ({ onClose, onDetected, currentUser }) => {
   const videoRef = useRef(null);
   const streamRef = useRef(null);
@@ -366,6 +367,7 @@ const TonometerScannerModal = ({ onClose, onDetected, currentUser }) => {
   const activeRef = useRef(true);
   const attemptsRef = useRef(0);
   const prevSmallFrameRef = useRef(null);
+  const partialReadingRef = useRef(null);
 
   const [cameraReady, setCameraReady] = useState(false);
   const [cameraError, setCameraError] = useState('');
@@ -491,20 +493,41 @@ const TonometerScannerModal = ({ onClose, onDetected, currentUser }) => {
     setIsProcessingFrame(true);
 
     try {
-      const canvas = document.createElement('canvas');
-      const targetSize = 640;
-      canvas.width = targetSize;
-      canvas.height = targetSize;
-      const ctx = canvas.getContext('2d');
-
       const minDim = Math.min(video.videoWidth, video.videoHeight);
       const cropSize = Math.floor(minDim * 0.84);
       const sx = Math.floor((video.videoWidth - cropSize) / 2);
       const sy = Math.floor((video.videoHeight - cropSize) / 2);
 
-      ctx.drawImage(video, sx, sy, cropSize, cropSize, 0, 0, targetSize, targetSize);
-      const dataUrl = canvas.toDataURL('image/jpeg', 0.78);
-      const base64Image = dataUrl.split(',')[1];
+      let base64Image = '';
+
+      // Попытка №1: одиночный быстрый снимок (0 сек задержки)
+      if (attemptsRef.current === 0) {
+        const canvas = document.createElement('canvas');
+        const targetSize = 600;
+        canvas.width = targetSize;
+        canvas.height = targetSize;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(video, sx, sy, cropSize, cropSize, 0, 0, targetSize, targetSize);
+        base64Image = canvas.toDataURL('image/jpeg', 0.78).split(',')[1];
+      } else {
+        // Попытка №2 и далее: склейка 2 кадров с интервалом 850 мс для мигающих экранов памяти
+        const canvas = document.createElement('canvas');
+        const halfSize = 520;
+        canvas.width = halfSize * 2;
+        canvas.height = halfSize;
+        const ctx = canvas.getContext('2d');
+
+        // Кадр 1 (слева)
+        ctx.drawImage(video, sx, sy, cropSize, cropSize, 0, 0, halfSize, halfSize);
+
+        // Пауза 850 мс, чтобы мигающий тонометр сменил фазу (122/77 <-> P 75 или n90 <-> 151/71/66)
+        await new Promise((r) => setTimeout(r, 850));
+        if (!activeRef.current || !videoRef.current) return;
+
+        // Кадр 2 (справа)
+        ctx.drawImage(videoRef.current, sx, sy, cropSize, cropSize, halfSize, 0, halfSize, halfSize);
+        base64Image = canvas.toDataURL('image/jpeg', 0.76).split(',')[1];
+      }
 
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 12000);
@@ -535,7 +558,7 @@ const TonometerScannerModal = ({ onClose, onDetected, currentUser }) => {
       const dia = parseInt(result?.dia, 10);
       const pulse = result?.pulse ? parseInt(result.pulse, 10) : null;
 
-      const isValidPattern =
+      const isValidSysDia =
         result?.found &&
         !isNaN(sys) &&
         !isNaN(dia) &&
@@ -543,10 +566,20 @@ const TonometerScannerModal = ({ onClose, onDetected, currentUser }) => {
         sys <= 240 &&
         dia >= 40 &&
         dia <= 150 &&
-        sys > dia + 10 &&
-        (pulse === null || (!isNaN(pulse) && pulse >= 35 && pulse <= 210));
+        sys > dia + 10;
 
-      if (isValidPattern) {
+      const isValidPulse = pulse !== null && !isNaN(pulse) && pulse >= 35 && pulse <= 210;
+
+      if (isValidSysDia) {
+        // Если на 1-й быстрой попытке схватили только давление без пульса (например, 1-й экран B.Well),
+        // придержим его в буфере и дадим 2-й попытке (со склейкой) добрать пульс!
+        if (!isValidPulse && attemptsRef.current === 0) {
+          partialReadingRef.current = { sys: String(sys), dia: String(dia) };
+          attemptsRef.current += 1;
+          setHintMessage('Считываем пульс со второго экрана...');
+          return;
+        }
+
         if (typeof navigator !== 'undefined' && navigator.vibrate) {
           navigator.vibrate(60);
         }
@@ -554,7 +587,21 @@ const TonometerScannerModal = ({ onClose, onDetected, currentUser }) => {
         onDetected({
           sys: String(sys),
           dia: String(dia),
-          pulse: pulse ? String(pulse) : ''
+          pulse: isValidPulse ? String(pulse) : ''
+        });
+        return;
+      }
+
+      // Если на 1-й попытке мы уже запомнили валидное давление (122/77), а 2-я не дала новых данных — отдаём сохранённое давление
+      if (partialReadingRef.current && attemptsRef.current >= 1) {
+        if (typeof navigator !== 'undefined' && navigator.vibrate) {
+          navigator.vibrate(60);
+        }
+        stopCamera();
+        onDetected({
+          sys: partialReadingRef.current.sys,
+          dia: partialReadingRef.current.dia,
+          pulse: isValidPulse ? String(pulse) : ''
         });
         return;
       }
@@ -582,6 +629,7 @@ const TonometerScannerModal = ({ onClose, onDetected, currentUser }) => {
     let timerId;
     let isLooping = true;
     let stableFramesCount = 0;
+    let totalChecksWithoutScan = 0;
 
     const motionCanvas = document.createElement('canvas');
     motionCanvas.width = 32;
@@ -614,7 +662,8 @@ const TonometerScannerModal = ({ onClose, onDetected, currentUser }) => {
 
           const avgDiff = diffSum / totalPixels;
 
-          if (avgDiff < 10) {
+          // Порог 13 прощает мигание мелких индикаторов (01) на экране прибора
+          if (avgDiff < 13) {
             stableFramesCount += 1;
           } else {
             stableFramesCount = 0;
@@ -622,12 +671,16 @@ const TonometerScannerModal = ({ onClose, onDetected, currentUser }) => {
         }
 
         prevSmallFrameRef.current = new Uint8ClampedArray(currentData);
+        totalChecksWithoutScan += 1;
 
-        if (stableFramesCount >= 4) {
+        // Запускаем распознавание при 3 стабильных замерах (~450 мс) ИЛИ принудительно раз в 1.8 сек,
+        // если на экране активно чередуются крупные цифры (122/77 <-> P 75)
+        if (stableFramesCount >= 3 || totalChecksWithoutScan >= 12) {
           stableFramesCount = 0;
+          totalChecksWithoutScan = 0;
           await captureAndRecognize();
           if (isLooping && activeRef.current) {
-            timerId = setTimeout(checkStabilityAndScan, 1100);
+            timerId = setTimeout(checkStabilityAndScan, 900);
           }
           return;
         }
@@ -638,7 +691,7 @@ const TonometerScannerModal = ({ onClose, onDetected, currentUser }) => {
       }
     };
 
-    timerId = setTimeout(checkStabilityAndScan, 450);
+    timerId = setTimeout(checkStabilityAndScan, 400);
 
     return () => {
       isLooping = false;
@@ -1048,7 +1101,6 @@ export default function App() {
   const avatarInputRef = useRef(null);
   const pulseBlurTimerRef = useRef(null);
 
-  // Ссылки на контейнеры шторок и кнопки CTA для автодоводки над мобильной клавиатурой
   const authSheetRef = useRef(null);
   const authCtaRef = useRef(null);
   const dataSheetRef = useRef(null);
@@ -1077,7 +1129,6 @@ export default function App() {
     }
   }, []);
 
-  // Отслеживание высоты виртуальной клавиатуры через VisualViewport API
   useEffect(() => {
     if (typeof window === 'undefined' || !window.visualViewport) return;
     const vv = window.visualViewport;
@@ -1097,7 +1148,6 @@ export default function App() {
     };
   }, []);
 
-  // Плавная прокрутка шторок до главной кнопки CTA при открытии клавиатуры
   const scrollTargetIntoSheetView = useCallback((targetRef) => {
     setTimeout(() => {
       if (targetRef?.current) {
@@ -1585,10 +1635,6 @@ export default function App() {
     }
   };
 
-  // Умный ввод пульса с деликатным автоскрытием клавиатуры:
-  // - если введено 3 цифры (например, 105) -> прячем клавиатуру сразу;
-  // - если введено 2 цифры от 40 до 99 (например, 64) -> прячем клавиатуру сразу (пульса 400+ не бывает);
-  // - если введено 2 цифры на 1 или 2 (например, 10..29) -> ждём паузу 900 мс на случай ввода 3-й цифры.
   const handlePulseChange = (e) => {
     const val = e.target.value.replace(/\D/g, '').slice(0, 3);
     setPulseInput(val);
@@ -1628,7 +1674,6 @@ export default function App() {
       }, 2000);
       return;
     }
-    // Прячем клавиатуру перед открытием камеры
     if (document.activeElement instanceof HTMLElement) {
       document.activeElement.blur();
     }
@@ -1637,7 +1682,6 @@ export default function App() {
 
   const handleScannerDetected = useCallback(({ sys, dia, pulse }) => {
     if (pulseBlurTimerRef.current) clearTimeout(pulseBlurTimerRef.current);
-    // Снимаем фокус со всех инпутов, чтобы клавиатура гарантированно была закрыта
     sysRef.current?.blur();
     diaRef.current?.blur();
     pulseRef.current?.blur();
