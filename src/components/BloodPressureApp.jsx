@@ -124,9 +124,9 @@ const generateDemoRecords = () => {
     [121, 79, 64, '21:00', 'До сна', 6],
     [128, 84, 71, '09:00', 'После кофе', 5],
     [122, 80, 65, '20:10', 'Вечерняя прогулка', 2],
-    [117, 76, 60, '08:15', 'После пробуждения', 2],
-    [124, 82, 68, '19:45', 'До сна', 0],
-    [119, 78, 62, '08:30', 'После пробуждения', 0]
+    [117, 76, 60, '08:15', 'После пробуждения', 1],
+    [124, 82, 68, '19:45', 'До сна', 1],
+    [119, 78, 62, '08:30', 'После пробуждения', 1]
   ];
   const now = new Date();
   return base.map((item, idx) => {
@@ -1433,10 +1433,9 @@ export default function App() {
     if (pulse) setPulseInput(pulse);
     setScannerOpen(false);
     
-    setFlashHighlight(true);
-    setTimeout(() => {
-      setFlashHighlight(false);
-    }, 1000);
+    // Запускаем CSS анимацию вспышки с микро-задержкой, чтобы React успел отрендерить новые цифры
+    setTimeout(() => setFlashHighlight(true), 50);
+    setTimeout(() => setFlashHighlight(false), 1250);
   }, []);
 
   const handleSaveRecord = async () => {
@@ -1645,17 +1644,17 @@ export default function App() {
           --sys-box-label: #4A5D2F;
           --sys-box-value: #4A5D2F;
           --sys-box-placeholder: #A5C282;
-          --sys-box-highlight: #C5E59B;
+          --sys-box-highlight: #A9E66D;
           --dia-box-bg: #D4ECF4;
           --dia-box-label: #395C66;
           --dia-box-value: #395C66;
           --dia-box-placeholder: #A0C9D6;
-          --dia-box-highlight: #C0E3EE;
+          --dia-box-highlight: #67C4DA;
           --pulse-box-bg: #E4E4E4;
           --pulse-box-label: #5A625D;
           --pulse-box-value: #5A625D;
           --pulse-box-placeholder: #B0B7B2;
-          --pulse-box-highlight: #D8D8D8;
+          --pulse-box-highlight: #B0B7B2;
           --tag-bg: #7A827D;
           --tag-text: #FFFFFF;
           --tag-x: #C8CFCB;
@@ -1734,17 +1733,17 @@ export default function App() {
           --sys-box-label: #D6EBB4;
           --sys-box-value: #D6EBB4;
           --sys-box-placeholder: #8CB068;
-          --sys-box-highlight: #3F5234;
+          --sys-box-highlight: #4A6335;
           --dia-box-bg: #22353D;
           --dia-box-label: #9CE1F2;
           --dia-box-value: #9CE1F2;
           --dia-box-placeholder: #6298A8;
-          --dia-box-highlight: #2A4550;
+          --dia-box-highlight: #2A5A6B;
           --pulse-box-bg: #2D3530;
           --pulse-box-label: #D5DDD8;
           --pulse-box-value: #F1F3EF;
           --pulse-box-placeholder: #858F88;
-          --pulse-box-highlight: #3D4741;
+          --pulse-box-highlight: #49544D;
           --tag-bg: #323C36;
           --tag-text: #F1F3EF;
           --tag-x: #858F88;
@@ -1772,6 +1771,7 @@ export default function App() {
 
         .hide-scrollbar::-webkit-scrollbar { display: none; }
         .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        
         input[type="time"]::-webkit-calendar-picker-indicator {
           background: transparent;
           bottom: 0;
@@ -1799,17 +1799,42 @@ export default function App() {
         .bp-legend-opacity {
           transition: opacity 160ms ease-out;
         }
-        .bp-input-highlight {
-          transition: background-color 0.4s ease-out;
+        
+        @keyframes flash-sys {
+          0% { background-color: var(--sys-box-bg); }
+          30% { background-color: var(--sys-box-highlight); transform: scale(1.02); }
+          70% { background-color: var(--sys-box-highlight); transform: scale(1.02); }
+          100% { background-color: var(--sys-box-bg); transform: scale(1); }
         }
+        @keyframes flash-dia {
+          0% { background-color: var(--dia-box-bg); }
+          30% { background-color: var(--dia-box-highlight); transform: scale(1.02); }
+          70% { background-color: var(--dia-box-highlight); transform: scale(1.02); }
+          100% { background-color: var(--dia-box-bg); transform: scale(1); }
+        }
+        @keyframes flash-pulse {
+          0% { background-color: var(--pulse-box-bg); }
+          30% { background-color: var(--pulse-box-highlight); transform: scale(1.02); }
+          70% { background-color: var(--pulse-box-highlight); transform: scale(1.02); }
+          100% { background-color: var(--pulse-box-bg); transform: scale(1); }
+        }
+
+        .animate-flash-sys { animation: flash-sys 1.2s ease-out; }
+        .animate-flash-dia { animation: flash-dia 1.2s ease-out; }
+        .animate-flash-pulse { animation: flash-pulse 1.2s ease-out; }
+
         @media (prefers-reduced-motion: reduce) {
           .bp-avg-transition,
           .bp-badge-transition,
           .bp-badge-text-transition,
-          .bp-legend-opacity,
-          .bp-input-highlight {
+          .bp-legend-opacity {
             transition: none !important;
             transform: none !important;
+          }
+          .animate-flash-sys,
+          .animate-flash-dia,
+          .animate-flash-pulse {
+            animation: none !important;
           }
         }
       `}</style>
@@ -2532,8 +2557,8 @@ export default function App() {
               <div role="presentation" className="space-y-4">
                 <div className="grid grid-cols-3 gap-3">
                   <div 
-                    className={`rounded-[26px] h-[110px] flex flex-col justify-center items-center p-2 relative overflow-hidden bp-input-highlight ${
-                      flashHighlight ? 'bg-[var(--sys-box-highlight)]' : 'bg-[var(--sys-box-bg)]'
+                    className={`rounded-[26px] h-[110px] flex flex-col justify-center items-center p-2 relative overflow-hidden ${
+                      flashHighlight ? 'animate-flash-sys' : 'bg-[var(--sys-box-bg)]'
                     }`}
                   >
                     <span className="block text-[15px] font-bold text-[var(--sys-box-label)] mb-1">
@@ -2562,8 +2587,8 @@ export default function App() {
                   </div>
 
                   <div 
-                    className={`rounded-[26px] h-[110px] flex flex-col justify-center items-center p-2 relative overflow-hidden bp-input-highlight ${
-                      flashHighlight ? 'bg-[var(--dia-box-highlight)]' : 'bg-[var(--dia-box-bg)]'
+                    className={`rounded-[26px] h-[110px] flex flex-col justify-center items-center p-2 relative overflow-hidden ${
+                      flashHighlight ? 'animate-flash-dia' : 'bg-[var(--dia-box-bg)]'
                     }`}
                   >
                     <span className="block text-[15px] font-bold text-[var(--dia-box-label)] mb-1">
@@ -2592,8 +2617,8 @@ export default function App() {
                   </div>
 
                   <div 
-                    className={`rounded-[26px] h-[110px] flex flex-col justify-center items-center p-2 relative overflow-hidden bp-input-highlight ${
-                      flashHighlight ? 'bg-[var(--pulse-box-highlight)]' : 'bg-[var(--pulse-box-bg)]'
+                    className={`rounded-[26px] h-[110px] flex flex-col justify-center items-center p-2 relative overflow-hidden ${
+                      flashHighlight ? 'animate-flash-pulse' : 'bg-[var(--pulse-box-bg)]'
                     }`}
                   >
                     <span className="block text-[15px] font-bold text-[var(--pulse-box-label)] mb-1">
@@ -2724,7 +2749,12 @@ export default function App() {
                 <button
                   type="button"
                   onClick={handleSaveRecord}
-                  className="w-full py-[20px] rounded-[28px] bg-[var(--cta-bg)] text-[var(--cta-text)] text-[20px] font-bold active:scale-[0.99] transition cursor-pointer mt-1"
+                  disabled={!sysInput || !diaInput}
+                  className={`w-full py-[20px] rounded-[28px] text-[20px] font-bold transition cursor-pointer mt-1 ${
+                    sysInput && diaInput
+                      ? 'bg-[var(--cta-bg)] text-[var(--cta-text)] active:scale-[0.99]'
+                      : 'bg-[var(--surface-secondary)] text-[var(--text-muted)] cursor-not-allowed'
+                  }`}
                 >
                   Сохранить замер
                 </button>
