@@ -6,5 +6,18 @@
   "display": "standalone",
   "orientation": "portrait",
   "background_color": "#F2F3F0",
-  "theme_color": "#F2F3F0"
+  "theme_color": "#F2F3F0",
+  "icons": [
+    {
+      "src": "/favicon.ico",
+      "sizes": "64x64 32x32 24x24 16x16",
+      "type": "image/x-icon"
+    },
+    {
+      "src": "data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Crect width='512' height='512' rx='128' fill='%23141A16'/%3E%3Cpath d='M256 396s-124-78-124-166c0-46 36-82 80-82 26 0 44 14 44 14s18-14 44-14c44 0 80 36 80 82 0 88-124 166-124 166z' fill='%23D6EBB4'/%3E%3C/svg%3E",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
 }
