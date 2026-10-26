@@ -340,7 +340,6 @@ const DrumPicker = ({ options, value, onChange }) => {
 
   return (
     <div className="relative w-[148px] h-[340px] flex items-center justify-center select-none">
-      {/* Индивидуальная мягкая капсула строго по центру колонки барабана */}
       <div
         className="absolute inset-x-0 top-1/2 -translate-y-1/2 h-[68px] rounded-full pointer-events-none"
         style={{ backgroundColor: 'var(--drum-highlight)' }}
@@ -356,25 +355,22 @@ const DrumPicker = ({ options, value, onChange }) => {
           const distance = Math.abs(i - scrollPos);
           const isSelected = distance < 0.45;
 
-          // Плавное затухание контраста по мере удаления от центральной капсулы
-          // и уход в полную прозрачность (0) до касания края контейнера
           let opacity = 0;
           if (distance <= 0.35) {
             opacity = 1;
           } else if (distance <= 1) {
             const t = (distance - 0.35) / 0.65;
-            opacity = 1 - t * 0.48; // на 1-й соседней строке ~0.52
+            opacity = 1 - t * 0.48;
           } else if (distance <= 2) {
             const t = distance - 1;
-            opacity = 0.52 - t * 0.30; // на 2-й соседней строке ~0.22
+            opacity = 0.52 - t * 0.30;
           } else if (distance < 2.65) {
             const t = (distance - 2) / 0.65;
-            opacity = 0.22 * (1 - t); // плавно растворяется в 0
+            opacity = 0.22 * (1 - t);
           } else {
             opacity = 0;
           }
 
-          // Плавный переход размера шрифта от 44px в капсуле к 31px и 28px на краях
           let fontSize = 28;
           if (distance < 1) {
             fontSize = 44 - distance * 13;
@@ -410,8 +406,6 @@ const DrumPicker = ({ options, value, onChange }) => {
 };
 
 // Полноэкранный модальный слой сканирования тонометра поверх шторки «Новый замер»
-// 1-я попытка: быстрый одиночный кадр (для обычного замера сразу после измерения).
-// 2-я и далее попытки: склейка 2 кадров с интервалом 850 мс (для мигающих экранов памяти B.Well / AND).
 const TonometerScannerModal = ({ onClose, onDetected, currentUser }) => {
   const videoRef = useRef(null);
   const streamRef = useRef(null);
@@ -868,6 +862,7 @@ const TonometerScannerModal = ({ onClose, onDetected, currentUser }) => {
   );
 };
 
+// ИСПРАВЛЕННЫЙ КОМПОНЕНТ: корректно переходит из пустого состояния (0/0 -> "–/–") к первому замеру нового пользователя
 const AnimatedAvgPressure = ({ sys, dia, onInitialComplete, isInitialDone }) => {
   const [display, setDisplay] = useState(() => {
     if (!sys || !dia) return { sys: 0, dia: 0 };
@@ -895,24 +890,20 @@ const AnimatedAvgPressure = ({ sys, dia, onInitialComplete, isInitialDone }) => 
     if (!sys || !dia) {
       setDisplay({ sys: 0, dia: 0 });
       setEntered(true);
-      if (!hasCompletedInitialRef.current) {
-        hasCompletedInitialRef.current = true;
-        onInitialComplete?.();
-      }
+      onInitialComplete?.();
       return;
     }
 
     if (prefersReducedMotion) {
       setDisplay({ sys, dia });
       setEntered(true);
-      if (!hasCompletedInitialRef.current) {
-        hasCompletedInitialRef.current = true;
-        onInitialComplete?.();
-      }
+      hasCompletedInitialRef.current = true;
+      onInitialComplete?.();
       return;
     }
 
-    if (!hasCompletedInitialRef.current) {
+    // Если это первый ненулевой замер (включая переход от 0/0 у нового пользователя)
+    if (!hasCompletedInitialRef.current || !currentRef.current.sys || !currentRef.current.dia) {
       const startSys = Math.max(70, sys - 4);
       const startDia = Math.max(40, dia - 3);
       const duration = 360;
@@ -941,10 +932,11 @@ const AnimatedAvgPressure = ({ sys, dia, onInitialComplete, isInitialDone }) => 
 
       rafRef.current = requestAnimationFrame(step);
     } else {
-      const fromSys = currentRef.current.sys || sys;
-      const fromDia = currentRef.current.dia || dia;
+      const fromSys = currentRef.current.sys;
+      const fromDia = currentRef.current.dia;
 
       if (fromSys === sys && fromDia === dia) {
+        setDisplay({ sys, dia });
         return;
       }
 
@@ -976,6 +968,9 @@ const AnimatedAvgPressure = ({ sys, dia, onInitialComplete, isInitialDone }) => 
     };
   }, [sys, dia, onInitialComplete]);
 
+  const shownSys = display.sys || sys;
+  const shownDia = display.dia || dia;
+
   return (
     <span
       className="text-[56px] font-black tracking-tighter leading-none text-[var(--text-primary)] tabular-nums inline-block bp-avg-transition"
@@ -984,7 +979,7 @@ const AnimatedAvgPressure = ({ sys, dia, onInitialComplete, isInitialDone }) => 
         transform: entered ? 'translateY(0px)' : 'translateY(6px)'
       }}
     >
-      {sys && dia ? `${display.sys}/${display.dia}` : '–/–'}
+      {sys && dia ? `${shownSys}/${shownDia}` : '–/–'}
     </span>
   );
 };
@@ -1059,6 +1054,94 @@ export default function App() {
     }
     return 'light';
   });
+
+  // 1. Защита от автопереводчика Chrome ("Толстый / Худой") и установка базовых PWA-тегов
+  useEffect(() => {
+    if (typeof document === 'undefined') return;
+    const html = document.documentElement;
+    html.lang = 'ru';
+    html.setAttribute('translate', 'no');
+    html.classList.add('notranslate');
+
+    const ensureMeta = (name, content) => {
+      let meta = document.querySelector(`meta[name="${name}"]`);
+      if (!meta) {
+        meta = document.createElement('meta');
+        meta.setAttribute('name', name);
+        document.head.appendChild(meta);
+      }
+      meta.setAttribute('content', content);
+    };
+
+    ensureMeta('google', 'notranslate');
+    ensureMeta('mobile-web-app-capable', 'yes');
+    ensureMeta('apple-mobile-web-app-capable', 'yes');
+  }, []);
+
+  // 2. Синхронизация системных полос Android/iOS (верхний статус-бар и нижний бар навигации) с темой приложения
+  useEffect(() => {
+    if (typeof document === 'undefined') return;
+    const bgHex = theme === 'dark' ? '#111813' : '#F2F3F0';
+    const html = document.documentElement;
+    const body = document.body;
+
+    html.style.backgroundColor = bgHex;
+    html.style.colorScheme = theme;
+    if (body) {
+      body.style.backgroundColor = bgHex;
+      body.style.colorScheme = theme;
+    }
+
+    // Обновляем все мета-теги theme-color для мгновенной перекраски системных баров Android Chrome
+    const themeMetas = document.querySelectorAll('meta[name="theme-color"]');
+    if (themeMetas.length > 0) {
+      themeMetas.forEach((m) => m.setAttribute('content', bgHex));
+    } else {
+      const meta = document.createElement('meta');
+      meta.setAttribute('name', 'theme-color');
+      meta.setAttribute('content', bgHex);
+      document.head.appendChild(meta);
+    }
+
+    let statusMeta = document.querySelector('meta[name="apple-mobile-web-app-status-bar-style"]');
+    if (!statusMeta) {
+      statusMeta = document.createElement('meta');
+      statusMeta.setAttribute('name', 'apple-mobile-web-app-status-bar-style');
+      document.head.appendChild(statusMeta);
+    }
+    statusMeta.setAttribute('content', theme === 'dark' ? 'black-translucent' : 'default');
+
+    // Если в index.html не прописан manifest.json, динамически инжектим PWA-манифест с display: standalone
+    let manifestLink = document.querySelector('link[rel="manifest"]');
+    if (!manifestLink) {
+      const pwaIconSvg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><rect width="512" height="512" rx="128" fill="${bgHex}"/><path d="M256 396s-124-78-124-166c0-46 36-82 80-82 26 0 44 14 44 14s18-14 44-14c44 0 80 36 80 82 0 88-124 166-124 166z" fill="#A9E66D"/></svg>`;
+      const dynamicManifest = {
+        name: 'Давление — дневник замеров',
+        short_name: 'Давление',
+        start_url: '/',
+        scope: '/',
+        display: 'standalone',
+        orientation: 'portrait',
+        background_color: bgHex,
+        theme_color: bgHex,
+        icons: [
+          {
+            src: `data:image/svg+xml;utf8,${encodeURIComponent(pwaIconSvg)}`,
+            sizes: '512x512',
+            type: 'image/svg+xml',
+            purpose: 'any maskable'
+          }
+        ]
+      };
+      manifestLink = document.createElement('link');
+      manifestLink.setAttribute('rel', 'manifest');
+      manifestLink.setAttribute(
+        'href',
+        `data:application/manifest+json;charset=utf-8,${encodeURIComponent(JSON.stringify(dynamicManifest))}`
+      );
+      document.head.appendChild(manifestLink);
+    }
+  }, [theme]);
 
   const handleSelectTheme = useCallback(
     (nextTheme) => {
@@ -1882,7 +1965,9 @@ export default function App() {
   return (
     <div
       data-theme={theme}
-      className="min-h-screen bg-[var(--bg-outer)] text-[var(--text-primary)] flex justify-center font-sans select-none bp-theme-surface"
+      lang="ru"
+      translate="no"
+      className="notranslate min-h-screen bg-[var(--bg-outer)] text-[var(--text-primary)] flex justify-center font-sans select-none bp-theme-surface"
       style={{
         WebkitUserSelect: 'none',
         userSelect: 'none',
@@ -1891,7 +1976,7 @@ export default function App() {
     >
       <style>{`
         :root, [data-theme="light"] {
-          --bg-outer: #E4E7E4;
+          --bg-outer: #F2F3F0;
           --bg-app: #F2F3F0;
           --bg-sheet: #EFEFEF;
           --surface-card: #FFFFFF;
@@ -1981,7 +2066,7 @@ export default function App() {
         }
 
         [data-theme="dark"] {
-          --bg-outer: #0B100D;
+          --bg-outer: #111813;
           --bg-app: #111813;
           --bg-sheet: #202722;
           --surface-card: #232C26;
@@ -3172,7 +3257,7 @@ export default function App() {
           />
         )}
 
-        {/* ШТОРКА КАСТОМНОГО ВЫБОРА ВРЕМЕНИ (БЕЗ СТАКАНОВ, С МЯГКИМИ КАПСУЛАМИ И РАСТВОРЕНИЕМ КРАЕВ) */}
+        {/* ШТОРКА КАСТОМНОГО ВЫБОРА ВРЕМЕНИ */}
         {timePickerOpen && (
           <div
             className="fixed inset-0 z-[60] bg-black/40 backdrop-blur-xs flex items-end justify-center overscroll-none touch-none"
