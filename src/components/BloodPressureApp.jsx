@@ -14,7 +14,6 @@ import {
   Activity,
   Settings,
   X,
-  Trash2,
   Download,
   Upload,
   Search,
@@ -189,9 +188,6 @@ const DEFAULT_ROMA_AVATAR_SVG = `data:image/svg+xml;utf8,${encodeURIComponent(`
 </svg>
 `)}`;
 
-// Генератор 100 демо-записей за год:
-// В начале года — нестабильное повышенное давление со скачками (145..156 / 92..98),
-// затем плавный тренд снижения и уверенная стабилизация в норме (118..124 / 76..81) к текущему дню.
 const generateDemoRecords = () => {
   const total = 100;
   const now = new Date();
@@ -218,25 +214,20 @@ const generateDemoRecords = () => {
   const list = [];
 
   for (let i = 0; i < total; i++) {
-    const progress = i / (total - 1); // от 0.0 (год назад) до 1.0 (сегодня)
+    const progress = i / (total - 1);
 
-    // Распределяем 100 замеров по ~345 дням: плотнее в последний месяц, чтобы и "Неделя", и "Месяц", и "Год" были богатыми
     let daysAgo;
     if (i < 65) {
-      // Первые 65 записей: от 345 до 32 дней назад
       daysAgo = Math.round(345 - (i / 65) * 313);
     } else {
-      // Последние 35 записей: последние 31 день (по 1-2 замера в день)
       daysAgo = Math.max(0, Math.round(31 - ((i - 65) / 34) * 31));
     }
 
-    // Нелинейная кривая нормализации: сначала держится высоко, затем плавно опускается к 120/78
     const curve = Math.pow(1 - progress, 1.35);
-    const baseSys = 120 + curve * 28; // от ~148 до 120
-    const baseDia = 78 + curve * 16;  // от ~94 до 78
-    const basePulse = 63 + curve * 15; // от ~78 до 63
+    const baseSys = 120 + curve * 28;
+    const baseDia = 78 + curve * 16;
+    const basePulse = 63 + curve * 15;
 
-    // Амплитуда скачков: в начале года высокая разболтанность, к концу года — минимальная
     const wave1 = Math.sin(i * 1.7) * (3 + 7 * (1 - progress));
     const wave2 = Math.cos(i * 0.85) * (2 + 4 * (1 - progress));
 
@@ -326,6 +317,23 @@ const ScanFrameIcon = ({ className = 'w-5 h-5' }) => (
     <path d="M16 4h2a2 2 0 0 1 2 2v2" />
     <path d="M16 20h2a2 2 0 0 0 2-2v-2" />
     <line x1="4" y1="12" x2="20" y2="12" />
+  </svg>
+);
+
+// Иконка сердечка пульса и корзины из Фигма-исходника карточки истории
+const CardHeartIcon = ({ className = 'w-[18px] h-[15px]' }) => (
+  <svg viewBox="0 0 18 16" fill="currentColor" className={className} xmlns="http://www.w3.org/2000/svg">
+    <path d="M9.0002 15.2273L1.6992 7.9261C1.1172 7.3438 0.7282 6.6667 0.5342 5.8949C0.3452 5.1231 0.3472 4.3561 0.5412 3.5938C0.7362 2.8267 1.1212 2.1591 1.6992 1.5909C2.2912 1.0085 2.9662 0.6226 3.7232 0.4332C4.4862 0.2391 5.2462 0.2391 6.0032 0.4332C6.7652 0.6274 7.4432 1.0133 8.0342 1.5909L9.0002 2.5284L9.9662 1.5909C10.5632 1.0133 11.2402 0.6274 11.9972 0.4332C12.7552 0.2391 13.5132 0.2391 14.2702 0.4332C15.0322 0.6226 15.7102 1.0085 16.3012 1.5909C16.8792 2.1591 17.2652 2.8267 17.4592 3.5938C17.6532 4.3561 17.6532 5.1231 17.4592 5.8949C17.2702 6.6667 16.8842 7.3438 16.3012 7.9261L9.0002 15.2273Z" />
+  </svg>
+);
+
+const CardTrashIcon = ({ className = 'w-[16px] h-[17px]' }) => (
+  <svg viewBox="0 0 16 17" fill="none" className={className} xmlns="http://www.w3.org/2000/svg">
+    <path d="M6.5 7.75V12.25" stroke="currentColor" strokeWidth="1.65" strokeLinecap="round" strokeLinejoin="round" />
+    <path d="M9.5 7.75V12.25" stroke="currentColor" strokeWidth="1.65" strokeLinecap="round" strokeLinejoin="round" />
+    <path d="M13.25 4V14.5C13.25 15.3279 12.578 16 11.75 16H4.25C3.422 16 2.75 15.3279 2.75 14.5V4" stroke="currentColor" strokeWidth="1.65" strokeLinecap="round" strokeLinejoin="round" />
+    <path d="M1.25 4H14.75" stroke="currentColor" strokeWidth="1.65" strokeLinecap="round" strokeLinejoin="round" />
+    <path d="M5 4V2.5C5 1.6721 5.672 1 6.5 1H9.5C10.328 1 11 1.6721 11 2.5V4" stroke="currentColor" strokeWidth="1.65" strokeLinecap="round" strokeLinejoin="round" />
   </svg>
 );
 
@@ -1134,6 +1142,10 @@ export default function App() {
   const [searchQuery, setSearchQuery] = useState('');
   const [activeSheet, setActiveSheet] = useState(null);
 
+  // Состояния подтверждения и двухфазной анимации удаления карточки в Истории
+  const [confirmDeleteId, setConfirmDeleteId] = useState(null);
+  const [deletingPhaseById, setDeletingPhaseById] = useState({});
+
   const [timePickerOpen, setTimePickerOpen] = useState(false);
   const [tempTime, setTempTime] = useState('09:00');
 
@@ -1216,8 +1228,6 @@ export default function App() {
     if (typeof document === 'undefined') return;
     const baseBgHex = theme === 'dark' ? '#111813' : '#F2F3F0';
 
-    // Когда открыта шторка поверх светлой темы, затемняем и верхнюю системную панель (status bar)
-    // ровно в тон bg-black/40 поверх #F2F3F0 -> #919290, чтобы не оставалось белой полоски вверху!
     const statusBarHex = scannerOpen
       ? '#141A16'
       : isAnyOverlayOpen
@@ -1254,6 +1264,11 @@ export default function App() {
     }
     statusMeta.setAttribute('content', theme === 'dark' || isAnyOverlayOpen ? 'black-translucent' : 'default');
   }, [theme, isAnyOverlayOpen, scannerOpen]);
+
+  // Сбрасываем открытые кнопки подтверждения удаления при переключении вкладки или поиске
+  useEffect(() => {
+    setConfirmDeleteId(null);
+  }, [activeTab, searchQuery]);
 
   const handleSelectTheme = useCallback(
     (nextTheme) => {
@@ -1910,17 +1925,40 @@ export default function App() {
     }
   };
 
-  const handleDelete = async (id) => {
-    const updated = records.filter((item) => item.id !== id);
-    setRecords(updated);
-    setRawCloudCount(updated.length);
+  // Двухфазное удаление карточки:
+  // Фаза 1 ('fade'): карточка исчезает, на мгновение оставляя пустоту.
+  // Фаза 2 ('collapse'): пустота плавно схлопывается, соединяя соседние карточки.
+  const handleConfirmDelete = (id) => {
+    if (deletingPhaseById[id]) return;
+    setConfirmDeleteId(null);
+    setDeletingPhaseById((prev) => ({ ...prev, [id]: 'fade' }));
 
-    if (currentUser) {
-      localStorage.setItem(`bp_records_cache_${currentUser.username}`, JSON.stringify(updated));
-      await deleteFromCloud(id);
-    } else {
-      emulateCloudSync();
-    }
+    setTimeout(() => {
+      setDeletingPhaseById((prev) => ({ ...prev, [id]: 'collapse' }));
+    }, 180);
+
+    setTimeout(async () => {
+      setRecords((prev) => {
+        const updated = prev.filter((item) => item.id !== id);
+        setRawCloudCount(updated.length);
+        if (currentUser) {
+          localStorage.setItem(`bp_records_cache_${currentUser.username}`, JSON.stringify(updated));
+        }
+        return updated;
+      });
+
+      setDeletingPhaseById((prev) => {
+        const next = { ...prev };
+        delete next[id];
+        return next;
+      });
+
+      if (currentUser) {
+        await deleteFromCloud(id);
+      } else {
+        emulateCloudSync();
+      }
+    }, 450);
   };
 
   const handleExportCSV = () => {
@@ -2092,6 +2130,10 @@ export default function App() {
           --tooltip-sub: #A3ABA6;
           --tooltip-note: #E2E6E3;
           --delete-icon: #B0B7B2;
+          --del-confirm-bg: #FAE0E0;
+          --del-confirm-text: #D05B5F;
+          --del-cancel-bg: #ECEBEB;
+          --del-cancel-text: #141A16;
           --avatar-bg: #141A16;
           --avatar-icon: #FFFFFF;
           --nav-shadow: 0 8px 32px rgba(20, 26, 22, 0.08);
@@ -2182,6 +2224,10 @@ export default function App() {
           --tooltip-sub: #ADB6B0;
           --tooltip-note: #D5DDD8;
           --delete-icon: #858F88;
+          --del-confirm-bg: #442729;
+          --del-confirm-text: #F88084;
+          --del-cancel-bg: #323C36;
+          --del-cancel-text: #F1F3EF;
           --avatar-bg: #232C26;
           --avatar-icon: #F1F3EF;
           --nav-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
@@ -2190,8 +2236,7 @@ export default function App() {
 
         .bp-theme-surface,
         .bp-theme-surface section,
-        .bp-theme-surface header button,
-        .bp-theme-surface main > div {
+        .bp-theme-surface header button {
           transition: background-color 180ms ease, color 180ms ease;
         }
 
@@ -2226,7 +2271,6 @@ export default function App() {
           transition: opacity 160ms ease-out;
         }
 
-        /* Мягкое появление затемнения и быстрый выезд шторок снизу */
         @keyframes bp-backdrop-fade {
           from { opacity: 0; }
           to { opacity: 1; }
@@ -2241,6 +2285,21 @@ export default function App() {
         .bp-sheet-enter {
           animation: bp-sheet-slide-up 280ms cubic-bezier(0.22, 1, 0.36, 1);
           will-change: transform;
+        }
+
+        /* Деликатное движение кнопок подтверждения удаления при появлении */
+        @keyframes bp-confirm-slide-in {
+          from {
+            opacity: 0;
+            transform: translateX(10px);
+          }
+          to {
+            opacity: 1;
+            transform: translateX(0);
+          }
+        }
+        .bp-confirm-actions-enter {
+          animation: bp-confirm-slide-in 190ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
         }
         
         @keyframes flash-sys {
@@ -2276,6 +2335,7 @@ export default function App() {
           }
           .bp-backdrop-enter,
           .bp-sheet-enter,
+          .bp-confirm-actions-enter,
           .animate-flash-sys,
           .animate-flash-dia,
           .animate-flash-pulse {
@@ -2380,1184 +2440,4 @@ export default function App() {
                 className="w-11 h-11 rounded-full bg-[var(--surface-card)] flex items-center justify-center active:scale-95 transition cursor-pointer text-[var(--text-primary)]"
                 aria-label="Статус облачной синхронизации"
               >
-                {cloudStatus === 'syncing' ? (
-                  <RefreshCw className="w-5 h-5 animate-spin text-[var(--text-primary)]" />
-                ) : (
-                  <CloudCheckIcon className="w-5 h-5 text-[var(--text-primary)]" />
-                )}
-              </button>
-
-              <button
-                onClick={() => {
-                  setActiveTab('history');
-                  setSearchOpen((prev) => !prev);
-                }}
-                className="w-11 h-11 rounded-full bg-[var(--surface-card)] flex items-center justify-center text-[var(--text-primary)] active:scale-95 transition cursor-pointer"
-                aria-label="Поиск"
-              >
-                <Search className="w-5 h-5" />
-              </button>
-
-              <button
-                onClick={() => setActiveSheet('data')}
-                className="w-11 h-11 rounded-full bg-[var(--surface-card)] flex items-center justify-center text-[var(--text-primary)] active:scale-95 transition cursor-pointer"
-                aria-label="Настройки"
-              >
-                <Settings className="w-5 h-5" />
-              </button>
-            </div>
-          </header>
-
-          {activeTab === 'history' && (
-            <div className="mt-5">
-              {searchOpen && (
-                <div className="mb-3">
-                  <input
-                    type="text"
-                    name="nofill_bp_search"
-                    inputMode="search"
-                    enterKeyHint="search"
-                    autoComplete="new-password"
-                    autoCorrect="off"
-                    autoCapitalize="off"
-                    spellCheck={false}
-                    data-lpignore="true"
-                    data-1p-ignore="true"
-                    data-bwignore="true"
-                    data-form-type="other"
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    onKeyDown={handleInputEnterBlur}
-                    placeholder="Найти: кофе, трени, сахар, утро..."
-                    className="w-full bg-[var(--surface-card)] rounded-[22px] px-5 py-3.5 text-base text-[var(--text-primary)] placeholder-[var(--text-muted)] focus:outline-none select-text"
-                  />
-                </div>
-              )}
-
-              <div className="flex items-center justify-between px-1">
-                <span className="text-sm font-medium text-[var(--text-muted)]">
-                  Уникальных замеров: {historyList.length}
-                </span>
-                {searchQuery && (
-                  <button
-                    onClick={() => setSearchQuery('')}
-                    className="text-xs font-semibold text-[var(--text-primary)] underline cursor-pointer"
-                  >
-                    Сбросить поиск
-                  </button>
-                )}
-              </div>
-            </div>
-          )}
-        </div>
-
-        {activeTab === 'home' && (
-          <main className="space-y-4">
-            <div className="bg-[var(--surface-card)] rounded-[30px] p-1.5 grid grid-cols-3">
-              {[
-                { id: '7d', label: 'Неделя' },
-                { id: '30d', label: 'Месяц' },
-                { id: 'all', label: 'Год' }
-              ].map((tab) => (
-                <button
-                  key={tab.id}
-                  onClick={() => setPeriod(tab.id)}
-                  className={`py-3 rounded-[26px] text-[15px] font-semibold transition cursor-pointer ${
-                    period === tab.id
-                      ? 'bg-[var(--period-active-bg)] text-[var(--period-active-text)]'
-                      : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
-                  }`}
-                >
-                  {tab.label}
-                </button>
-              ))}
-            </div>
-
-            <section className="bg-[var(--surface-card)] rounded-[32px] p-5">
-              <div className="flex items-center justify-between gap-2 mb-1.5">
-                <AnimatedAvgPressure
-                  sys={stats.avgSys}
-                  dia={stats.avgDia}
-                  isInitialDone={initialAvgDoneRef.current}
-                  onInitialComplete={handleInitialAvgComplete}
-                />
-                <AnimatedStatusBadge
-                  badge={avgBadge}
-                  visible={badgeVisible || initialAvgDoneRef.current}
-                />
-              </div>
-
-              <div className="mb-4">
-                <div className="text-[16px] font-bold text-[var(--text-primary)]">Среднее за период</div>
-                <div className="text-[14px] font-medium text-[var(--text-muted)] mt-0.5">{periodRangeLabel}</div>
-              </div>
-
-              <div className="h-[150px] w-full -mx-2 relative">
-                {chartData.length > 0 && (
-                  <>
-                    <div
-                      className={`absolute right-[2px] top-[12px] text-[11px] font-bold pointer-events-none z-10 bp-legend-opacity ${
-                        legendVisible || legendShownRef.current ? 'opacity-100' : 'opacity-0'
-                      }`}
-                      style={{ color: 'var(--upper-pressure)' }}
-                    >
-                      Верхнее
-                    </div>
-                    <div
-                      className={`absolute right-[2px] top-[100px] text-[11px] font-bold pointer-events-none z-10 bp-legend-opacity ${
-                        legendVisible || legendShownRef.current ? 'opacity-100' : 'opacity-0'
-                      }`}
-                      style={{ color: 'var(--lower-pressure)' }}
-                    >
-                      Нижнее
-                    </div>
-                  </>
-                )}
-
-                {chartData.length > 0 ? (
-                  <ResponsiveContainer width="100%" height="100%" className="relative z-0">
-                    <AreaChart data={chartData} margin={{ top: 12, right: 0, left: -26, bottom: 0 }}>
-                      <defs>
-                        <linearGradient id="sysFill" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="var(--chart-sys-grad-start)" stopOpacity={theme === 'dark' ? 0.35 : 0.8} />
-                          <stop offset="95%" stopColor="var(--chart-sys-grad-end)" stopOpacity={0.05} />
-                        </linearGradient>
-                        <linearGradient id="diaFill" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="var(--chart-dia-grad-start)" stopOpacity={theme === 'dark' ? 0.32 : 0.75} />
-                          <stop offset="95%" stopColor="var(--chart-dia-grad-end)" stopOpacity={0.05} />
-                        </linearGradient>
-                      </defs>
-                      <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" />
-                      <XAxis
-                        dataKey="shortLabel"
-                        axisLine={false}
-                        tickLine={false}
-                        tick={{ fontSize: 13, fill: 'var(--text-muted)' }}
-                        minTickGap={34}
-                      />
-                      <YAxis
-                        domain={[60, 152]}
-                        axisLine={false}
-                        tickLine={false}
-                        tick={{ fontSize: 13, fill: 'var(--text-muted)' }}
-                        ticks={[75, 100, 125]}
-                      />
-                      <Tooltip
-                        wrapperStyle={{ zIndex: 100 }}
-                        content={({ active, payload }) => {
-                          if (!active || !payload || !payload.length) return null;
-                          const item = payload[0].payload;
-                          return (
-                            <div className="bg-[var(--tooltip-bg)] text-[var(--tooltip-text)] rounded-[20px] px-4 py-3">
-                              <div className="text-xs text-[var(--tooltip-sub)] mb-0.5">
-                                {formatHumanDate(item.date)} · {item.time}
-                              </div>
-                              <div className="text-lg font-bold">
-                                {item.sys}/{item.dia}{' '}
-                                {item.pulse && (
-                                  <span className="text-sm font-normal text-[#D6EBB4] ml-1">
-                                    ♥ {item.pulse}
-                                  </span>
-                                )}
-                              </div>
-                              {item.note && (
-                                <div className="text-xs text-[var(--tooltip-note)] mt-1 max-w-[200px] leading-snug">
-                                  {item.note}
-                                </div>
-                              )}
-                            </div>
-                          );
-                        }}
-                      />
-                      <Area
-                        type="monotone"
-                        dataKey="sys"
-                        stroke="var(--upper-pressure)"
-                        strokeWidth={2.4}
-                        fill="url(#sysFill)"
-                        animationDuration={380}
-                        onAnimationEnd={handleChartInitialAnimationEnd}
-                        activeDot={{ r: 5, fill: 'var(--upper-pressure)', stroke: 'var(--dot-stroke)', strokeWidth: 2 }}
-                      />
-                      <Area
-                        type="monotone"
-                        dataKey="dia"
-                        stroke="var(--lower-pressure)"
-                        strokeWidth={2.4}
-                        fill="url(#diaFill)"
-                        animationDuration={380}
-                        activeDot={{ r: 5, fill: 'var(--lower-pressure)', stroke: 'var(--dot-stroke)', strokeWidth: 2 }}
-                      />
-                    </AreaChart>
-                  </ResponsiveContainer>
-                ) : (
-                  <div className="h-full flex items-center justify-center text-center px-6 text-sm text-[var(--text-faint)]">
-                    Нажмите «+» внизу экрана, чтобы добавить первый замер
-                  </div>
-                )}
-              </div>
-
-              <div className="mt-4 flex items-center justify-between gap-2.5">
-                <button
-                  onClick={() => setDayTimeFilter('all')}
-                  className={`flex-1 py-3 rounded-full text-[15px] font-bold transition cursor-pointer text-center ${
-                    dayTimeFilter === 'all'
-                      ? 'bg-[var(--filter-active-bg)] text-[var(--filter-active-text)]'
-                      : 'bg-[var(--surface-tertiary)] text-[var(--text-primary)] hover:bg-[var(--surface-hover)]'
-                  }`}
-                >
-                  Все
-                </button>
-
-                <button
-                  onClick={() => setDayTimeFilter('morning')}
-                  className={`flex-1 py-3 rounded-full text-[15px] font-bold flex items-center justify-center gap-2 transition cursor-pointer ${
-                    dayTimeFilter === 'morning'
-                      ? 'bg-[var(--filter-active-bg)] text-[var(--filter-active-text)]'
-                      : 'bg-[var(--surface-tertiary)] text-[var(--text-Subtle)] hover:bg-[var(--surface-hover)]'
-                  }`}
-                >
-                  <Sun className="w-[18px] h-[18px] text-[#FE9A00] fill-[#FE9A00]" />
-                  <span>Утро</span>
-                </button>
-
-                <button
-                  onClick={() => setDayTimeFilter('evening')}
-                  className={`flex-1 py-3 rounded-full text-[15px] font-bold flex items-center justify-center gap-2 transition cursor-pointer ${
-                    dayTimeFilter === 'evening'
-                      ? 'bg-[var(--filter-active-bg)] text-[var(--filter-active-text)]'
-                      : 'bg-[var(--filter-evening-bg)] text-[var(--filter-evening-text)] hover:opacity-90'
-                  }`}
-                >
-                  <Moon className="w-[18px] h-[18px] text-[#615FFF] fill-[#615FFF]" />
-                  <span>Вечер</span>
-                </button>
-              </div>
-            </section>
-
-            <section className="grid grid-cols-2 gap-3.5 pt-1">
-              <div className="rounded-[28px] bg-[var(--card-latest-bg)] p-5 flex flex-col justify-between h-[152px]">
-                <div>
-                  <div className="text-[36px] font-black tracking-tight leading-none text-[var(--text-primary)]">
-                    {latestRec ? `${latestRec.sys}/${latestRec.dia}` : '–'}
-                  </div>
-                  <div className="text-[14px] font-bold text-[var(--card-latest-date)] mt-1.5">
-                    {latestRec ? formatHumanDate(latestRec.date) : '–'}
-                  </div>
-                </div>
-                <div className="flex items-end justify-between">
-                  <div className="text-[14px] font-bold leading-tight text-[var(--text-primary)]">
-                    Последний
-                    <br />
-                    замер
-                  </div>
-                  <div className="w-[44px] h-[44px] rounded-full bg-[var(--stat-icon-circle-bg)] flex items-center justify-center text-[var(--text-primary)] shrink-0">
-                    <Activity className="w-[22px] h-[22px]" strokeWidth={2.2} />
-                  </div>
-                </div>
-              </div>
-
-              <div className="bg-[var(--card-pulse-bg)] rounded-[28px] p-5 flex flex-col justify-between h-[152px]">
-                <div>
-                  <div className="text-[36px] font-black tracking-tight leading-none text-[var(--text-primary)]">
-                    {stats.avgPulse}
-                  </div>
-                  <div className="text-[14px] text-[var(--text-Subtle)] font-bold mt-1.5">
-                    уд/мин
-                  </div>
-                </div>
-                <div className="flex items-end justify-between">
-                  <div className="text-[14px] font-bold leading-tight text-[var(--text-primary)]">
-                    Средний
-                    <br />
-                    пульс
-                  </div>
-                  <div className="w-[44px] h-[44px] rounded-full bg-[var(--stat-icon-circle-bg)] flex items-center justify-center text-[var(--text-primary)] shrink-0">
-                    <Heart className="w-[22px] h-[22px]" strokeWidth={2.2} />
-                  </div>
-                </div>
-              </div>
-            </section>
-          </main>
-        )}
-
-        {activeTab === 'history' && (
-          <main className="space-y-3">
-            {historyList.map((item) => {
-              const badge = getStatusLabel(item.sys, item.dia);
-              return (
-                <div
-                  key={item.id}
-                  className="bg-[var(--surface-card)] rounded-[26px] px-5 py-4 flex items-center justify-between gap-3"
-                >
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-baseline gap-2.5">
-                      <span className="text-[24px] font-black tracking-tight text-[var(--text-primary)]">
-                        {item.sys}/{item.dia}
-                      </span>
-                      {item.pulse && (
-                        <span className="text-[16px] font-bold text-[var(--lower-pressure)]">
-                          ♥ {item.pulse}
-                        </span>
-                      )}
-                      <span
-                        className="text-[12px] font-bold px-2.5 py-1 rounded-full ml-auto sm:ml-1"
-                        style={{ backgroundColor: badge.bg, color: badge.textCol }}
-                      >
-                        {badge.text}
-                      </span>
-                    </div>
-                    <div className="text-[15px] font-medium text-[var(--text-Subtle)] mt-1.5 truncate">
-                      {item.note || 'Замер'}
-                    </div>
-                    <div className="text-[13px] font-medium text-[var(--text-faint)] mt-0.5">
-                      {formatHumanDate(item.date)} в {item.time}
-                    </div>
-                  </div>
-
-                  <button
-                    onClick={() => handleDelete(item.id)}
-                    className="w-10 h-10 rounded-full flex items-center justify-center text-[var(--delete-icon)] hover:text-[var(--text-primary)] active:scale-95 transition cursor-pointer shrink-0"
-                    title="Удалить запись"
-                  >
-                    <Trash2 className="w-[18px] h-[18px]" strokeWidth={2.2} />
-                  </button>
-                </div>
-              );
-            })}
-          </main>
-        )}
-
-        <nav className="fixed bottom-5 left-0 right-0 z-30 flex justify-center px-5 pointer-events-none">
-          <div 
-            className="w-full max-w-[400px] h-[68px] bg-[var(--surface-card)] rounded-[34px] px-12 flex items-center justify-between pointer-events-auto"
-            style={{ boxShadow: 'var(--nav-shadow)', border: '1px solid var(--nav-border)' }}
-          >
-            <button
-              onClick={() => setActiveTab('home')}
-              className="active:scale-95 transition cursor-pointer flex items-center justify-center"
-              aria-label="Главная"
-            >
-              <HomeNavIcon solid={activeTab === 'home'} />
-            </button>
-
-            <button
-              onClick={() => setActiveSheet('add')}
-              className="w-[64px] h-[64px] -mt-6 rounded-full bg-[var(--cta-bg)] text-[var(--cta-text)] flex items-center justify-center active:scale-95 transition cursor-pointer"
-              aria-label="Добавить замер"
-            >
-              <Plus className="w-[32px] h-[32px]" strokeWidth={2.2} />
-            </button>
-
-            <button
-              onClick={() => setActiveTab('history')}
-              className="active:scale-95 transition cursor-pointer flex items-center justify-center"
-              aria-label="История"
-            >
-              <HistoryNavIcon solid={activeTab === 'history'} />
-            </button>
-          </div>
-        </nav>
-
-        {/* ШТОРКА АВТОРИЗАЦИИ И РЕГИСТРАЦИИ */}
-        {activeSheet === 'auth' && (
-          <div
-            className="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs flex items-end justify-center overscroll-none bp-backdrop-enter"
-            style={{ paddingBottom: keyboardHeight > 0 ? `${keyboardHeight}px` : '0px' }}
-            onClick={() => setActiveSheet(null)}
-          >
-            <form
-              ref={authSheetRef}
-              autoComplete="off"
-              onSubmit={(e) => e.preventDefault()}
-              onTouchStart={handleSheetTouchStart}
-              onTouchMove={handleSheetTouchMove}
-              onTouchEnd={handleSheetTouchEnd}
-              style={{
-                transform: dragOffset > 0 ? `translateY(${dragOffset}px)` : undefined,
-                transition: dragOffset === 0 ? 'transform 0.2s ease-out' : 'none',
-                maxHeight: keyboardHeight > 0 ? `calc(100vh - ${keyboardHeight + 8}px)` : '92vh'
-              }}
-              className={`w-full max-w-[440px] overflow-y-auto hide-scrollbar bg-[var(--bg-sheet)] rounded-t-[36px] px-6 pt-5 pb-6 flex flex-col items-center gap-4 ${
-                dragOffset === 0 ? 'bp-sheet-enter' : ''
-              }`}
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div className="w-12 h-1.5 bg-[var(--sheet-handle)] rounded-full shrink-0" />
-
-              {keyboardHeight === 0 && (
-                <div className="self-stretch pt-1 flex items-start justify-between gap-3 mb-1">
-                  <div className="flex-1 flex flex-col items-start gap-2.5">
-                    <h3 className="text-[38px] font-extrabold text-[var(--text-primary)] leading-none tracking-tight">
-                      Профиль
-                    </h3>
-                    <p className="text-[15px] font-medium text-[var(--text-secondary)] leading-tight">
-                      {authMode === 'login'
-                        ? 'Войдите, чтобы продолжить вести ваши измерения'
-                        : 'Создайте аккаунт, чтобы начать сохранять ваши измерения'}
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => setActiveSheet(null)}
-                    className="w-10 h-10 rounded-full bg-[var(--surface-input)] flex items-center justify-center text-[var(--text-primary)] shrink-0 cursor-pointer mt-1"
-                    aria-label="Закрыть"
-                  >
-                    <X className="w-5 h-5" strokeWidth={2} />
-                  </button>
-                </div>
-              )}
-
-              <div className="self-stretch p-1.5 bg-[var(--surface-secondary)] rounded-full grid grid-cols-2 shrink-0">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setAuthMode('login');
-                    setAuthError('');
-                  }}
-                  className={`py-3 rounded-full text-[16px] font-bold transition cursor-pointer ${
-                    authMode === 'login'
-                      ? 'bg-[var(--tab-active-bg)] text-[var(--tab-active-text)]'
-                      : 'text-[var(--text-primary)] hover:opacity-80'
-                  }`}
-                >
-                  Вход
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setAuthMode('register');
-                    setAuthError('');
-                  }}
-                  className={`py-3 rounded-full text-[16px] font-bold transition cursor-pointer ${
-                    authMode === 'register'
-                      ? 'bg-[var(--tab-active-bg)] text-[var(--tab-active-text)]'
-                      : 'text-[var(--text-primary)] hover:opacity-80'
-                  }`}
-                >
-                  Создать
-                </button>
-              </div>
-
-              {authMode === 'login' ? (
-                <div className="self-stretch flex flex-col items-start gap-3.5">
-                  <div className="self-stretch flex flex-col items-start gap-2.5">
-                    <label className="self-stretch h-[60px] px-5 py-2.5 bg-[var(--surface-input)] rounded-[22px] flex items-center gap-0.5 cursor-text">
-                      <span className="w-[85px] text-[16px] font-bold text-[var(--text-label-strong)] text-left select-none shrink-0">
-                        Логин
-                      </span>
-                      <input
-                        type="text"
-                        name="nofill_bp_login_alias"
-                        inputMode="text"
-                        enterKeyHint="next"
-                        autoComplete="new-password"
-                        autoCorrect="off"
-                        autoCapitalize="off"
-                        spellCheck={false}
-                        data-lpignore="true"
-                        data-1p-ignore="true"
-                        data-bwignore="true"
-                        data-form-type="other"
-                        aria-autocomplete="none"
-                        placeholder="Латиницей"
-                        value={loginUsername}
-                        onFocus={() => scrollTargetIntoSheetView(authCtaRef)}
-                        onChange={(e) => {
-                          setLoginUsername(
-                            e.target.value.toLowerCase().replace(/[^a-z0-9_.-]/g, '')
-                          );
-                          setAuthError('');
-                        }}
-                        className="flex-1 min-w-0 w-full text-left text-[18px] font-bold text-[var(--text-primary)] placeholder-[var(--placeholder-input)] focus:outline-none bg-transparent select-text"
-                      />
-                    </label>
-
-                    <label className="self-stretch h-[60px] px-5 py-2.5 bg-[var(--surface-input)] rounded-[22px] flex items-center gap-0.5 cursor-text">
-                      <span className="w-[85px] text-[16px] font-bold text-[var(--text-label-strong)] text-left select-none shrink-0">
-                        ПИН-код
-                      </span>
-                      <input
-                        type="text"
-                        name="nofill_bp_login_code"
-                        inputMode="numeric"
-                        enterKeyHint="done"
-                        autoComplete="new-password"
-                        autoCorrect="off"
-                        autoCapitalize="off"
-                        spellCheck={false}
-                        data-lpignore="true"
-                        data-1p-ignore="true"
-                        data-bwignore="true"
-                        data-form-type="other"
-                        aria-autocomplete="none"
-                        placeholder="••••"
-                        value={loginPin}
-                        onFocus={() => scrollTargetIntoSheetView(authCtaRef)}
-                        onKeyDown={handleInputEnterBlur}
-                        onChange={(e) => {
-                          const clean = e.target.value.replace(/\D/g, '').slice(0, 4);
-                          setLoginPin(clean);
-                          setAuthError('');
-                          if (clean.length === 4 && loginUsername.trim()) {
-                            handleLoginSubmit(clean);
-                          }
-                        }}
-                        className="flex-1 min-w-0 w-full text-left text-[30px] leading-none tracking-[10px] font-extrabold text-[var(--text-primary)] placeholder-[var(--placeholder-input)] focus:outline-none bg-transparent select-text"
-                      />
-                    </label>
-                  </div>
-
-                  {authError && (
-                    <p className="self-stretch text-center text-[14px] font-bold text-red-500 -mt-1">
-                      {authError}
-                    </p>
-                  )}
-
-                  <button
-                    ref={authCtaRef}
-                    type="button"
-                    disabled={authLoading}
-                    onClick={() => handleLoginSubmit()}
-                    className="self-stretch py-[17px] rounded-full bg-[var(--cta-bg)] text-[var(--cta-text)] text-[20px] font-bold flex items-center justify-center active:scale-[0.99] transition cursor-pointer mt-0.5 shrink-0"
-                  >
-                    {authLoading ? 'Проверяем...' : 'Войти в дневник'}
-                  </button>
-                </div>
-              ) : (
-                <div className="self-stretch flex flex-col items-start gap-3.5">
-                  <div className="self-stretch flex flex-col items-start gap-2.5">
-                    <label className="self-stretch h-[58px] px-5 py-2 bg-[var(--surface-input)] rounded-[22px] flex items-center gap-0.5 cursor-text">
-                      <span className="w-[85px] text-[16px] font-bold text-[var(--text-label-strong)] text-left select-none shrink-0">
-                        Ваше имя
-                      </span>
-                      <input
-                        type="text"
-                        name="nofill_bp_reg_label"
-                        inputMode="text"
-                        enterKeyHint="next"
-                        autoComplete="new-password"
-                        autoCorrect="off"
-                        spellCheck={false}
-                        data-lpignore="true"
-                        data-1p-ignore="true"
-                        data-bwignore="true"
-                        data-form-type="other"
-                        aria-autocomplete="none"
-                        placeholder="Например Нина"
-                        value={regDisplayName}
-                        onFocus={() => scrollTargetIntoSheetView(authCtaRef)}
-                        onChange={(e) => {
-                          setRegDisplayName(e.target.value);
-                          setAuthError('');
-                        }}
-                        className="flex-1 min-w-0 w-full text-left text-[18px] font-bold text-[var(--text-primary)] placeholder-[var(--placeholder-input)] focus:outline-none bg-transparent select-text"
-                      />
-                    </label>
-
-                    <label className="self-stretch h-[58px] px-5 py-2 bg-[var(--surface-input)] rounded-[22px] flex items-center gap-0.5 cursor-text">
-                      <span className="w-[85px] text-[16px] font-bold text-[var(--text-label-strong)] text-left select-none shrink-0">
-                        Логин
-                      </span>
-                      <input
-                        type="text"
-                        name="nofill_bp_reg_alias"
-                        inputMode="text"
-                        enterKeyHint="next"
-                        autoComplete="new-password"
-                        autoCorrect="off"
-                        autoCapitalize="off"
-                        spellCheck={false}
-                        data-lpignore="true"
-                        data-1p-ignore="true"
-                        data-bwignore="true"
-                        data-form-type="other"
-                        aria-autocomplete="none"
-                        placeholder="Латиницей"
-                        value={regUsername}
-                        onFocus={() => scrollTargetIntoSheetView(authCtaRef)}
-                        onChange={(e) => {
-                          setRegUsername(
-                            e.target.value.toLowerCase().replace(/[^a-z0-9_.-]/g, '')
-                          );
-                          setAuthError('');
-                        }}
-                        className="flex-1 min-w-0 w-full text-left text-[18px] font-bold text-[var(--text-primary)] placeholder-[var(--placeholder-input)] focus:outline-none bg-transparent select-text"
-                      />
-                    </label>
-
-                    <label className="self-stretch h-[58px] px-5 py-2 bg-[var(--surface-input)] rounded-[22px] flex items-center gap-0.5 cursor-text">
-                      <span className="w-[85px] text-[16px] font-bold text-[var(--text-label-strong)] text-left select-none shrink-0">
-                        ПИН-код
-                      </span>
-                      <input
-                        type="text"
-                        name="nofill_bp_reg_code"
-                        inputMode="numeric"
-                        enterKeyHint="done"
-                        autoComplete="new-password"
-                        autoCorrect="off"
-                        autoCapitalize="off"
-                        spellCheck={false}
-                        data-lpignore="true"
-                        data-1p-ignore="true"
-                        data-bwignore="true"
-                        data-form-type="other"
-                        aria-autocomplete="none"
-                        placeholder="••••"
-                        value={regPin}
-                        onFocus={() => scrollTargetIntoSheetView(authCtaRef)}
-                        onKeyDown={handleInputEnterBlur}
-                        onChange={(e) => {
-                          setRegPin(e.target.value.replace(/\D/g, '').slice(0, 4));
-                          setAuthError('');
-                        }}
-                        className="flex-1 min-w-0 w-full text-left text-[30px] leading-none tracking-[10px] font-extrabold text-[var(--text-primary)] placeholder-[var(--placeholder-input)] focus:outline-none bg-transparent select-text"
-                      />
-                    </label>
-                  </div>
-
-                  {authError && (
-                    <p className="self-stretch text-center text-[14px] font-bold text-red-500 -mt-1">
-                      {authError}
-                    </p>
-                  )}
-
-                  <button
-                    ref={authCtaRef}
-                    type="button"
-                    disabled={authLoading}
-                    onClick={handleRegisterSubmit}
-                    className="self-stretch py-[17px] rounded-full bg-[var(--cta-bg)] text-[var(--cta-text)] text-[20px] font-bold flex items-center justify-center active:scale-[0.99] transition cursor-pointer mt-0.5 shrink-0"
-                  >
-                    {authLoading ? 'Создаем...' : 'Создать дневник'}
-                  </button>
-                </div>
-              )}
-            </form>
-          </div>
-        )}
-
-        {/* ШТОРКА ВВОДА НОВОГО ЗАМЕРА */}
-        {activeSheet === 'add' && (
-          <div
-            className="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs flex items-end justify-center overscroll-none bp-backdrop-enter"
-            style={{ paddingBottom: keyboardHeight > 0 ? `${keyboardHeight}px` : '0px' }}
-            onClick={() => {
-              if (!scannerOpen) setActiveSheet(null);
-            }}
-          >
-            <form
-              ref={addSheetRef}
-              autoComplete="off"
-              onSubmit={(e) => e.preventDefault()}
-              onTouchStart={handleSheetTouchStart}
-              onTouchMove={handleSheetTouchMove}
-              onTouchEnd={handleSheetTouchEnd}
-              style={{
-                transform: dragOffset > 0 ? `translateY(${dragOffset}px)` : undefined,
-                transition: dragOffset === 0 ? 'transform 0.2s ease-out' : 'none',
-                maxHeight: keyboardHeight > 0 ? `calc(100vh - ${keyboardHeight + 8}px)` : '92vh'
-              }}
-              className={`w-full max-w-[440px] overflow-y-auto hide-scrollbar bg-[var(--bg-sheet)] rounded-t-[36px] px-6 pt-6 pb-8 ${
-                dragOffset === 0 ? 'bp-sheet-enter' : ''
-              }`}
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div className="w-12 h-1.5 bg-[var(--sheet-handle)] rounded-full mx-auto mb-5" />
-
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-[38px] font-extrabold text-[var(--text-primary)] leading-none tracking-tight">
-                  Новый замер
-                </h3>
-                <button
-                  type="button"
-                  onClick={() => setActiveSheet(null)}
-                  className="w-10 h-10 rounded-full bg-[var(--surface-input)] flex items-center justify-center text-[var(--text-primary)] cursor-pointer shrink-0 mt-1"
-                >
-                  <X className="w-5 h-5" strokeWidth={2} />
-                </button>
-              </div>
-
-              <div role="presentation" className="space-y-4">
-                <div className="grid grid-cols-3 gap-3">
-                  <div 
-                    className={`rounded-[26px] h-[110px] flex flex-col justify-center items-center p-2 relative overflow-hidden ${
-                      flashHighlight ? 'animate-flash-sys' : 'bg-[var(--sys-box-bg)]'
-                    }`}
-                  >
-                    <span className="block text-[15px] font-bold text-[var(--sys-box-label)] mb-1">
-                      Верхнее
-                    </span>
-                    <input
-                      ref={sysRef}
-                      type="text"
-                      name="nofill_bp_val_1"
-                      inputMode="numeric"
-                      enterKeyHint="next"
-                      readOnly={!inputsUnlocked}
-                      onFocus={() => setInputsUnlocked(true)}
-                      onKeyDown={handleInputEnterBlur}
-                      autoComplete="new-password"
-                      autoCorrect="off"
-                      autoCapitalize="off"
-                      spellCheck={false}
-                      data-lpignore="true"
-                      data-1p-ignore="true"
-                      data-bwignore="true"
-                      data-form-type="other"
-                      aria-autocomplete="none"
-                      placeholder="120"
-                      value={sysInput}
-                      onChange={handleSysChange}
-                      className="w-full text-center text-[40px] tracking-tight leading-none font-extrabold text-[var(--sys-box-value)] placeholder-[var(--sys-box-placeholder)] opacity-80 focus:opacity-100 focus:outline-none bg-transparent select-text"
-                    />
-                  </div>
-
-                  <div 
-                    className={`rounded-[26px] h-[110px] flex flex-col justify-center items-center p-2 relative overflow-hidden ${
-                      flashHighlight ? 'animate-flash-dia' : 'bg-[var(--dia-box-bg)]'
-                    }`}
-                  >
-                    <span className="block text-[15px] font-bold text-[var(--dia-box-label)] mb-1">
-                      Нижнее
-                    </span>
-                    <input
-                      ref={diaRef}
-                      type="text"
-                      name="nofill_bp_val_2"
-                      inputMode="numeric"
-                      enterKeyHint="next"
-                      readOnly={!inputsUnlocked}
-                      onFocus={() => setInputsUnlocked(true)}
-                      onKeyDown={handleInputEnterBlur}
-                      autoComplete="new-password"
-                      autoCorrect="off"
-                      autoCapitalize="off"
-                      spellCheck={false}
-                      data-lpignore="true"
-                      data-1p-ignore="true"
-                      data-bwignore="true"
-                      data-form-type="other"
-                      aria-autocomplete="none"
-                      placeholder="82"
-                      value={diaInput}
-                      onChange={handleDiaChange}
-                      className="w-full text-center text-[40px] tracking-tight leading-none font-extrabold text-[var(--dia-box-value)] placeholder-[var(--dia-box-placeholder)] opacity-80 focus:opacity-100 focus:outline-none bg-transparent select-text"
-                    />
-                  </div>
-
-                  <div 
-                    className={`rounded-[26px] h-[110px] flex flex-col justify-center items-center p-2 relative overflow-hidden ${
-                      flashHighlight ? 'animate-flash-pulse' : 'bg-[var(--pulse-box-bg)]'
-                    }`}
-                  >
-                    <span className="block text-[15px] font-bold text-[var(--pulse-box-label)] mb-1">
-                      Пульс
-                    </span>
-                    <input
-                      ref={pulseRef}
-                      type="text"
-                      name="nofill_bp_val_3"
-                      inputMode="numeric"
-                      enterKeyHint="done"
-                      readOnly={!inputsUnlocked}
-                      onFocus={() => setInputsUnlocked(true)}
-                      onKeyDown={handleInputEnterBlur}
-                      autoComplete="new-password"
-                      autoCorrect="off"
-                      autoCapitalize="off"
-                      spellCheck={false}
-                      data-lpignore="true"
-                      data-1p-ignore="true"
-                      data-bwignore="true"
-                      data-form-type="other"
-                      aria-autocomplete="none"
-                      placeholder="64"
-                      value={pulseInput}
-                      onChange={handlePulseChange}
-                      className="w-full text-center text-[40px] tracking-tight leading-none font-extrabold text-[var(--pulse-box-value)] placeholder-[var(--pulse-box-placeholder)] opacity-80 focus:opacity-100 focus:outline-none bg-transparent select-text"
-                    />
-                  </div>
-                </div>
-
-                <button
-                  type="button"
-                  onClick={handleScanButtonClick}
-                  className={`w-full h-[52px] rounded-full border bg-transparent font-bold text-[16px] flex items-center justify-center gap-2.5 transition cursor-pointer ${
-                    currentUser
-                      ? 'text-[var(--import-btn-text)] active:scale-[0.99]'
-                      : 'text-[var(--scan-btn-disabled-text)]'
-                  }`}
-                  style={{
-                    borderColor: currentUser
-                      ? 'var(--import-btn-border)'
-                      : 'var(--scan-btn-disabled-border)'
-                  }}
-                >
-                  {scanDemoNotice ? (
-                    <span>Только в режиме пользователя</span>
-                  ) : (
-                    <>
-                      <ScanFrameIcon className="w-5 h-5 shrink-0" />
-                      <span>Сканировать прибор</span>
-                    </>
-                  )}
-                </button>
-
-                <div className="bg-[var(--surface-input)] rounded-[26px] h-[72px] px-5 flex items-center justify-between">
-                  <span className="text-[18px] font-bold text-[var(--text-primary)]">
-                    Время замера
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (document.activeElement instanceof HTMLElement) {
-                        document.activeElement.blur();
-                      }
-                      setTempTime(timeInput);
-                      setTimePickerOpen(true);
-                    }}
-                    className="flex items-center gap-2 bg-[var(--surface-tertiary)] rounded-[20px] pl-4 pr-3 py-2.5 cursor-pointer active:scale-95 transition"
-                  >
-                    <span className="text-[22px] font-extrabold text-[var(--text-primary)] leading-none tabular-nums">
-                      {timeInput}
-                    </span>
-                    <ChevronDown className="w-5 h-5 text-[var(--text-Subtle)] shrink-0 stroke-[2.5]" />
-                  </button>
-                </div>
-
-                {userTags.length > 0 && (
-                  <div className="flex flex-nowrap overflow-x-auto gap-2 hide-scrollbar pb-1 -mx-6 px-6">
-                    {userTags.map((tag) => {
-                      const active = noteInput === tag;
-                      return (
-                        <div
-                          key={tag}
-                          onClick={() => setNoteInput(active ? '' : tag)}
-                          className={`shrink-0 pl-5 pr-2.5 py-3 rounded-full text-[16px] font-bold flex items-center gap-2 transition cursor-pointer ${
-                            active
-                              ? 'bg-[var(--tab-active-bg)] text-[var(--tab-active-text)]'
-                              : 'bg-[var(--tag-bg)] text-[var(--tag-text)]'
-                          }`}
-                        >
-                          <span>{tag}</span>
-                          <button
-                            type="button"
-                            onClick={(e) => handleRemoveTag(tag, e)}
-                            title="Удалить подсказку"
-                            className={`w-5 h-5 rounded-full flex items-center justify-center transition ${
-                              active
-                                ? 'text-[var(--tab-active-text)] hover:opacity-70'
-                                : 'text-[var(--tag-x)] hover:text-white'
-                            }`}
-                          >
-                            <X className="w-4 h-4" strokeWidth={3} />
-                          </button>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-
-                <div className="bg-[var(--surface-input)] rounded-[24px] px-5 py-[18px]">
-                  <input
-                    ref={noteRef}
-                    type="text"
-                    name="nofill_bp_custom_memo"
-                    enterKeyHint="done"
-                    readOnly={!inputsUnlocked}
-                    onFocus={() => {
-                      setInputsUnlocked(true);
-                      scrollTargetIntoSheetView(saveCtaRef);
-                    }}
-                    onKeyDown={handleInputEnterBlur}
-                    autoComplete="new-password"
-                    autoCorrect="off"
-                    spellCheck={false}
-                    data-lpignore="true"
-                    data-1p-ignore="true"
-                    data-bwignore="true"
-                    data-form-type="other"
-                    aria-autocomplete="none"
-                    value={noteInput}
-                    onChange={(e) => setNoteInput(e.target.value)}
-                    placeholder={
-                      userTags.length < 4
-                        ? 'Комментарий (сохранится в подсказки)'
-                        : 'Комментарий (напр. сахар 5.4)'
-                    }
-                    className="w-full text-[16px] font-bold text-[var(--text-primary)] placeholder-[var(--placeholder-color)] focus:outline-none bg-transparent select-text"
-                  />
-                </div>
-
-                <button
-                  ref={saveCtaRef}
-                  type="button"
-                  onClick={handleSaveRecord}
-                  className="w-full py-[20px] rounded-[28px] bg-[var(--cta-bg)] text-[var(--cta-text)] text-[20px] font-bold active:scale-[0.99] transition cursor-pointer mt-1"
-                >
-                  Сохранить замер
-                </button>
-              </div>
-            </form>
-          </div>
-        )}
-
-        {/* МОДАЛЬНЫЙ ЭКРАН СКАНИРОВАНИЯ ТОНОМЕТРА */}
-        {activeSheet === 'add' && scannerOpen && (
-          <TonometerScannerModal
-            currentUser={currentUser}
-            onClose={() => setScannerOpen(false)}
-            onDetected={handleScannerDetected}
-          />
-        )}
-
-        {/* ШТОРКА КАСТОМНОГО ВЫБОРА ВРЕМЕНИ */}
-        {timePickerOpen && (
-          <div
-            className="fixed inset-0 z-[60] bg-black/40 backdrop-blur-xs flex items-end justify-center overscroll-none touch-none bp-backdrop-enter"
-            onClick={() => setTimePickerOpen(false)}
-          >
-            <div
-              className="w-full max-w-[440px] bg-[var(--bg-sheet)] rounded-t-[36px] px-6 pt-6 pb-8 flex flex-col gap-5 bp-sheet-enter"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div className="w-12 h-1.5 bg-[var(--sheet-handle)] rounded-full mx-auto shrink-0" />
-
-              <div className="flex items-start justify-between">
-                <div className="flex flex-col gap-1">
-                  <h3 className="text-[32px] font-extrabold text-[var(--text-primary)] leading-none tracking-tight">
-                    Время замера
-                  </h3>
-                  <div className="text-[15px] font-medium text-[var(--text-secondary)]">
-                    Выберите время измерения
-                  </div>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setTimePickerOpen(false)}
-                  className="w-10 h-10 rounded-full bg-[var(--surface-input)] flex items-center justify-center text-[var(--text-primary)] shrink-0 cursor-pointer"
-                >
-                  <X className="w-5 h-5" strokeWidth={2} />
-                </button>
-              </div>
-
-              <div className="relative flex items-center justify-center w-full h-[340px] gap-4 mt-1">
-                <DrumPicker
-                  options={HOURS_OPTIONS}
-                  value={tempTime.split(':')[0]}
-                  onChange={(h) => setTempTime(`${h}:${tempTime.split(':')[1]}`)}
-                />
-
-                <div
-                  className="z-10 text-[38px] font-extrabold leading-none pb-1.5 shrink-0 w-[20px] text-center select-none"
-                  style={{ color: 'var(--drum-colon)' }}
-                >
-                  :
-                </div>
-
-                <DrumPicker
-                  options={MINUTES_OPTIONS}
-                  value={tempTime.split(':')[1]}
-                  onChange={(m) => setTempTime(`${tempTime.split(':')[0]}:${m}`)}
-                />
-              </div>
-
-              <div className="w-full flex flex-col gap-3 mt-2">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setTimeInput(tempTime);
-                    setTimePickerOpen(false);
-                  }}
-                  className="w-full py-[18px] rounded-[28px] bg-[var(--cta-bg)] text-[var(--cta-text)] text-[20px] font-bold active:scale-[0.99] transition cursor-pointer"
-                >
-                  Подтвердить время
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setTimePickerOpen(false)}
-                  className="w-full py-[18px] rounded-[28px] bg-[var(--surface-secondary)] text-[var(--text-primary)] text-[20px] font-bold active:scale-[0.99] transition cursor-pointer"
-                >
-                  Отмена
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* ШТОРКА НАСТРОЕК */}
-        {activeSheet === 'data' && (
-          <div
-            className="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs flex items-end justify-center overscroll-none bp-backdrop-enter"
-            style={{ paddingBottom: keyboardHeight > 0 ? `${keyboardHeight}px` : '0px' }}
-            onClick={() => setActiveSheet(null)}
-          >
-            <div
-              ref={dataSheetRef}
-              onTouchStart={handleSheetTouchStart}
-              onTouchMove={handleSheetTouchMove}
-              onTouchEnd={handleSheetTouchEnd}
-              style={{
-                transform: dragOffset > 0 ? `translateY(${dragOffset}px)` : undefined,
-                transition: dragOffset === 0 ? 'transform 0.2s ease-out' : 'none',
-                maxHeight: keyboardHeight > 0 ? `calc(100vh - ${keyboardHeight + 8}px)` : '90vh'
-              }}
-              className={`w-full max-w-[440px] overflow-y-auto hide-scrollbar bg-[var(--bg-sheet)] rounded-t-[36px] p-6 pb-8 flex flex-col gap-3 ${
-                dragOffset === 0 ? 'bp-sheet-enter' : ''
-              }`}
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div className="w-12 h-1.5 bg-[var(--sheet-handle)] rounded-full mx-auto shrink-0" />
-
-              {keyboardHeight === 0 && (
-                <div className="flex items-start justify-between pb-2">
-                  <div className="flex flex-col gap-[6px]">
-                    <h3 className="text-[36px] font-extrabold text-[var(--text-primary)] leading-none tracking-tight">
-                      Настройки
-                    </h3>
-                    <div className="text-[18px] font-normal text-[var(--text-Subtle)] leading-tight pr-4">
-                      {currentUser
-                        ? `Профиль · @${currentUser.username}`
-                        : 'Демо-режим · без облака'}
-                    </div>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => setActiveSheet(null)}
-                    className="w-10 h-10 rounded-full bg-[var(--surface-input)] flex items-center justify-center text-[var(--text-primary)] cursor-pointer shrink-0"
-                  >
-                    <X className="w-5 h-5" strokeWidth={2} />
-                  </button>
-                </div>
-              )}
-
-              {keyboardHeight === 0 && (
-                <div className="grid grid-cols-2 gap-2.5">
-                  <div className="bg-[var(--surface-card)] rounded-[26px] p-4 flex flex-col justify-center">
-                    <div className="text-[12px] font-semibold text-[var(--text-muted)] mb-1">
-                      Записей
-                    </div>
-                    <div className="text-[20px] font-bold text-[var(--text-primary)] leading-none">
-                      {currentUser ? rawCloudCount : records.length}
-                    </div>
-                  </div>
-                  <div className="bg-[var(--surface-card)] rounded-[26px] p-4 flex flex-col justify-center">
-                    <div className="text-[12px] font-semibold text-[var(--text-muted)] mb-1">
-                      Замеров
-                    </div>
-                    <div className="text-[20px] font-bold text-[var(--text-primary)] leading-none">
-                      {records.length}
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              <div className="bg-[var(--surface-card)] rounded-[26px] p-4 flex flex-col gap-3">
-                <div className="text-[20px] font-bold text-[var(--text-primary)] leading-tight">
-                  Импорт измерений
-                </div>
-                <textarea
-                  rows={3}
-                  name="nofill_bp_raw_import"
-                  autoComplete="off"
-                  autoCorrect="off"
-                  autoCapitalize="off"
-                  spellCheck={false}
-                  data-lpignore="true"
-                  data-1p-ignore="true"
-                  data-bwignore="true"
-                  data-form-type="other"
-                  value={importText}
-                  onFocus={() => scrollTargetIntoSheetView(importCtaRef)}
-                  onChange={(e) => setImportText(e.target.value)}
-                  placeholder="[20.10.2026 08:40] 120/80 64"
-                  className="w-full bg-[var(--surface-tertiary)] rounded-[18px] p-3 text-[12px] font-medium text-[var(--text-primary)] focus:outline-none select-text resize-none placeholder-[var(--text-faint)]"
-                />
-                <button
-                  ref={importCtaRef}
-                  type="button"
-                  onClick={handleImportSubmit}
-                  className="w-full h-[50px] rounded-full border border-[var(--import-btn-border)] bg-[var(--import-btn-bg)] text-[var(--import-btn-text)] font-bold text-[15px] flex items-center justify-center gap-2 cursor-pointer active:scale-[0.99] transition"
-                  style={{ borderColor: 'var(--import-btn-border)' }}
-                >
-                  <Upload className="w-4 h-4" strokeWidth={2} />
-                  {currentUser ? 'Добавить в облако' : 'Добавить в демо-сессию'}
-                </button>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <button
-                  type="button"
-                  onClick={handleExportCSV}
-                  className="bg-[var(--surface-card)] rounded-[24px] py-3 px-4 font-bold text-[15px] text-[var(--text-primary)] flex flex-col items-center justify-center gap-1 cursor-pointer active:scale-95 transition"
-                >
-                  <Download className="w-5 h-5" strokeWidth={2} />
-                  <span>Скачать CSV</span>
-                </button>
-
-                <div
-                  role="group"
-                  aria-label="Выбор темы оформления"
-                  className="bg-[var(--surface-secondary)] rounded-[24px] p-1.5 grid grid-cols-2 gap-1"
-                >
-                  <button
-                    type="button"
-                    onClick={() => handleSelectTheme('dark')}
-                    className={`rounded-[19px] py-1.5 px-1 font-bold text-[12px] leading-tight flex flex-col items-center justify-center gap-1 cursor-pointer transition ${
-                      theme === 'dark'
-                        ? 'bg-[var(--tab-active-bg)] text-[var(--tab-active-text)]'
-                        : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
-                    }`}
-                  >
-                    <Moon className="w-4 h-4" strokeWidth={2.2} />
-                    <span>Тёмная</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleSelectTheme('light')}
-                    className={`rounded-[19px] py-1.5 px-1 font-bold text-[12px] leading-tight flex flex-col items-center justify-center gap-1 cursor-pointer transition ${
-                      theme === 'light'
-                        ? 'bg-[var(--surface-card)] text-[var(--text-primary)]'
-                        : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
-                    }`}
-                  >
-                    <Sun className="w-4 h-4" strokeWidth={2.2} />
-                    <span>Светлая</span>
-                  </button>
-                </div>
-              </div>
-
-              <div>
-                {currentUser ? (
-                  <button
-                    type="button"
-                    onClick={handleLogout}
-                    className="w-full py-3.5 rounded-[22px] bg-[var(--cta-logout-bg)] text-[var(--cta-logout-text)] text-[15px] font-bold flex items-center justify-center gap-2 cursor-pointer active:scale-[0.99] transition"
-                  >
-                    <LogOut className="w-4 h-4" strokeWidth={2} />
-                    Выйти из профиля
-                  </button>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setAuthError('');
-                      setLoginPin('');
-                      setActiveSheet('auth');
-                    }}
-                    className="w-full py-3.5 rounded-[22px] bg-[var(--cta-bg)] text-[var(--cta-text)] text-[15px] font-bold flex items-center justify-center gap-1.5 cursor-pointer active:scale-[0.99] transition"
-                  >
-                    <User className="w-4 h-4" strokeWidth={2} />
-                    Войти или создать профиль
-                  </button>
-                )}
-              </div>
-            </div>
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
+                {
