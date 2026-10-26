@@ -14,7 +14,6 @@ import {
   Activity,
   Settings,
   X,
-  Trash2,
   Download,
   Upload,
   Search,
@@ -31,6 +30,11 @@ import {
 
 const SUPABASE_URL = 'https://qgmnldmmhdtqbptbdmjm.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFnbW5sZG1taGR0cWJwdGJkbWptIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTIyODg5MDcsImV4cCI6MjEwNzg2NDkwN30.uEofng_-EPocDFkxHId5b-nMoLaD2RjKqBo_uh6TUYs';
+
+// Версия приложения и номер сборки (инкрементируется с каждой новой выдачей кода)
+const APP_BASE_VERSION = '1.0';
+const CODE_ITERATION_NUMBER = 43;
+const BUILD_STORAGE_KEY = 'bp_app_build_number_v1';
 
 const SESSION_STORAGE_KEY = 'bp_multiuser_session_v1';
 const LEGACY_AVATAR_KEY = 'roma_bp_custom_avatar_v1';
@@ -189,9 +193,6 @@ const DEFAULT_ROMA_AVATAR_SVG = `data:image/svg+xml;utf8,${encodeURIComponent(`
 </svg>
 `)}`;
 
-// Генератор 100 демо-записей за год:
-// В начале года — нестабильное повышенное давление со скачками (145..156 / 92..98),
-// затем плавный тренд снижения и уверенная стабилизация в норме (118..124 / 76..81) к текущему дню.
 const generateDemoRecords = () => {
   const total = 100;
   const now = new Date();
@@ -218,25 +219,20 @@ const generateDemoRecords = () => {
   const list = [];
 
   for (let i = 0; i < total; i++) {
-    const progress = i / (total - 1); // от 0.0 (год назад) до 1.0 (сегодня)
+    const progress = i / (total - 1);
 
-    // Распределяем 100 замеров по ~345 дням: плотнее в последний месяц, чтобы и "Неделя", и "Месяц", и "Год" были богатыми
     let daysAgo;
     if (i < 65) {
-      // Первые 65 записей: от 345 до 32 дней назад
       daysAgo = Math.round(345 - (i / 65) * 313);
     } else {
-      // Последние 35 записей: последние 31 день (по 1-2 замера в день)
       daysAgo = Math.max(0, Math.round(31 - ((i - 65) / 34) * 31));
     }
 
-    // Нелинейная кривая нормализации: сначала держится высоко, затем плавно опускается к 120/78
     const curve = Math.pow(1 - progress, 1.35);
-    const baseSys = 120 + curve * 28; // от ~148 до 120
-    const baseDia = 78 + curve * 16;  // от ~94 до 78
-    const basePulse = 63 + curve * 15; // от ~78 до 63
+    const baseSys = 120 + curve * 28;
+    const baseDia = 78 + curve * 16;
+    const basePulse = 63 + curve * 15;
 
-    // Амплитуда скачков: в начале года высокая разболтанность, к концу года — минимальная
     const wave1 = Math.sin(i * 1.7) * (3 + 7 * (1 - progress));
     const wave2 = Math.cos(i * 0.85) * (2 + 4 * (1 - progress));
 
@@ -326,6 +322,17 @@ const ScanFrameIcon = ({ className = 'w-5 h-5' }) => (
     <path d="M16 4h2a2 2 0 0 1 2 2v2" />
     <path d="M16 20h2a2 2 0 0 0 2-2v-2" />
     <line x1="4" y1="12" x2="20" y2="12" />
+  </svg>
+);
+
+// Точная иконка корзины из приложенного SVG-макета карточки истории
+const CardTrashIcon = () => (
+  <svg width="16" height="17" viewBox="0 0 16 17" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <path d="M6.5 6.75V11.25" stroke="currentColor" strokeWidth="1.65" strokeLinecap="round" strokeLinejoin="round" />
+    <path d="M9.5 6.75V11.25" stroke="currentColor" strokeWidth="1.65" strokeLinecap="round" strokeLinejoin="round" />
+    <path d="M13.25 3V13.5C13.25 14.3279 12.578 15 11.75 15H4.25C3.422 15 2.75 14.3279 2.75 13.5V3" stroke="currentColor" strokeWidth="1.65" strokeLinecap="round" strokeLinejoin="round" />
+    <path d="M1.25 3H14.75" stroke="currentColor" strokeWidth="1.65" strokeLinecap="round" strokeLinejoin="round" />
+    <path d="M5 3V1.5C5 0.6721 5.672 0 6.5 0H9.5C10.328 0 11 0.6721 11 1.5V3" stroke="currentColor" strokeWidth="1.65" strokeLinecap="round" strokeLinejoin="round" />
   </svg>
 );
 
@@ -1068,6 +1075,19 @@ const AnimatedStatusBadge = ({ badge, visible }) => {
 };
 
 export default function App() {
+  // Автоматическое ведение номера сборки и версии приложения (1.0.43)
+  const [buildNumber] = useState(() => {
+    try {
+      const saved = parseInt(localStorage.getItem(BUILD_STORAGE_KEY) || '0', 10);
+      const resolved = Math.max(CODE_ITERATION_NUMBER, isNaN(saved) ? 0 : saved);
+      localStorage.setItem(BUILD_STORAGE_KEY, String(resolved));
+      return resolved;
+    } catch {
+      return CODE_ITERATION_NUMBER;
+    }
+  });
+  const appVersionString = `${APP_BASE_VERSION}.${buildNumber}`;
+
   const [currentUser, setCurrentUser] = useState(() => {
     try {
       const saved = localStorage.getItem(SESSION_STORAGE_KEY);
@@ -1134,6 +1154,10 @@ export default function App() {
   const [searchQuery, setSearchQuery] = useState('');
   const [activeSheet, setActiveSheet] = useState(null);
 
+  // Состояния для двухшагового удаления карточки в истории (активна только одна запись)
+  const [confirmDeleteId, setConfirmDeleteId] = useState(null);
+  const [deletingPhaseById, setDeletingPhaseById] = useState({});
+
   const [timePickerOpen, setTimePickerOpen] = useState(false);
   const [tempTime, setTempTime] = useState('09:00');
 
@@ -1178,13 +1202,13 @@ export default function App() {
   const [badgeVisible, setBadgeVisible] = useState(false);
   const [legendVisible, setLegendVisible] = useState(false);
 
-  // 1. Защита от автопереводчика Chrome ("Толстый / Худой") и подключение статического /manifest.json с иконкой Lovable
   useEffect(() => {
     if (typeof document === 'undefined') return;
     const html = document.documentElement;
     html.lang = 'ru';
     html.setAttribute('translate', 'no');
     html.classList.add('notranslate');
+    html.setAttribute('data-app-version', appVersionString);
 
     const ensureMeta = (name, content) => {
       let meta = document.querySelector(`meta[name="${name}"]`);
@@ -1199,25 +1223,23 @@ export default function App() {
     ensureMeta('google', 'notranslate');
     ensureMeta('mobile-web-app-capable', 'yes');
     ensureMeta('apple-mobile-web-app-capable', 'yes');
+    ensureMeta('application-version', appVersionString);
 
     let manifestLink = document.querySelector('link[rel="manifest"]');
     if (!manifestLink) {
       manifestLink = document.createElement('link');
       manifestLink.setAttribute('rel', 'manifest');
-      manifestLink.setAttribute('href', '/manifest.json');
+      manifestLink.setAttribute('href', `/manifest.json?v=${appVersionString}`);
       document.head.appendChild(manifestLink);
     }
-  }, []);
+  }, [appVersionString]);
 
-  // 2. Синхронизация системных полос Android/iOS с темой И затемнением при открытии любой шторки
   const isAnyOverlayOpen = Boolean(activeSheet || timePickerOpen || scannerOpen);
 
   useEffect(() => {
     if (typeof document === 'undefined') return;
     const baseBgHex = theme === 'dark' ? '#111813' : '#F2F3F0';
 
-    // Когда открыта шторка поверх светлой темы, затемняем и верхнюю системную панель (status bar)
-    // ровно в тон bg-black/40 поверх #F2F3F0 -> #919290, чтобы не оставалось белой полоски вверху!
     const statusBarHex = scannerOpen
       ? '#141A16'
       : isAnyOverlayOpen
@@ -1401,6 +1423,11 @@ export default function App() {
       setRawCloudCount(records.length);
     }
   }, [currentUser, fetchFromCloud]);
+
+  // Сбрасываем открытые кнопки удаления при переключении вкладки
+  useEffect(() => {
+    setConfirmDeleteId(null);
+  }, [activeTab]);
 
   const handleLoginSubmit = async (pinOverride) => {
     const cleanLogin = loginUsername.trim().toLowerCase().replace(/[^a-z0-9_.-]/g, '');
@@ -1910,18 +1937,45 @@ export default function App() {
     }
   };
 
-  const handleDelete = async (id) => {
-    const updated = records.filter((item) => item.id !== id);
-    setRecords(updated);
-    setRawCloudCount(updated.length);
+  // Двухфазное удаление карточки:
+  // 1) сначала карточка исчезает на месте (opacity -> 0), оставляя пустое пространство на мгновение;
+  // 2) затем пустое место плавно схлопывается, подтягивая нижние карточки вверх.
+  const handleConfirmDelete = useCallback(
+    (id) => {
+      if (deletingPhaseById[id]) return;
 
-    if (currentUser) {
-      localStorage.setItem(`bp_records_cache_${currentUser.username}`, JSON.stringify(updated));
-      await deleteFromCloud(id);
-    } else {
-      emulateCloudSync();
-    }
-  };
+      setDeletingPhaseById((prev) => ({ ...prev, [id]: 'fade' }));
+
+      setTimeout(() => {
+        setDeletingPhaseById((prev) => ({ ...prev, [id]: 'collapse' }));
+      }, 170);
+
+      setTimeout(async () => {
+        setConfirmDeleteId((prev) => (prev === id ? null : prev));
+        setDeletingPhaseById((prev) => {
+          const next = { ...prev };
+          delete next[id];
+          return next;
+        });
+
+        setRecords((prevRecords) => {
+          const updated = prevRecords.filter((item) => item.id !== id);
+          setRawCloudCount(updated.length);
+          if (currentUser) {
+            localStorage.setItem(`bp_records_cache_${currentUser.username}`, JSON.stringify(updated));
+          }
+          return updated;
+        });
+
+        if (currentUser) {
+          await deleteFromCloud(id);
+        } else {
+          emulateCloudSync();
+        }
+      }, 390);
+    },
+    [currentUser, deletingPhaseById, emulateCloudSync]
+  );
 
   const handleExportCSV = () => {
     const header = 'Дата;Время;Верхнее;Нижнее;Пульс;Заметка\n';
@@ -2092,6 +2146,10 @@ export default function App() {
           --tooltip-sub: #A3ABA6;
           --tooltip-note: #E2E6E3;
           --delete-icon: #B0B7B2;
+          --del-confirm-bg: #FAE0E0;
+          --del-confirm-text: #D05B5F;
+          --del-cancel-bg: #ECEBEB;
+          --del-cancel-text: #141A16;
           --avatar-bg: #141A16;
           --avatar-icon: #FFFFFF;
           --nav-shadow: 0 8px 32px rgba(20, 26, 22, 0.08);
@@ -2182,6 +2240,10 @@ export default function App() {
           --tooltip-sub: #ADB6B0;
           --tooltip-note: #D5DDD8;
           --delete-icon: #858F88;
+          --del-confirm-bg: #3F2427;
+          --del-confirm-text: #F87171;
+          --del-cancel-bg: #2F3933;
+          --del-cancel-text: #F1F3EF;
           --avatar-bg: #232C26;
           --avatar-icon: #F1F3EF;
           --nav-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
@@ -2190,8 +2252,7 @@ export default function App() {
 
         .bp-theme-surface,
         .bp-theme-surface section,
-        .bp-theme-surface header button,
-        .bp-theme-surface main > div {
+        .bp-theme-surface header button {
           transition: background-color 180ms ease, color 180ms ease;
         }
 
@@ -2226,7 +2287,6 @@ export default function App() {
           transition: opacity 160ms ease-out;
         }
 
-        /* Мягкое появление затемнения и быстрый выезд шторок снизу */
         @keyframes bp-backdrop-fade {
           from { opacity: 0; }
           to { opacity: 1; }
@@ -2235,12 +2295,19 @@ export default function App() {
           from { transform: translateY(100%); }
           to { transform: translateY(0); }
         }
+        @keyframes bp-delete-actions-in {
+          from { opacity: 0; transform: translateX(14px); }
+          to { opacity: 1; transform: translateX(0); }
+        }
         .bp-backdrop-enter {
           animation: bp-backdrop-fade 220ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
         }
         .bp-sheet-enter {
           animation: bp-sheet-slide-up 280ms cubic-bezier(0.22, 1, 0.36, 1);
           will-change: transform;
+        }
+        .bp-delete-actions-enter {
+          animation: bp-delete-actions-in 200ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
         }
         
         @keyframes flash-sys {
@@ -2276,6 +2343,7 @@ export default function App() {
           }
           .bp-backdrop-enter,
           .bp-sheet-enter,
+          .bp-delete-actions-enter,
           .animate-flash-sys,
           .animate-flash-dia,
           .animate-flash-pulse {
@@ -2681,47 +2749,108 @@ export default function App() {
           </main>
         )}
 
+        {/* ОБНОВЛЕННЫЙ ЭКРАН ИСТОРИИ С НОВЫМ ДИЗАЙНОМ КАРТОЧКИ И ДВУХШАГОВЫМ УДАЛЕНИЕМ */}
         {activeTab === 'history' && (
-          <main className="space-y-3">
+          <main className="flex flex-col">
             {historyList.map((item) => {
               const badge = getStatusLabel(item.sys, item.dia);
+              const isConfirmOpen = confirmDeleteId === item.id;
+              const deletePhase = deletingPhaseById[item.id];
+              const isFading = deletePhase === 'fade';
+              const isCollapsing = deletePhase === 'collapse';
+
               return (
                 <div
                   key={item.id}
-                  className="bg-[var(--surface-card)] rounded-[26px] px-5 py-4 flex items-center justify-between gap-3"
+                  style={{
+                    maxHeight: isCollapsing ? '0px' : '150px',
+                    marginBottom: isCollapsing ? '0px' : '12px',
+                    opacity: isFading || isCollapsing ? 0 : 1,
+                    transform: isFading || isCollapsing ? 'scale(0.98)' : 'scale(1)',
+                    transition: isCollapsing
+                      ? 'max-height 220ms cubic-bezier(0.22, 1, 0.36, 1), margin-bottom 220ms cubic-bezier(0.22, 1, 0.36, 1), opacity 150ms ease-out'
+                      : 'opacity 160ms ease-out, transform 160ms ease-out'
+                  }}
+                  className="overflow-hidden"
                 >
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-baseline gap-2.5">
-                      <span className="text-[24px] font-black tracking-tight text-[var(--text-primary)]">
-                        {item.sys}/{item.dia}
-                      </span>
-                      {item.pulse && (
-                        <span className="text-[16px] font-bold text-[var(--lower-pressure)]">
-                          ♥ {item.pulse}
+                  <div className="bg-[var(--surface-card)] rounded-[26px] px-4 py-[18px] relative flex flex-col justify-between min-h-[117.5px]">
+                    {/* Верхняя строка: Давление + Пульс слева, Чипса оценки прижата вправо */}
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-baseline gap-2.5 min-w-0">
+                        <span className="text-[29px] font-extrabold tracking-tight leading-none text-[var(--text-primary)] tabular-nums">
+                          {item.sys}/{item.dia}
                         </span>
-                      )}
+                        {item.pulse && (
+                          <span className="inline-flex items-center gap-1.5 text-[21px] font-bold leading-none text-[var(--lower-pressure)] tabular-nums">
+                            <span className="text-[19px] leading-none">♥</span>
+                            <span>{item.pulse}</span>
+                          </span>
+                        )}
+                      </div>
+
                       <span
-                        className="text-[12px] font-bold px-2.5 py-1 rounded-full ml-auto sm:ml-1"
+                        className="h-[26px] px-3 rounded-full text-[12px] font-bold inline-flex items-center justify-center shrink-0 leading-none"
                         style={{ backgroundColor: badge.bg, color: badge.textCol }}
                       >
                         {badge.text}
                       </span>
                     </div>
-                    <div className="text-[15px] font-medium text-[var(--text-Subtle)] mt-1.5 truncate">
-                      {item.note || 'Замер'}
-                    </div>
-                    <div className="text-[13px] font-medium text-[var(--text-faint)] mt-0.5">
-                      {formatHumanDate(item.date)} в {item.time}
+
+                    {/* Нижняя часть: Заметка и дата/время слева (усекаются при открытии кнопок), Корзина или Кнопки справа */}
+                    <div className="mt-3 flex items-end justify-between relative min-h-[42px]">
+                      <div
+                        className={`min-w-0 transition-all duration-200 ${
+                          isConfirmOpen ? 'max-w-[calc(100%-156px)] pr-2' : 'max-w-[calc(100%-44px)] pr-2'
+                        }`}
+                      >
+                        <div className="text-[16px] font-medium text-[var(--text-Subtle)] leading-snug truncate">
+                          {item.note || 'Замер'}
+                        </div>
+                        <div className="text-[15px] font-medium text-[var(--text-faint)] leading-snug mt-1 truncate">
+                          {formatHumanDate(item.date)} в {item.time}
+                        </div>
+                      </div>
+
+                      <div className="shrink-0 flex items-center justify-end">
+                        {isConfirmOpen ? (
+                          <div className="flex items-center gap-2 bp-delete-actions-enter">
+                            <button
+                              type="button"
+                              onClick={() => handleConfirmDelete(item.id)}
+                              style={{
+                                backgroundColor: 'var(--del-confirm-bg)',
+                                color: 'var(--del-confirm-text)'
+                              }}
+                              className="h-[34px] px-3.5 rounded-[17px] text-[13px] font-bold inline-flex items-center justify-center active:scale-95 transition cursor-pointer"
+                            >
+                              Удалить
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setConfirmDeleteId(null)}
+                              style={{
+                                backgroundColor: 'var(--del-cancel-bg)',
+                                color: 'var(--del-cancel-text)'
+                              }}
+                              className="h-[34px] px-3.5 rounded-[17px] text-[13px] font-bold inline-flex items-center justify-center active:scale-95 transition cursor-pointer"
+                            >
+                              Отмена
+                            </button>
+                          </div>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => setConfirmDeleteId(item.id)}
+                            className="w-9 h-9 -mr-1 -mb-1 rounded-full flex items-center justify-center text-[var(--delete-icon)] hover:text-[var(--text-primary)] active:scale-95 transition cursor-pointer"
+                            title="Удалить запись"
+                            aria-label="Удалить запись"
+                          >
+                            <CardTrashIcon />
+                          </button>
+                        )}
+                      </div>
                     </div>
                   </div>
-
-                  <button
-                    onClick={() => handleDelete(item.id)}
-                    className="w-10 h-10 rounded-full flex items-center justify-center text-[var(--delete-icon)] hover:text-[var(--text-primary)] active:scale-95 transition cursor-pointer shrink-0"
-                    title="Удалить запись"
-                  >
-                    <Trash2 className="w-[18px] h-[18px]" strokeWidth={2.2} />
-                  </button>
                 </div>
               );
             })}
@@ -3529,7 +3658,11 @@ export default function App() {
                 </div>
               </div>
 
-              <div>
+              <div className="pt-1 flex flex-col gap-2.5">
+                <div className="text-center text-[12px] font-semibold text-[var(--text-muted)] tracking-tight select-none">
+                  Версия {appVersionString}
+                </div>
+
                 {currentUser ? (
                   <button
                     type="button"
