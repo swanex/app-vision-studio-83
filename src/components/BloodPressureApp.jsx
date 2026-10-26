@@ -189,39 +189,87 @@ const DEFAULT_ROMA_AVATAR_SVG = `data:image/svg+xml;utf8,${encodeURIComponent(`
 </svg>
 `)}`;
 
+// Генератор 100 демо-записей за год:
+// В начале года — нестабильное повышенное давление со скачками (145..156 / 92..98),
+// затем плавный тренд снижения и уверенная стабилизация в норме (118..124 / 76..81) к текущему дню.
 const generateDemoRecords = () => {
-  const base = [
-    [122, 80, 64, '08:30', 'После пробуждения', 80],
-    [125, 82, 66, '20:20', 'До сна', 75],
-    [121, 79, 63, '08:40', 'После пробуждения', 60],
-    [126, 84, 69, '19:50', 'До сна', 40],
-    [116, 75, 59, '08:10', 'После пробуждения', 35],
-    [123, 81, 66, '20:40', 'До сна', 25],
-    [120, 80, 63, '08:40', 'После пробуждения', 22],
-    [125, 83, 67, '19:30', 'После тренировки', 15],
-    [118, 77, 61, '08:20', 'После пробуждения', 12],
-    [121, 79, 64, '21:00', 'До сна', 6],
-    [128, 84, 71, '09:00', 'После кофе', 5],
-    [122, 80, 65, '20:10', 'Вечерняя прогулка', 2],
-    [117, 76, 60, '08:15', 'После пробуждения', 1],
-    [124, 82, 68, '19:45', 'До сна', 1],
-    [119, 78, 62, '08:30', 'После пробуждения', 0]
-  ];
+  const total = 100;
   const now = new Date();
-  return base.map((item, idx) => {
+  const earlyNotes = [
+    'Головная боль утром',
+    'После нервного дня',
+    'После кофе',
+    'До приёма терапии',
+    'Плохой сон',
+    'После пробуждения',
+    'До сна'
+  ];
+  const lateNotes = [
+    'После пробуждения',
+    'До сна',
+    'Вечерняя прогулка',
+    'После кардио',
+    'После кофе',
+    'Отличное самочувствие'
+  ];
+  const morningTimes = ['07:45', '08:10', '08:25', '08:40', '09:05'];
+  const eveningTimes = ['19:30', '19:55', '20:15', '20:40', '21:05'];
+
+  const list = [];
+
+  for (let i = 0; i < total; i++) {
+    const progress = i / (total - 1); // от 0.0 (год назад) до 1.0 (сегодня)
+
+    // Распределяем 100 замеров по ~345 дням: плотнее в последний месяц, чтобы и "Неделя", и "Месяц", и "Год" были богатыми
+    let daysAgo;
+    if (i < 65) {
+      // Первые 65 записей: от 345 до 32 дней назад
+      daysAgo = Math.round(345 - (i / 65) * 313);
+    } else {
+      // Последние 35 записей: последние 31 день (по 1-2 замера в день)
+      daysAgo = Math.max(0, Math.round(31 - ((i - 65) / 34) * 31));
+    }
+
+    // Нелинейная кривая нормализации: сначала держится высоко, затем плавно опускается к 120/78
+    const curve = Math.pow(1 - progress, 1.35);
+    const baseSys = 120 + curve * 28; // от ~148 до 120
+    const baseDia = 78 + curve * 16;  // от ~94 до 78
+    const basePulse = 63 + curve * 15; // от ~78 до 63
+
+    // Амплитуда скачков: в начале года высокая разболтанность, к концу года — минимальная
+    const wave1 = Math.sin(i * 1.7) * (3 + 7 * (1 - progress));
+    const wave2 = Math.cos(i * 0.85) * (2 + 4 * (1 - progress));
+
+    const isEvening = i % 2 === 1;
+    const eveningBoost = isEvening ? 2 : -1;
+
+    const sys = Math.round(Math.min(147, Math.max(114, baseSys + wave1 + eveningBoost)));
+    const dia = Math.round(Math.min(96, Math.max(72, baseDia + wave2 * 0.65 + (isEvening ? 1 : -1))));
+    const pulse = Math.round(Math.min(92, Math.max(58, basePulse + wave1 * 0.5 + (isEvening ? 2 : 0))));
+
     const d = new Date(now);
-    d.setDate(d.getDate() - item[5]);
+    d.setDate(d.getDate() - daysAgo);
     const iso = d.toISOString().slice(0, 10);
-    return {
-      id: `demo-${idx}`,
+
+    const time = isEvening
+      ? eveningTimes[i % eveningTimes.length]
+      : morningTimes[i % morningTimes.length];
+
+    const notePool = progress < 0.45 ? earlyNotes : lateNotes;
+    const note = notePool[(i * 3) % notePool.length];
+
+    list.push({
+      id: `demo-${i}`,
       date: iso,
-      time: item[3],
-      sys: item[0],
-      dia: item[1],
-      pulse: item[2],
-      note: item[4]
-    };
-  });
+      time,
+      sys,
+      dia,
+      pulse,
+      note
+    });
+  }
+
+  return deduplicateRecords(list);
 };
 
 const DEMO_RECORDS = generateDemoRecords();
@@ -308,8 +356,6 @@ const HistoryNavIcon = ({ solid }) => solid ? (
 const HOURS_OPTIONS = Array.from({ length: 24 }, (_, i) => String(i).padStart(2, '0'));
 const MINUTES_OPTIONS = Array.from({ length: 60 }, (_, i) => String(i).padStart(2, '0'));
 
-// Барабан выбора времени с индивидуальной мягкой капсулой, идеальной центровкой
-// и плавным растворением соседних цифр в полную прозрачность по мере удаления от центра
 const DrumPicker = ({ options, value, onChange }) => {
   const ITEM_HEIGHT = 68;
   const scrollRef = useRef(null);
@@ -736,7 +782,7 @@ const TonometerScannerModal = ({ onClose, onDetected, currentUser }) => {
 
   return (
     <div
-      className="fixed inset-0 z-[70] bg-black/80 flex justify-center select-none touch-none"
+      className="fixed inset-0 z-[70] bg-black/80 flex justify-center select-none touch-none bp-backdrop-enter"
       onClick={(e) => e.stopPropagation()}
     >
       <div className="w-full max-w-[440px] h-full bg-[#141A16] relative flex flex-col justify-between overflow-hidden">
@@ -862,7 +908,6 @@ const TonometerScannerModal = ({ onClose, onDetected, currentUser }) => {
   );
 };
 
-// ИСПРАВЛЕННЫЙ КОМПОНЕНТ: корректно переходит из пустого состояния (0/0 -> "–/–") к первому замеру нового пользователя
 const AnimatedAvgPressure = ({ sys, dia, onInitialComplete, isInitialDone }) => {
   const [display, setDisplay] = useState(() => {
     if (!sys || !dia) return { sys: 0, dia: 0 };
@@ -902,7 +947,6 @@ const AnimatedAvgPressure = ({ sys, dia, onInitialComplete, isInitialDone }) => 
       return;
     }
 
-    // Если это первый ненулевой замер (включая переход от 0/0 у нового пользователя)
     if (!hasCompletedInitialRef.current || !currentRef.current.sys || !currentRef.current.dia) {
       const startSys = Math.max(70, sys - 4);
       const startDia = Math.max(40, dia - 3);
@@ -1055,113 +1099,6 @@ export default function App() {
     return 'light';
   });
 
-  // 1. Защита от автопереводчика Chrome ("Толстый / Худой") и установка базовых PWA-тегов
-  useEffect(() => {
-    if (typeof document === 'undefined') return;
-    const html = document.documentElement;
-    html.lang = 'ru';
-    html.setAttribute('translate', 'no');
-    html.classList.add('notranslate');
-
-    const ensureMeta = (name, content) => {
-      let meta = document.querySelector(`meta[name="${name}"]`);
-      if (!meta) {
-        meta = document.createElement('meta');
-        meta.setAttribute('name', name);
-        document.head.appendChild(meta);
-      }
-      meta.setAttribute('content', content);
-    };
-
-    ensureMeta('google', 'notranslate');
-    ensureMeta('mobile-web-app-capable', 'yes');
-    ensureMeta('apple-mobile-web-app-capable', 'yes');
-  }, []);
-
-  // 2. Синхронизация системных полос Android/iOS (верхний статус-бар и нижний бар навигации) с темой приложения
-  useEffect(() => {
-    if (typeof document === 'undefined') return;
-    const bgHex = theme === 'dark' ? '#111813' : '#F2F3F0';
-    const html = document.documentElement;
-    const body = document.body;
-
-    html.style.backgroundColor = bgHex;
-    html.style.colorScheme = theme;
-    if (body) {
-      body.style.backgroundColor = bgHex;
-      body.style.colorScheme = theme;
-    }
-
-    // Обновляем все мета-теги theme-color для мгновенной перекраски системных баров Android Chrome
-    const themeMetas = document.querySelectorAll('meta[name="theme-color"]');
-    if (themeMetas.length > 0) {
-      themeMetas.forEach((m) => m.setAttribute('content', bgHex));
-    } else {
-      const meta = document.createElement('meta');
-      meta.setAttribute('name', 'theme-color');
-      meta.setAttribute('content', bgHex);
-      document.head.appendChild(meta);
-    }
-
-    let statusMeta = document.querySelector('meta[name="apple-mobile-web-app-status-bar-style"]');
-    if (!statusMeta) {
-      statusMeta = document.createElement('meta');
-      statusMeta.setAttribute('name', 'apple-mobile-web-app-status-bar-style');
-      document.head.appendChild(statusMeta);
-    }
-    statusMeta.setAttribute('content', theme === 'dark' ? 'black-translucent' : 'default');
-
-    // Если в index.html не прописан manifest.json, динамически инжектим PWA-манифест с display: standalone
-    let manifestLink = document.querySelector('link[rel="manifest"]');
-    if (!manifestLink) {
-      const pwaIconSvg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><rect width="512" height="512" rx="128" fill="${bgHex}"/><path d="M256 396s-124-78-124-166c0-46 36-82 80-82 26 0 44 14 44 14s18-14 44-14c44 0 80 36 80 82 0 88-124 166-124 166z" fill="#A9E66D"/></svg>`;
-      const dynamicManifest = {
-        name: 'Давление — дневник замеров',
-        short_name: 'Давление',
-        start_url: '/',
-        scope: '/',
-        display: 'standalone',
-        orientation: 'portrait',
-        background_color: bgHex,
-        theme_color: bgHex,
-        icons: [
-          {
-            src: `data:image/svg+xml;utf8,${encodeURIComponent(pwaIconSvg)}`,
-            sizes: '512x512',
-            type: 'image/svg+xml',
-            purpose: 'any maskable'
-          }
-        ]
-      };
-      manifestLink = document.createElement('link');
-      manifestLink.setAttribute('rel', 'manifest');
-      manifestLink.setAttribute(
-        'href',
-        `data:application/manifest+json;charset=utf-8,${encodeURIComponent(JSON.stringify(dynamicManifest))}`
-      );
-      document.head.appendChild(manifestLink);
-    }
-  }, [theme]);
-
-  const handleSelectTheme = useCallback(
-    (nextTheme) => {
-      setTheme(nextTheme);
-      try {
-        if (currentUser) {
-          localStorage.setItem(`${USER_THEME_PREFIX}${currentUser.username}`, nextTheme);
-          const updatedUser = { ...currentUser, theme: nextTheme };
-          setCurrentUser(updatedUser);
-          localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(updatedUser));
-        } else {
-          sessionStorage.setItem(DEMO_THEME_SESSION_KEY, nextTheme);
-        }
-      } catch (e) {
-        console.error(e);
-      }
-    },
-    [currentUser]
-  );
-
   const [records, setRecords] = useState(() => {
     try {
       const saved = localStorage.getItem(SESSION_STORAGE_KEY);
@@ -1240,6 +1177,102 @@ export default function App() {
   const legendShownRef = useRef(false);
   const [badgeVisible, setBadgeVisible] = useState(false);
   const [legendVisible, setLegendVisible] = useState(false);
+
+  // 1. Защита от автопереводчика Chrome ("Толстый / Худой") и подключение статического /manifest.json с иконкой Lovable
+  useEffect(() => {
+    if (typeof document === 'undefined') return;
+    const html = document.documentElement;
+    html.lang = 'ru';
+    html.setAttribute('translate', 'no');
+    html.classList.add('notranslate');
+
+    const ensureMeta = (name, content) => {
+      let meta = document.querySelector(`meta[name="${name}"]`);
+      if (!meta) {
+        meta = document.createElement('meta');
+        meta.setAttribute('name', name);
+        document.head.appendChild(meta);
+      }
+      meta.setAttribute('content', content);
+    };
+
+    ensureMeta('google', 'notranslate');
+    ensureMeta('mobile-web-app-capable', 'yes');
+    ensureMeta('apple-mobile-web-app-capable', 'yes');
+
+    let manifestLink = document.querySelector('link[rel="manifest"]');
+    if (!manifestLink) {
+      manifestLink = document.createElement('link');
+      manifestLink.setAttribute('rel', 'manifest');
+      manifestLink.setAttribute('href', '/manifest.json');
+      document.head.appendChild(manifestLink);
+    }
+  }, []);
+
+  // 2. Синхронизация системных полос Android/iOS с темой И затемнением при открытии любой шторки
+  const isAnyOverlayOpen = Boolean(activeSheet || timePickerOpen || scannerOpen);
+
+  useEffect(() => {
+    if (typeof document === 'undefined') return;
+    const baseBgHex = theme === 'dark' ? '#111813' : '#F2F3F0';
+
+    // Когда открыта шторка поверх светлой темы, затемняем и верхнюю системную панель (status bar)
+    // ровно в тон bg-black/40 поверх #F2F3F0 -> #919290, чтобы не оставалось белой полоски вверху!
+    const statusBarHex = scannerOpen
+      ? '#141A16'
+      : isAnyOverlayOpen
+      ? theme === 'dark'
+        ? '#0A0E0B'
+        : '#919290'
+      : baseBgHex;
+
+    const html = document.documentElement;
+    const body = document.body;
+
+    html.style.backgroundColor = baseBgHex;
+    html.style.colorScheme = theme;
+    if (body) {
+      body.style.backgroundColor = baseBgHex;
+      body.style.colorScheme = theme;
+    }
+
+    const themeMetas = document.querySelectorAll('meta[name="theme-color"]');
+    if (themeMetas.length > 0) {
+      themeMetas.forEach((m) => m.setAttribute('content', statusBarHex));
+    } else {
+      const meta = document.createElement('meta');
+      meta.setAttribute('name', 'theme-color');
+      meta.setAttribute('content', statusBarHex);
+      document.head.appendChild(meta);
+    }
+
+    let statusMeta = document.querySelector('meta[name="apple-mobile-web-app-status-bar-style"]');
+    if (!statusMeta) {
+      statusMeta = document.createElement('meta');
+      statusMeta.setAttribute('name', 'apple-mobile-web-app-status-bar-style');
+      document.head.appendChild(statusMeta);
+    }
+    statusMeta.setAttribute('content', theme === 'dark' || isAnyOverlayOpen ? 'black-translucent' : 'default');
+  }, [theme, isAnyOverlayOpen, scannerOpen]);
+
+  const handleSelectTheme = useCallback(
+    (nextTheme) => {
+      setTheme(nextTheme);
+      try {
+        if (currentUser) {
+          localStorage.setItem(`${USER_THEME_PREFIX}${currentUser.username}`, nextTheme);
+          const updatedUser = { ...currentUser, theme: nextTheme };
+          setCurrentUser(updatedUser);
+          localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(updatedUser));
+        } else {
+          sessionStorage.setItem(DEMO_THEME_SESSION_KEY, nextTheme);
+        }
+      } catch (e) {
+        console.error(e);
+      }
+    },
+    [currentUser]
+  );
 
   const handleInitialAvgComplete = useCallback(() => {
     initialAvgDoneRef.current = true;
@@ -2192,6 +2225,23 @@ export default function App() {
         .bp-legend-opacity {
           transition: opacity 160ms ease-out;
         }
+
+        /* Мягкое появление затемнения и быстрый выезд шторок снизу */
+        @keyframes bp-backdrop-fade {
+          from { opacity: 0; }
+          to { opacity: 1; }
+        }
+        @keyframes bp-sheet-slide-up {
+          from { transform: translateY(100%); }
+          to { transform: translateY(0); }
+        }
+        .bp-backdrop-enter {
+          animation: bp-backdrop-fade 220ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+        }
+        .bp-sheet-enter {
+          animation: bp-sheet-slide-up 280ms cubic-bezier(0.22, 1, 0.36, 1);
+          will-change: transform;
+        }
         
         @keyframes flash-sys {
           0% { background-color: var(--sys-box-bg); }
@@ -2224,6 +2274,8 @@ export default function App() {
             transition: none !important;
             transform: none !important;
           }
+          .bp-backdrop-enter,
+          .bp-sheet-enter,
           .animate-flash-sys,
           .animate-flash-dia,
           .animate-flash-pulse {
@@ -2484,7 +2536,7 @@ export default function App() {
                         minTickGap={34}
                       />
                       <YAxis
-                        domain={[60, 148]}
+                        domain={[60, 152]}
                         axisLine={false}
                         tickLine={false}
                         tick={{ fontSize: 13, fill: 'var(--text-muted)' }}
@@ -2710,7 +2762,7 @@ export default function App() {
         {/* ШТОРКА АВТОРИЗАЦИИ И РЕГИСТРАЦИИ */}
         {activeSheet === 'auth' && (
           <div
-            className="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs flex items-end justify-center overscroll-none"
+            className="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs flex items-end justify-center overscroll-none bp-backdrop-enter"
             style={{ paddingBottom: keyboardHeight > 0 ? `${keyboardHeight}px` : '0px' }}
             onClick={() => setActiveSheet(null)}
           >
@@ -2722,11 +2774,13 @@ export default function App() {
               onTouchMove={handleSheetTouchMove}
               onTouchEnd={handleSheetTouchEnd}
               style={{
-                transform: `translateY(${dragOffset}px)`,
+                transform: dragOffset > 0 ? `translateY(${dragOffset}px)` : undefined,
                 transition: dragOffset === 0 ? 'transform 0.2s ease-out' : 'none',
                 maxHeight: keyboardHeight > 0 ? `calc(100vh - ${keyboardHeight + 8}px)` : '92vh'
               }}
-              className="w-full max-w-[440px] overflow-y-auto hide-scrollbar bg-[var(--bg-sheet)] rounded-t-[36px] px-6 pt-5 pb-6 flex flex-col items-center gap-4"
+              className={`w-full max-w-[440px] overflow-y-auto hide-scrollbar bg-[var(--bg-sheet)] rounded-t-[36px] px-6 pt-5 pb-6 flex flex-col items-center gap-4 ${
+                dragOffset === 0 ? 'bp-sheet-enter' : ''
+              }`}
               onClick={(e) => e.stopPropagation()}
             >
               <div className="w-12 h-1.5 bg-[var(--sheet-handle)] rounded-full shrink-0" />
@@ -2987,7 +3041,7 @@ export default function App() {
         {/* ШТОРКА ВВОДА НОВОГО ЗАМЕРА */}
         {activeSheet === 'add' && (
           <div
-            className="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs flex items-end justify-center overscroll-none"
+            className="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs flex items-end justify-center overscroll-none bp-backdrop-enter"
             style={{ paddingBottom: keyboardHeight > 0 ? `${keyboardHeight}px` : '0px' }}
             onClick={() => {
               if (!scannerOpen) setActiveSheet(null);
@@ -3001,11 +3055,13 @@ export default function App() {
               onTouchMove={handleSheetTouchMove}
               onTouchEnd={handleSheetTouchEnd}
               style={{
-                transform: `translateY(${dragOffset}px)`,
+                transform: dragOffset > 0 ? `translateY(${dragOffset}px)` : undefined,
                 transition: dragOffset === 0 ? 'transform 0.2s ease-out' : 'none',
                 maxHeight: keyboardHeight > 0 ? `calc(100vh - ${keyboardHeight + 8}px)` : '92vh'
               }}
-              className="w-full max-w-[440px] overflow-y-auto hide-scrollbar bg-[var(--bg-sheet)] rounded-t-[36px] px-6 pt-6 pb-8"
+              className={`w-full max-w-[440px] overflow-y-auto hide-scrollbar bg-[var(--bg-sheet)] rounded-t-[36px] px-6 pt-6 pb-8 ${
+                dragOffset === 0 ? 'bp-sheet-enter' : ''
+              }`}
               onClick={(e) => e.stopPropagation()}
             >
               <div className="w-12 h-1.5 bg-[var(--sheet-handle)] rounded-full mx-auto mb-5" />
@@ -3260,11 +3316,11 @@ export default function App() {
         {/* ШТОРКА КАСТОМНОГО ВЫБОРА ВРЕМЕНИ */}
         {timePickerOpen && (
           <div
-            className="fixed inset-0 z-[60] bg-black/40 backdrop-blur-xs flex items-end justify-center overscroll-none touch-none"
+            className="fixed inset-0 z-[60] bg-black/40 backdrop-blur-xs flex items-end justify-center overscroll-none touch-none bp-backdrop-enter"
             onClick={() => setTimePickerOpen(false)}
           >
             <div
-              className="w-full max-w-[440px] bg-[var(--bg-sheet)] rounded-t-[36px] px-6 pt-6 pb-8 flex flex-col gap-5"
+              className="w-full max-w-[440px] bg-[var(--bg-sheet)] rounded-t-[36px] px-6 pt-6 pb-8 flex flex-col gap-5 bp-sheet-enter"
               onClick={(e) => e.stopPropagation()}
             >
               <div className="w-12 h-1.5 bg-[var(--sheet-handle)] rounded-full mx-auto shrink-0" />
@@ -3334,7 +3390,7 @@ export default function App() {
         {/* ШТОРКА НАСТРОЕК */}
         {activeSheet === 'data' && (
           <div
-            className="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs flex items-end justify-center overscroll-none"
+            className="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs flex items-end justify-center overscroll-none bp-backdrop-enter"
             style={{ paddingBottom: keyboardHeight > 0 ? `${keyboardHeight}px` : '0px' }}
             onClick={() => setActiveSheet(null)}
           >
@@ -3344,11 +3400,13 @@ export default function App() {
               onTouchMove={handleSheetTouchMove}
               onTouchEnd={handleSheetTouchEnd}
               style={{
-                transform: `translateY(${dragOffset}px)`,
+                transform: dragOffset > 0 ? `translateY(${dragOffset}px)` : undefined,
                 transition: dragOffset === 0 ? 'transform 0.2s ease-out' : 'none',
                 maxHeight: keyboardHeight > 0 ? `calc(100vh - ${keyboardHeight + 8}px)` : '90vh'
               }}
-              className="w-full max-w-[440px] overflow-y-auto hide-scrollbar bg-[var(--bg-sheet)] rounded-t-[36px] p-6 pb-8 flex flex-col gap-3"
+              className={`w-full max-w-[440px] overflow-y-auto hide-scrollbar bg-[var(--bg-sheet)] rounded-t-[36px] p-6 pb-8 flex flex-col gap-3 ${
+                dragOffset === 0 ? 'bp-sheet-enter' : ''
+              }`}
               onClick={(e) => e.stopPropagation()}
             >
               <div className="w-12 h-1.5 bg-[var(--sheet-handle)] rounded-full mx-auto shrink-0" />
