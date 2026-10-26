@@ -1,0 +1,10 @@
+{
+  "name": "Давление — дневник замеров",
+  "short_name": "Давление",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#F2F3F0",
+  "theme_color": "#F2F3F0"
+}
