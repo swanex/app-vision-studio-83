@@ -33,7 +33,7 @@ const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZ
 
 // Версия приложения и номер сборки (инкрементируется с каждой новой выдачей кода)
 const APP_BASE_VERSION = '1.0';
-const CODE_ITERATION_NUMBER = 43;
+const CODE_ITERATION_NUMBER = 44;
 const BUILD_STORAGE_KEY = 'bp_app_build_number_v1';
 
 const SESSION_STORAGE_KEY = 'bp_multiuser_session_v1';
@@ -325,7 +325,6 @@ const ScanFrameIcon = ({ className = 'w-5 h-5' }) => (
   </svg>
 );
 
-// Точная иконка корзины из приложенного SVG-макета карточки истории
 const CardTrashIcon = () => (
   <svg width="16" height="17" viewBox="0 0 16 17" fill="none" xmlns="http://www.w3.org/2000/svg">
     <path d="M6.5 6.75V11.25" stroke="currentColor" strokeWidth="1.65" strokeLinecap="round" strokeLinejoin="round" />
@@ -1075,7 +1074,7 @@ const AnimatedStatusBadge = ({ badge, visible }) => {
 };
 
 export default function App() {
-  // Автоматическое ведение номера сборки и версии приложения (1.0.43)
+  // Автоматическое ведение номера сборки и версии приложения (1.0.44)
   const [buildNumber] = useState(() => {
     try {
       const saved = parseInt(localStorage.getItem(BUILD_STORAGE_KEY) || '0', 10);
@@ -1154,7 +1153,6 @@ export default function App() {
   const [searchQuery, setSearchQuery] = useState('');
   const [activeSheet, setActiveSheet] = useState(null);
 
-  // Состояния для двухшагового удаления карточки в истории (активна только одна запись)
   const [confirmDeleteId, setConfirmDeleteId] = useState(null);
   const [deletingPhaseById, setDeletingPhaseById] = useState({});
 
@@ -1424,7 +1422,6 @@ export default function App() {
     }
   }, [currentUser, fetchFromCloud]);
 
-  // Сбрасываем открытые кнопки удаления при переключении вкладки
   useEffect(() => {
     setConfirmDeleteId(null);
   }, [activeTab]);
@@ -1937,9 +1934,6 @@ export default function App() {
     }
   };
 
-  // Двухфазное удаление карточки:
-  // 1) сначала карточка исчезает на месте (opacity -> 0), оставляя пустое пространство на мгновение;
-  // 2) затем пустое место плавно схлопывается, подтягивая нижние карточки вверх.
   const handleConfirmDelete = useCallback(
     (id) => {
       if (deletingPhaseById[id]) return;
@@ -2072,7 +2066,7 @@ export default function App() {
           --surface-input: #FFFFFF;
           --surface-hover: #E4E7E4;
           --text-primary: #141A16;
-          --text-label-strong: #181C24;
+          --text-label-strong: #5A625D;
           --text-secondary: #6E7671;
           --text-Subtle: #5A625D;
           --text-muted: #7A827D;
@@ -2090,6 +2084,9 @@ export default function App() {
           --scan-btn-disabled-text: #8F9691;
           --tab-active-bg: #141A16;
           --tab-active-text: #FFFFFF;
+          --auth-tab-active-bg: #FFFFFF;
+          --auth-tab-active-text: #141A16;
+          --auth-tab-inactive-text: #5A625D;
           --period-active-bg: #141A16;
           --period-active-text: #FFFFFF;
           --filter-active-bg: #141A16;
@@ -2133,9 +2130,9 @@ export default function App() {
           --pulse-box-value: #5A625D;
           --pulse-box-placeholder: #B0B7B2;
           --pulse-box-highlight: #B0B7B2;
-          --tag-bg: #7A827D;
+          --tag-bg: #C0C0C0;
           --tag-text: #FFFFFF;
-          --tag-x: #C8CFCB;
+          --tag-x: #898989;
           --sheet-handle: #C8CFCB;
           --drum-highlight: #D8EEB9;
           --drum-active-text: #141A16;
@@ -2166,7 +2163,7 @@ export default function App() {
           --surface-input: #29322C;
           --surface-hover: #354139;
           --text-primary: #F1F3EF;
-          --text-label-strong: #F1F3EF;
+          --text-label-strong: #ADB6B0;
           --text-secondary: #ADB6B0;
           --text-Subtle: #ADB6B0;
           --text-muted: #858F88;
@@ -2184,6 +2181,9 @@ export default function App() {
           --scan-btn-disabled-text: #6E7872;
           --tab-active-bg: #D6EBB4;
           --tab-active-text: #141A16;
+          --auth-tab-active-bg: #232C26;
+          --auth-tab-active-text: #F1F3EF;
+          --auth-tab-inactive-text: #ADB6B0;
           --period-active-bg: #111813;
           --period-active-text: #F1F3EF;
           --filter-active-bg: #111813;
@@ -2749,7 +2749,7 @@ export default function App() {
           </main>
         )}
 
-        {/* ОБНОВЛЕННЫЙ ЭКРАН ИСТОРИИ С НОВЫМ ДИЗАЙНОМ КАРТОЧКИ И ДВУХШАГОВЫМ УДАЛЕНИЕМ */}
+        {/* ЭКРАН ИСТОРИИ */}
         {activeTab === 'history' && (
           <main className="flex flex-col">
             {historyList.map((item) => {
@@ -2774,7 +2774,6 @@ export default function App() {
                   className="overflow-hidden"
                 >
                   <div className="bg-[var(--surface-card)] rounded-[26px] px-4 py-[18px] relative flex flex-col justify-between min-h-[117.5px]">
-                    {/* Верхняя строка: Давление + Пульс слева, Чипса оценки прижата вправо */}
                     <div className="flex items-center justify-between gap-2">
                       <div className="flex items-baseline gap-2.5 min-w-0">
                         <span className="text-[29px] font-extrabold tracking-tight leading-none text-[var(--text-primary)] tabular-nums">
@@ -2796,7 +2795,6 @@ export default function App() {
                       </span>
                     </div>
 
-                    {/* Нижняя часть: Заметка и дата/время слева (усекаются при открытии кнопок), Корзина или Кнопки справа */}
                     <div className="mt-3 flex items-end justify-between relative min-h-[42px]">
                       <div
                         className={`min-w-0 transition-all duration-200 ${
@@ -2946,8 +2944,8 @@ export default function App() {
                   }}
                   className={`py-3 rounded-full text-[16px] font-bold transition cursor-pointer ${
                     authMode === 'login'
-                      ? 'bg-[var(--tab-active-bg)] text-[var(--tab-active-text)]'
-                      : 'text-[var(--text-primary)] hover:opacity-80'
+                      ? 'bg-[var(--auth-tab-active-bg)] text-[var(--auth-tab-active-text)]'
+                      : 'text-[var(--auth-tab-inactive-text)] hover:opacity-80'
                   }`}
                 >
                   Вход
@@ -2960,8 +2958,8 @@ export default function App() {
                   }}
                   className={`py-3 rounded-full text-[16px] font-bold transition cursor-pointer ${
                     authMode === 'register'
-                      ? 'bg-[var(--tab-active-bg)] text-[var(--tab-active-text)]'
-                      : 'text-[var(--text-primary)] hover:opacity-80'
+                      ? 'bg-[var(--auth-tab-active-bg)] text-[var(--auth-tab-active-text)]'
+                      : 'text-[var(--auth-tab-inactive-text)] hover:opacity-80'
                   }`}
                 >
                   Создать
@@ -3411,11 +3409,7 @@ export default function App() {
                     aria-autocomplete="none"
                     value={noteInput}
                     onChange={(e) => setNoteInput(e.target.value)}
-                    placeholder={
-                      userTags.length < 4
-                        ? 'Комментарий (сохранится в подсказки)'
-                        : 'Комментарий (напр. сахар 5.4)'
-                    }
+                    placeholder="Комментарий к замеру"
                     className="w-full text-[16px] font-bold text-[var(--text-primary)] placeholder-[var(--placeholder-color)] focus:outline-none bg-transparent select-text"
                   />
                 </div>
