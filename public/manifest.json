@@ -1,6 +1,8 @@
 {
   "name": "Давление — дневник замеров",
   "short_name": "Давление",
+  "version": "1.0.44",
+  "version_name": "1.0.44",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
