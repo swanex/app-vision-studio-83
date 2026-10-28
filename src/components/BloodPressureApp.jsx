@@ -452,25 +452,26 @@ export default function App() {
       const uniqueTimeId = Date.now().toString().slice(-5);
 
       let workingRecords = [...records];
-
-      // Если это продолжение серии, удаляем старую запись, на место которой придет усредненная
       if (targetId) {
         workingRecords = workingRecords.filter((r) => r.id !== targetId);
       }
 
+      // Трюк для обхода лимитов базы данных: вшиваем счетчик серии прямо в конец ID
+      const baseId = targetId ? targetId.replace(/-s\d+$/, '') : `${recordIdPrefix}-${date}-${time.replace(':', '')}-${uniqueTimeId}`;
+      const finalId = seriesCount > 1 ? `${baseId}-s${seriesCount}` : baseId;
+
       const newItem = {
-        id: targetId || `${recordIdPrefix}-${date}-${time.replace(':', '')}-${uniqueTimeId}`,
+        id: finalId,
         username: activeUsername,
         date,
         time,
         sys,
         dia,
         pulse,
-        note: note || 'Замер',
-        seriesCount: seriesCount || 1
+        note: note || ''
       };
 
-      if (note && note !== 'Замер' && !userTags.includes(note) && userTags.length < 4) {
+      if (note && !userTags.includes(note) && userTags.length < 4) {
         const updatedTags = [...userTags, note];
         if (currentUser) {
           updateProfileInCloud(currentUser, { tags: updatedTags });
@@ -1109,6 +1110,7 @@ export default function App() {
           </main>
         )}
 
+        {/* ЭКРАН ИСТОРИИ */}
         {activeTab === 'history' && (
           <main className="flex flex-col">
             {historyList.map((item) => {
@@ -1117,6 +1119,9 @@ export default function App() {
               const deletePhase = deletingPhaseById[item.id];
               const isFading = deletePhase === 'fade';
               const isCollapsing = deletePhase === 'collapse';
+
+              const match = item.id.match(/-s(\d+)$/);
+              const sCount = match ? parseInt(match[1], 10) : 1;
 
               return (
                 <div
@@ -1144,11 +1149,6 @@ export default function App() {
                             <span>{item.pulse}</span>
                           </span>
                         )}
-                        {item.seriesCount && item.seriesCount > 1 && (
-                          <span className="text-[11px] font-bold text-[var(--text-muted)] bg-[var(--surface-secondary)] px-2 py-0.5 rounded-full ml-1">
-                            ср. из {item.seriesCount}
-                          </span>
-                        )}
                       </div>
 
                       <span
@@ -1165,11 +1165,18 @@ export default function App() {
                           isConfirmOpen ? 'max-w-[calc(100%-156px)] pr-2' : 'max-w-[calc(100%-44px)] pr-2'
                         }`}
                       >
-                        <div className="text-[16px] font-medium text-[var(--text-Subtle)] leading-snug truncate">
-                          {item.note || 'Замер'}
-                        </div>
-                        <div className="text-[15px] font-medium text-[var(--text-faint)] leading-snug mt-1 truncate">
-                          {formatHumanDate(item.date)} в {item.time}
+                        {item.note ? (
+                          <div className="text-[16px] font-medium text-[var(--text-Subtle)] leading-snug truncate">
+                            {item.note}
+                          </div>
+                        ) : null}
+                        <div className={`text-[15px] font-medium text-[var(--text-faint)] leading-snug truncate flex items-center gap-2 ${item.note ? 'mt-1' : ''}`}>
+                          <span>{formatHumanDate(item.date)} в {item.time}</span>
+                          {sCount > 1 && (
+                            <span className="text-[11px] font-bold text-[var(--text-muted)] bg-[var(--surface-secondary)] px-2 py-[3px] rounded-full inline-flex items-center leading-none">
+                              ср. из {sCount}
+                            </span>
+                          )}
                         </div>
                       </div>
 
