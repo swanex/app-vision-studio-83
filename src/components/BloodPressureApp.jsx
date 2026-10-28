@@ -446,20 +446,28 @@ export default function App() {
   );
 
   const handleSaveRecord = useCallback(
-    async ({ sys, dia, pulse, note, date, time }) => {
+    async ({ targetId, seriesCount, sys, dia, pulse, note, date, time }) => {
       const activeUsername = currentUser ? currentUser.username : 'demo';
       const recordIdPrefix = activeUsername === 'swanex' ? 'r' : `r-${activeUsername}`;
       const uniqueTimeId = Date.now().toString().slice(-5);
 
+      let workingRecords = [...records];
+
+      // Если это продолжение серии, удаляем старую запись, на место которой придет усредненная
+      if (targetId) {
+        workingRecords = workingRecords.filter((r) => r.id !== targetId);
+      }
+
       const newItem = {
-        id: `${recordIdPrefix}-${date}-${time.replace(':', '')}-${uniqueTimeId}`,
+        id: targetId || `${recordIdPrefix}-${date}-${time.replace(':', '')}-${uniqueTimeId}`,
         username: activeUsername,
         date,
         time,
         sys,
         dia,
         pulse,
-        note: note || 'Замер'
+        note: note || 'Замер',
+        seriesCount: seriesCount || 1
       };
 
       if (note && note !== 'Замер' && !userTags.includes(note) && userTags.length < 4) {
@@ -471,12 +479,15 @@ export default function App() {
         }
       }
 
-      const updated = deduplicateRecords([...records, newItem]);
+      const updated = deduplicateRecords([...workingRecords, newItem]);
       setRecords(updated);
       setRawCloudCount(updated.length);
 
       if (currentUser) {
         localStorage.setItem(`bp_records_cache_${currentUser.username}`, JSON.stringify(updated));
+        if (targetId) {
+          await apiDeleteRecord(currentUser, targetId);
+        }
         await upsertToCloud([newItem]);
       } else {
         emulateCloudSync();
@@ -1133,6 +1144,11 @@ export default function App() {
                             <span>{item.pulse}</span>
                           </span>
                         )}
+                        {item.seriesCount && item.seriesCount > 1 && (
+                          <span className="text-[11px] font-bold text-[var(--text-muted)] bg-[var(--surface-secondary)] px-2 py-0.5 rounded-full ml-1">
+                            ср. из {item.seriesCount}
+                          </span>
+                        )}
                       </div>
 
                       <span
@@ -1252,6 +1268,7 @@ export default function App() {
           onClose={() => setActiveSheet(null)}
           currentUser={currentUser}
           userTags={userTags}
+          records={records}
           onRemoveTag={handleRemoveTag}
           onSaveRecord={handleSaveRecord}
           keyboardHeight={keyboardHeight}

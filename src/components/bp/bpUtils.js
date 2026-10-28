@@ -1,9 +1,9 @@
 export const SUPABASE_URL = 'https://qgmnldmmhdtqbptbdmjm.supabase.co';
 export const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFnbW5sZG1taGR0cWJwdGJkbWptIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTIyODg5MDcsImV4cCI6MjEwNzg2NDkwN30.uEofng_-EPocDFkxHId5b-nMoLaD2RjKqBo_uh6TUYs';
 
-// Версия приложения и номер сборки (оставлена 1.0.45 по запросу)
+// Версия приложения и номер сборки (инкрементирована до 1.0.46)
 export const APP_BASE_VERSION = '1.0';
-export const CODE_ITERATION_NUMBER = 45;
+export const CODE_ITERATION_NUMBER = 46;
 export const BUILD_STORAGE_KEY = 'bp_app_build_number_v1';
 
 export const SESSION_STORAGE_KEY = 'bp_multiuser_session_v1';

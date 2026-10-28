@@ -15,7 +15,7 @@ import {
 import { ScanFrameIcon, DrumPicker } from './BpIconsAndWidgets';
 import { TonometerScannerModal } from './TonometerScannerModal';
 
-// 1. ШТОРКА АВТОРИЗАЦИИ И РЕГИСТРАЦИИ (с изолированным состоянием полей)
+// 1. ШТОРКА АВТОРИЗАЦИИ И РЕГИСТРАЦИИ
 export const AuthSheet = ({
   isOpen,
   onClose,
@@ -457,12 +457,13 @@ export const AuthSheet = ({
   );
 };
 
-// 2. ШТОРКА ВВОДА НОВОГО ЗАМЕРА + ВЫБОР ВРЕМЕНИ + КАМЕРНЫЙ СКАНЕР
+// 2. ШТОРКА ВВОДА НОВОГО ЗАМЕРА (с логикой 5-минутного окна серии и усреднением)
 export const AddRecordSheet = ({
   isOpen,
   onClose,
   currentUser,
   userTags,
+  records,
   onRemoveTag,
   onSaveRecord,
   keyboardHeight,
@@ -478,6 +479,9 @@ export const AddRecordSheet = ({
   const [noteInput, setNoteInput] = useState('');
   const [dateInput, setDateInput] = useState(() => new Date().toISOString().slice(0, 10));
   const [timeInput, setTimeInput] = useState('09:30');
+
+  // Учет серии измерений внутри 5-минутного окна
+  const [seriesState, setSeriesState] = useState(null);
 
   const [inputsUnlocked, setInputsUnlocked] = useState(false);
   const [scannerOpen, setScannerOpen] = useState(false);
@@ -499,26 +503,89 @@ export const AddRecordSheet = ({
     onOverlayStateChange?.({ scannerOpen, timePickerOpen });
   }, [scannerOpen, timePickerOpen, onOverlayStateChange]);
 
+  // Проверка 5-минутного окна при открытии шторки или изменении времени
   useEffect(() => {
-    if (isOpen) {
-      const now = new Date();
-      setDateInput(now.toISOString().slice(0, 10));
-      const hh = String(now.getHours()).padStart(2, '0');
-      const mm = String(now.getMinutes()).padStart(2, '0');
-      setTimeInput(`${hh}:${mm}`);
-      const t = setTimeout(() => {
-        setInputsUnlocked(true);
-        if (sysRef.current) sysRef.current.focus();
-      }, 140);
-      return () => clearTimeout(t);
-    } else {
+    if (!isOpen) {
       setInputsUnlocked(false);
       setScannerOpen(false);
       setScanDemoNotice(false);
       setTimePickerOpen(false);
+      setSeriesState(null);
       if (pulseBlurTimerRef.current) clearTimeout(pulseBlurTimerRef.current);
+      return;
     }
-  }, [isOpen]);
+
+    const now = new Date();
+    const todayIso = now.toISOString().slice(0, 10);
+    setDateInput(todayIso);
+    const hh = String(now.getHours()).padStart(2, '0');
+    const mm = String(now.getMinutes()).padStart(2, '0');
+    const defaultTime = `${hh}:${mm}`;
+    setTimeInput(defaultTime);
+
+    const t = setTimeout(() => {
+      setInputsUnlocked(true);
+      if (sysRef.current) sysRef.current.focus();
+    }, 140);
+
+    // Ищем самую свежую запись пользователя за сегодня в пределах последних 5 минут
+    if (Array.isArray(records) && records.length > 0) {
+      const todayRecords = records.filter((r) => r.date === todayIso);
+      if (todayRecords.length > 0) {
+        const sortedToday = [...todayRecords].sort((a, b) =>
+          (b.time || '00:00').localeCompare(a.time || '00:00')
+        );
+        const latest = sortedToday[0];
+        if (latest && latest.time) {
+          const [lH, lM] = latest.time.split(':').map(Number);
+          const [cH, cM] = defaultTime.split(':').map(Number);
+          const diffMinutes = (cH * 60 + cM) - (lH * 60 + lM);
+
+          if (diffMinutes >= 0 && diffMinutes <= 5) {
+            setSeriesState({
+              targetId: latest.id,
+              count: (latest.seriesCount || 1) + 1,
+              sys: latest.sys,
+              dia: latest.dia,
+              pulse: latest.pulse,
+              note: latest.note !== 'Замер' ? latest.note : ''
+            });
+            if (latest.note && latest.note !== 'Замер' && !noteInput) {
+              setNoteInput(latest.note);
+            }
+          }
+        }
+      }
+    }
+
+    return () => clearTimeout(t);
+  }, [isOpen, records]);
+
+  // Функция усреднения новых данных с текущей сессией
+  const applyReadingToSeries = useCallback((newSys, newDia, newPulse) => {
+    setSysInput((prevSys) => {
+      const sNum = parseInt(prevSys, 10);
+      if (isNaN(sNum) || !seriesState) return String(newSys);
+      const k = seriesState.count - 1;
+      return String(Math.round((sNum * k + newSys) / seriesState.count));
+    });
+
+    setDiaInput((prevDia) => {
+      const dNum = parseInt(prevDia, 10);
+      if (isNaN(dNum) || !seriesState) return String(newDia);
+      const k = seriesState.count - 1;
+      return String(Math.round((dNum * k + newDia) / seriesState.count));
+    });
+
+    if (newPulse) {
+      setPulseInput((prevPulse) => {
+        const pNum = parseInt(prevPulse, 10);
+        if (isNaN(pNum) || !seriesState) return String(newPulse);
+        const k = seriesState.count - 1;
+        return String(Math.round((pNum * k + newPulse) / seriesState.count));
+      });
+    }
+  }, [seriesState]);
 
   const handleScannerDetected = useCallback(({ sys, dia, pulse }) => {
     if (pulseBlurTimerRef.current) clearTimeout(pulseBlurTimerRef.current);
@@ -527,14 +594,39 @@ export const AddRecordSheet = ({
     pulseRef.current?.blur();
     noteRef.current?.blur();
 
-    setSysInput(sys);
-    setDiaInput(dia);
-    setPulseInput(pulse || '');
-    setScannerOpen(false);
+    const sVal = parseInt(sys, 10);
+    const dVal = parseInt(dia, 10);
+    const pVal = pulse ? parseInt(pulse, 10) : null;
 
+    // Если шторка уже открыта и в ней уже есть данные (серийное сканирование без закрытия)
+    if (sysInput && diaInput && !seriesState) {
+      const existingCount = 2;
+      setSeriesState({
+        targetId: null,
+        count: existingCount,
+        sys: parseInt(sysInput, 10),
+        dia: parseInt(diaInput, 10),
+        pulse: pulseInput ? parseInt(pulseInput, 10) : null
+      });
+      setSysInput(String(Math.round((parseInt(sysInput, 10) + sVal) / 2)));
+      setDiaInput(String(Math.round((parseInt(diaInput, 10) + dVal) / 2)));
+      if (pVal && pulseInput) {
+        setPulseInput(String(Math.round((parseInt(pulseInput, 10) + pVal) / 2)));
+      }
+    } else if (seriesState) {
+      const nextCount = seriesState.count + 1;
+      setSeriesState((prev) => ({ ...prev, count: nextCount }));
+      applyReadingToSeries(sVal, dVal, pVal);
+    } else {
+      setSysInput(sys);
+      setDiaInput(dia);
+      setPulseInput(pulse || '');
+    }
+
+    setScannerOpen(false);
     setTimeout(() => setFlashHighlight(true), 50);
     setTimeout(() => setFlashHighlight(false), 1250);
-  }, []);
+  }, [applyReadingToSeries, diaInput, pulseInput, seriesState, sysInput]);
 
   if (!isOpen) return null;
 
@@ -612,6 +704,8 @@ export const AddRecordSheet = ({
     }
 
     const savedData = {
+      targetId: seriesState?.targetId || null,
+      seriesCount: seriesState?.count || 1,
       sys: s,
       dia: d,
       pulse: p,
@@ -624,6 +718,7 @@ export const AddRecordSheet = ({
     setDiaInput('');
     setPulseInput('');
     setNoteInput('');
+    setSeriesState(null);
     onClose();
 
     await onSaveRecord(savedData);
@@ -888,15 +983,19 @@ export const AddRecordSheet = ({
               ref={saveCtaRef}
               type="button"
               onClick={handleSaveClick}
-              className="w-full py-[20px] rounded-[28px] bg-[var(--cta-bg)] text-[var(--cta-text)] text-[20px] font-bold active:scale-[0.99] transition cursor-pointer mt-1"
+              className="w-full py-[20px] rounded-[28px] bg-[var(--cta-bg)] text-[var(--cta-text)] text-[20px] font-bold flex items-center justify-center gap-2.5 active:scale-[0.99] transition cursor-pointer mt-1"
             >
-              Сохранить замер
+              <span>Сохранить</span>
+              {seriesState && seriesState.count > 1 && (
+                <span className="w-6 h-6 rounded-full bg-white/20 text-white text-[12px] font-black inline-flex items-center justify-center leading-none">
+                  ×{seriesState.count}
+                </span>
+              )}
             </button>
           </div>
         </form>
       </div>
 
-      {/* Модалка сканирования тонометра */}
       {scannerOpen && (
         <TonometerScannerModal
           currentUser={currentUser}
@@ -905,7 +1004,6 @@ export const AddRecordSheet = ({
         />
       )}
 
-      {/* Шторка кастомного выбора времени */}
       {timePickerOpen && (
         <div
           className="fixed inset-0 z-[60] bg-black/40 backdrop-blur-xs flex items-end justify-center overscroll-none touch-none bp-backdrop-enter"
@@ -982,7 +1080,7 @@ export const AddRecordSheet = ({
   );
 };
 
-// 3. ШТОРКА НАСТРОЕК (с изолированным полем импорта и выводом версии)
+// 3. ШТОРКА НАСТРОЕК
 export const SettingsSheet = ({
   isOpen,
   onClose,
