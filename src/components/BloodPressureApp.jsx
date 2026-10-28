@@ -72,6 +72,20 @@ export default function App() {
   });
   const appVersionString = `${APP_BASE_VERSION}.${buildNumber}`;
 
+  // Состояния для кастомного сплэш-экрана (экрана загрузки)
+  const [showSplash, setShowSplash] = useState(true);
+  const [splashFade, setSplashFade] = useState(false);
+
+  useEffect(() => {
+    // Таймеры бесшовного сплэш-экрана
+    const t1 = setTimeout(() => setSplashFade(true), 1600); // Начинаем растворять через 1.6 сек
+    const t2 = setTimeout(() => setShowSplash(false), 2000); // Полностью удаляем из DOM через 2 сек
+    return () => {
+      clearTimeout(t1);
+      clearTimeout(t2);
+    };
+  }, []);
+
   const [currentUser, setCurrentUser] = useState(() => {
     try {
       const saved = localStorage.getItem(SESSION_STORAGE_KEY);
@@ -456,7 +470,6 @@ export default function App() {
         workingRecords = workingRecords.filter((r) => r.id !== targetId);
       }
 
-      // Трюк для обхода лимитов базы данных: вшиваем счетчик серии прямо в конец ID
       const baseId = targetId ? targetId.replace(/-s\d+$/, '') : `${recordIdPrefix}-${date}-${time.replace(':', '')}-${uniqueTimeId}`;
       const finalId = seriesCount > 1 ? `${baseId}-s${seriesCount}` : baseId;
 
@@ -717,6 +730,49 @@ export default function App() {
       }}
     >
       <BpThemeStyles />
+
+      {/* КАСТОМНЫЙ БЕСШОВНЫЙ SPLASH SCREEN */}
+      {showSplash && (
+        <div
+          className={`fixed inset-0 z-[100] flex flex-col items-center justify-center pointer-events-none transition-opacity duration-300 ease-in-out ${
+            splashFade ? 'opacity-0' : 'opacity-100'
+          }`}
+          style={{ backgroundColor: theme === 'dark' ? '#111813' : '#F2F3F0' }}
+        >
+          <style>{`
+            @keyframes bp-splash-text-reveal {
+              from { opacity: 0; transform: translateY(16px); }
+              to { opacity: 1; transform: translateY(0); }
+            }
+          `}</style>
+          {/* Контейнер чуть смещен вверх, чтобы иконка идеально совпадала с нативной Android-иконкой */}
+          <div className="flex flex-col items-center -mt-6">
+            <img
+              src="/favicon.ico"
+              alt="Logo"
+              className="w-[124px] h-[124px] mb-7"
+              style={{ filter: 'drop-shadow(0 8px 24px rgba(0,0,0,0.12))' }}
+            />
+            <div
+              className="text-center"
+              style={{ animation: 'bp-splash-text-reveal 0.8s cubic-bezier(0.22, 1, 0.36, 1) forwards' }}
+            >
+              <h1
+                className="text-[42px] font-black tracking-tighter leading-none mb-2"
+                style={{ color: theme === 'dark' ? '#F1F3EF' : '#141A16' }}
+              >
+                Давление
+              </h1>
+              <p
+                className="text-[19px] font-medium"
+                style={{ color: theme === 'dark' ? '#ADB6B0' : '#6E7671' }}
+              >
+                Мой дневник замеров
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="w-full max-w-[440px] min-h-screen bg-[var(--bg-app)] pb-28 px-5 relative flex flex-col bp-theme-surface">
         <div
@@ -1160,25 +1216,25 @@ export default function App() {
                     </div>
 
                     <div className="mt-3 flex items-end justify-between relative min-h-[42px]">
-<div
+                     <div
   className={`min-w-0 transition-all duration-200 ${
     isConfirmOpen ? 'max-w-[calc(100%-156px)] pr-2' : 'max-w-[calc(100%-44px)] pr-2'
   }`}
 >
-  {/* Всегда рендерим этот блок, чтобы карточка не схлопывалась без комментария */}
+  {/* Фиксированная минимальная высота, чтобы кнопки удаления не ломали сетку */}
   <div className="text-[16px] font-medium text-[var(--text-Subtle)] leading-snug truncate min-h-[22px]">
     {item.note || ''}
   </div>
-  
+
   <div className="text-[15px] font-medium text-[var(--text-faint)] leading-snug truncate flex items-center gap-2 mt-1">
     <span>{formatHumanDate(item.date)} в {item.time}</span>
-                          {sCount > 1 && (
-                            <span className="text-[11px] font-bold text-[var(--text-muted)] bg-[var(--surface-secondary)] px-2 py-[3px] rounded-full inline-flex items-center leading-none">
-                              ср. из {sCount}
-                            </span>
-                          )}
-                        </div>
-                      </div>
+    {sCount > 1 && (
+      <span className="text-[11px] font-bold text-[var(--text-muted)] bg-[var(--surface-secondary)] px-2 py-[3px] rounded-full inline-flex items-center leading-none">
+        ср. из {sCount}
+      </span>
+    )}
+  </div>
+</div>
 
                       <div className="shrink-0 flex items-center justify-end">
                         {isConfirmOpen ? (
