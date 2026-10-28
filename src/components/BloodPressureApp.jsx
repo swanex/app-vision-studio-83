@@ -59,15 +59,17 @@ import {
 
 import { AuthSheet, AddRecordSheet, SettingsSheet } from './bp/BpSheets';
 
+// Подняли версию до 1.0.48
 export default function App() {
   const [buildNumber] = useState(() => {
     try {
       const saved = parseInt(localStorage.getItem(BUILD_STORAGE_KEY) || '0', 10);
-      const resolved = Math.max(CODE_ITERATION_NUMBER, isNaN(saved) ? 0 : saved);
+      // Убедимся, что сборка не откатывается ниже 48
+      const resolved = Math.max(48, isNaN(saved) ? 0 : saved);
       localStorage.setItem(BUILD_STORAGE_KEY, String(resolved));
       return resolved;
     } catch {
-      return CODE_ITERATION_NUMBER;
+      return 48;
     }
   });
   const appVersionString = `${APP_BASE_VERSION}.${buildNumber}`;
@@ -731,13 +733,13 @@ export default function App() {
     >
       <BpThemeStyles />
 
-      {/* КАСТОМНЫЙ БЕСШОВНЫЙ SPLASH SCREEN */}
+      {/* КАСТОМНЫЙ БЕСШОВНЫЙ SPLASH SCREEN (Зафиксирован тёмный фон #111813 и обновлены шрифты) */}
       {showSplash && (
         <div
           className={`fixed inset-0 z-[100] flex flex-col items-center justify-center pointer-events-none transition-opacity duration-300 ease-in-out ${
             splashFade ? 'opacity-0' : 'opacity-100'
           }`}
-          style={{ backgroundColor: theme === 'dark' ? '#111813' : '#F2F3F0' }}
+          style={{ backgroundColor: '#111813' }}
         >
           <style>{`
             @keyframes bp-splash-text-reveal {
@@ -745,27 +747,27 @@ export default function App() {
               to { opacity: 1; transform: translateY(0); }
             }
           `}</style>
-          {/* Контейнер чуть смещен вверх, чтобы иконка идеально совпадала с нативной Android-иконкой */}
-          <div className="flex flex-col items-center -mt-6">
+          
+          <div className="flex flex-col items-center relative" style={{ width: '100%', maxWidth: '390px', height: '100vh', maxHeight: '844px', justifyContent: 'center' }}>
             <img
               src="/favicon.ico"
               alt="Logo"
-              className="w-[124px] h-[124px] mb-7"
-              style={{ filter: 'drop-shadow(0 8px 24px rgba(0,0,0,0.12))' }}
+              className="w-[124px] h-[124px] absolute"
+              style={{ top: '40.17%', transform: 'translateY(-50%)', filter: 'drop-shadow(0 8px 24px rgba(0,0,0,0.12))' }}
             />
             <div
-              className="text-center"
-              style={{ animation: 'bp-splash-text-reveal 0.8s cubic-bezier(0.22, 1, 0.36, 1) forwards' }}
+              className="text-center absolute w-full"
+              style={{ top: '65.05%', animation: 'bp-splash-text-reveal 0.8s cubic-bezier(0.22, 1, 0.36, 1) forwards' }}
             >
               <h1
-                className="text-[42px] font-black tracking-tighter leading-none mb-2"
-                style={{ color: theme === 'dark' ? '#F1F3EF' : '#141A16' }}
+                className="font-medium text-[#F1F3EF]"
+                style={{ fontSize: '32px', lineHeight: '39px', letterSpacing: 'normal' }}
               >
                 Давление
               </h1>
               <p
-                className="text-[19px] font-medium"
-                style={{ color: theme === 'dark' ? '#ADB6B0' : '#6E7671' }}
+                className="font-normal text-[#ADB6B0] mt-1.5"
+                style={{ fontSize: '14px', lineHeight: '17px', letterSpacing: 'normal' }}
               >
                 Мой дневник замеров
               </p>
@@ -1217,24 +1219,24 @@ export default function App() {
 
                     <div className="mt-3 flex items-end justify-between relative min-h-[42px]">
                      <div
-  className={`min-w-0 transition-all duration-200 ${
-    isConfirmOpen ? 'max-w-[calc(100%-156px)] pr-2' : 'max-w-[calc(100%-44px)] pr-2'
-  }`}
->
-  {/* Фиксированная минимальная высота, чтобы кнопки удаления не ломали сетку */}
-  <div className="text-[16px] font-medium text-[var(--text-Subtle)] leading-snug truncate min-h-[22px]">
-    {item.note || ''}
-  </div>
+                        className={`min-w-0 transition-all duration-200 ${
+                          isConfirmOpen ? 'max-w-[calc(100%-156px)] pr-2' : 'max-w-[calc(100%-44px)] pr-2'
+                        }`}
+                      >
+                        {/* Фиксированная минимальная высота, чтобы кнопки удаления не ломали сетку */}
+                        <div className="text-[16px] font-medium text-[var(--text-Subtle)] leading-snug truncate min-h-[22px]">
+                          {item.note || ''}
+                        </div>
 
-  <div className="text-[15px] font-medium text-[var(--text-faint)] leading-snug truncate flex items-center gap-2 mt-1">
-    <span>{formatHumanDate(item.date)} в {item.time}</span>
-    {sCount > 1 && (
-      <span className="text-[11px] font-bold text-[var(--text-muted)] bg-[var(--surface-secondary)] px-2 py-[3px] rounded-full inline-flex items-center leading-none">
-        ср. из {sCount}
-      </span>
-    )}
-  </div>
-</div>
+                        <div className="text-[15px] font-medium text-[var(--text-faint)] leading-snug truncate flex items-center gap-2 mt-1">
+                          <span>{formatHumanDate(item.date)} в {item.time}</span>
+                          {sCount > 1 && (
+                            <span className="text-[11px] font-bold text-[var(--text-muted)] bg-[var(--surface-secondary)] px-2 py-[3px] rounded-full inline-flex items-center leading-none">
+                              ср. из {sCount}
+                            </span>
+                          )}
+                        </div>
+                      </div>
 
                       <div className="shrink-0 flex items-center justify-end">
                         {isConfirmOpen ? (
