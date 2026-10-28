@@ -1,7 +1,7 @@
 export const SUPABASE_URL = 'https://qgmnldmmhdtqbptbdmjm.supabase.co';
 export const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFnbW5sZG1taGR0cWJwdGJkbWptIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTIyODg5MDcsImV4cCI6MjEwNzg2NDkwN30.uEofng_-EPocDFkxHId5b-nMoLaD2RjKqBo_uh6TUYs';
 
-// Версия приложения и номер сборки (инкрементируется с каждой новой выдачей кода)
+// Версия приложения и номер сборки (оставлена 1.0.45 по запросу)
 export const APP_BASE_VERSION = '1.0';
 export const CODE_ITERATION_NUMBER = 45;
 export const BUILD_STORAGE_KEY = 'bp_app_build_number_v1';
@@ -145,26 +145,6 @@ export const parseImportData = (rawText, username = 'user') => {
 
   return parsed;
 };
-
-export const DEFAULT_ROMA_AVATAR_SVG = `data:image/svg+xml;utf8,${encodeURIComponent(`
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120">
-  <defs>
-    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0%" stop-color="#1e2530"/>
-      <stop offset="100%" stop-color="#0f141c"/>
-    </linearGradient>
-  </defs>
-  <rect width="120" height="120" rx="60" fill="url(#bg)"/>
-  <circle cx="60" cy="54" r="24" fill="#d8a98c"/>
-  <path d="M24 114 C28 88 92 88 96 114" fill="#181c24"/>
-  <path d="M34 44 C34 24 86 24 86 44 Z" fill="#23272e"/>
-  <path d="M22 43 Q55 37 88 44 L86 48 Q54 43 22 46 Z" fill="#14171c"/>
-  <rect x="40" y="47" width="17" height="12" rx="3" fill="none" stroke="#181b20" stroke-width="3.2"/>
-  <rect x="63" y="47" width="17" height="12" rx="3" fill="none" stroke="#181b20" stroke-width="3.2"/>
-  <line x1="57" y1="51" x2="63" y2="51" stroke="#181b20" stroke-width="3"/>
-  <path d="M51 67 Q60 72 69 67" fill="none" stroke="#8c584c" stroke-width="2.5" stroke-linecap="round"/>
-</svg>
-`)}`;
 
 export const generateDemoRecords = () => {
   const total = 100;
