@@ -457,7 +457,7 @@ export const AuthSheet = ({
   );
 };
 
-// 2. ШТОРКА ВВОДА НОВОГО ЗАМЕРА (с логикой 5-минутного окна серии и усреднением)
+// 2. ШТОРКА ВВОДА НОВОГО ЗАМЕРА
 export const AddRecordSheet = ({
   isOpen,
   onClose,
@@ -480,7 +480,6 @@ export const AddRecordSheet = ({
   const [dateInput, setDateInput] = useState(() => new Date().toISOString().slice(0, 10));
   const [timeInput, setTimeInput] = useState('09:30');
 
-  // Учет серии измерений внутри 5-минутного окна
   const [seriesState, setSeriesState] = useState(null);
 
   const [inputsUnlocked, setInputsUnlocked] = useState(false);
@@ -503,7 +502,6 @@ export const AddRecordSheet = ({
     onOverlayStateChange?.({ scannerOpen, timePickerOpen });
   }, [scannerOpen, timePickerOpen, onOverlayStateChange]);
 
-  // Проверка 5-минутного окна при открытии шторки или изменении времени
   useEffect(() => {
     if (!isOpen) {
       setInputsUnlocked(false);
@@ -528,7 +526,6 @@ export const AddRecordSheet = ({
       if (sysRef.current) sysRef.current.focus();
     }, 140);
 
-    // Ищем самую свежую запись пользователя за сегодня в пределах последних 5 минут
     if (Array.isArray(records) && records.length > 0) {
       const todayRecords = records.filter((r) => r.date === todayIso);
       if (todayRecords.length > 0) {
@@ -537,6 +534,8 @@ export const AddRecordSheet = ({
         );
         const latest = sortedToday[0];
         if (latest && latest.time) {
+          const match = latest.id.match(/-s(\d+)$/);
+          const latestSeriesCount = match ? parseInt(match[1], 10) : 1;
           const [lH, lM] = latest.time.split(':').map(Number);
           const [cH, cM] = defaultTime.split(':').map(Number);
           const diffMinutes = (cH * 60 + cM) - (lH * 60 + lM);
@@ -544,13 +543,13 @@ export const AddRecordSheet = ({
           if (diffMinutes >= 0 && diffMinutes <= 5) {
             setSeriesState({
               targetId: latest.id,
-              count: (latest.seriesCount || 1) + 1,
+              count: latestSeriesCount + 1,
               sys: latest.sys,
               dia: latest.dia,
               pulse: latest.pulse,
-              note: latest.note !== 'Замер' ? latest.note : ''
+              note: latest.note || ''
             });
-            if (latest.note && latest.note !== 'Замер' && !noteInput) {
+            if (latest.note && !noteInput) {
               setNoteInput(latest.note);
             }
           }
@@ -561,7 +560,6 @@ export const AddRecordSheet = ({
     return () => clearTimeout(t);
   }, [isOpen, records]);
 
-  // Функция усреднения новых данных с текущей сессией
   const applyReadingToSeries = useCallback((newSys, newDia, newPulse) => {
     setSysInput((prevSys) => {
       const sNum = parseInt(prevSys, 10);
@@ -598,7 +596,6 @@ export const AddRecordSheet = ({
     const dVal = parseInt(dia, 10);
     const pVal = pulse ? parseInt(pulse, 10) : null;
 
-    // Если шторка уже открыта и в ней уже есть данные (серийное сканирование без закрытия)
     if (sysInput && diaInput && !seriesState) {
       const existingCount = 2;
       setSeriesState({
@@ -985,7 +982,7 @@ export const AddRecordSheet = ({
               onClick={handleSaveClick}
               className="w-full py-[20px] rounded-[28px] bg-[var(--cta-bg)] text-[var(--cta-text)] text-[20px] font-bold flex items-center justify-center gap-2.5 active:scale-[0.99] transition cursor-pointer mt-1"
             >
-              <span>Сохранить</span>
+              <span>Сохранить замер</span>
               {seriesState && seriesState.count > 1 && (
                 <span className="w-6 h-6 rounded-full bg-white/20 text-white text-[12px] font-black inline-flex items-center justify-center leading-none">
                   ×{seriesState.count}
