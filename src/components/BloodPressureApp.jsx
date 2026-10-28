@@ -1394,12 +1394,11 @@ export default function App() {
           onOverlayStateChange={setSubOverlayState}
         />
 
-        <SettingsSheet
+<SettingsSheet
           isOpen={activeSheet === 'data'}
           onClose={() => setActiveSheet(null)}
           currentUser={currentUser}
-          rawCloudCount={rawCloudCount}
-          recordsCount={records.length}
+          records={records}
           theme={theme}
           onSelectTheme={handleSelectTheme}
           onExportCSV={handleExportCSV}
