@@ -33,7 +33,6 @@ import {
   DEFAULT_TAGS_ROMA,
   DEFAULT_TAGS_NEW_USER,
   DEMO_RECORDS,
-  DEFAULT_ROMA_AVATAR_SVG,
   formatHumanDate,
   pluralizeMeasurements,
   getGreetingByHour,
@@ -688,7 +687,7 @@ export default function App() {
     if (!currentUser) return null;
     if (currentUser.avatar) return currentUser.avatar;
     if (currentUser.username === 'swanex') {
-      return localStorage.getItem(LEGACY_AVATAR_KEY) || DEFAULT_ROMA_AVATAR_SVG;
+      return localStorage.getItem(LEGACY_AVATAR_KEY) || null;
     }
     return null;
   }, [currentUser]);
