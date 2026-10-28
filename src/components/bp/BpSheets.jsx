@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { X, ChevronDown, Upload, Download, Moon, Sun, LogOut, User } from 'lucide-react';
 import {
   SUPABASE_URL,
