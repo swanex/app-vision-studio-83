@@ -59,29 +59,28 @@ import {
 
 import { AuthSheet, AddRecordSheet, SettingsSheet } from './bp/BpSheets';
 
-// Подняли версию до 1.0.48
 export default function App() {
   const [buildNumber] = useState(() => {
     try {
       const saved = parseInt(localStorage.getItem(BUILD_STORAGE_KEY) || '0', 10);
-      // Убедимся, что сборка не откатывается ниже 48
-      const resolved = Math.max(48, isNaN(saved) ? 0 : saved);
+      // Принудительно устанавливаем актуальную версию, чтобы не было отката
+      const resolved = Math.max(49, isNaN(saved) ? 0 : saved);
       localStorage.setItem(BUILD_STORAGE_KEY, String(resolved));
       return resolved;
     } catch {
-      return 48;
+      return 49;
     }
   });
   const appVersionString = `${APP_BASE_VERSION}.${buildNumber}`;
 
-  // Состояния для кастомного сплэш-экрана (экрана загрузки)
+  // Состояния для кастомного сплэш-экрана
   const [showSplash, setShowSplash] = useState(true);
   const [splashFade, setSplashFade] = useState(false);
 
   useEffect(() => {
-    // Таймеры бесшовного сплэш-экрана
-    const t1 = setTimeout(() => setSplashFade(true), 1600); // Начинаем растворять через 1.6 сек
-    const t2 = setTimeout(() => setShowSplash(false), 2000); // Полностью удаляем из DOM через 2 сек
+    // Бесшовный таймер: начало растворения на 1.6с, удаление на 2.0с
+    const t1 = setTimeout(() => setSplashFade(true), 1600);
+    const t2 = setTimeout(() => setShowSplash(false), 2000);
     return () => {
       clearTimeout(t1);
       clearTimeout(t2);
@@ -196,6 +195,33 @@ export default function App() {
 
   useEffect(() => {
     if (typeof document === 'undefined') return;
+
+    const html = document.documentElement;
+    const body = document.body;
+
+    // ПОКА СПЛЭШ ОТКРЫТ — принудительно держим всю систему (статус-бар, фон) в темном цвете #111813
+    if (showSplash) {
+      html.style.backgroundColor = '#111813';
+      if (body) body.style.backgroundColor = '#111813';
+
+      const themeMetas = document.querySelectorAll('meta[name="theme-color"]');
+      if (themeMetas.length > 0) {
+        themeMetas.forEach((m) => m.setAttribute('content', '#111813'));
+      } else {
+        const meta = document.createElement('meta');
+        meta.setAttribute('name', 'theme-color');
+        meta.setAttribute('content', '#111813');
+        document.head.appendChild(meta);
+      }
+
+      let statusMeta = document.querySelector('meta[name="apple-mobile-web-app-status-bar-style"]');
+      if (statusMeta) {
+        statusMeta.setAttribute('content', 'black-translucent');
+      }
+      return; // Блокируем применение светлой темы, пока не исчезнет сплэш!
+    }
+
+    // ПОСЛЕ ИСЧЕЗНОВЕНИЯ СПЛЭША — применяем реальную тему приложения
     const baseBgHex = theme === 'dark' ? '#111813' : '#F2F3F0';
 
     const statusBarHex = subOverlayState.scannerOpen
@@ -205,9 +231,6 @@ export default function App() {
         ? '#0A0E0B'
         : '#919290'
       : baseBgHex;
-
-    const html = document.documentElement;
-    const body = document.body;
 
     html.style.backgroundColor = baseBgHex;
     html.style.colorScheme = theme;
@@ -219,21 +242,13 @@ export default function App() {
     const themeMetas = document.querySelectorAll('meta[name="theme-color"]');
     if (themeMetas.length > 0) {
       themeMetas.forEach((m) => m.setAttribute('content', statusBarHex));
-    } else {
-      const meta = document.createElement('meta');
-      meta.setAttribute('name', 'theme-color');
-      meta.setAttribute('content', statusBarHex);
-      document.head.appendChild(meta);
     }
 
     let statusMeta = document.querySelector('meta[name="apple-mobile-web-app-status-bar-style"]');
-    if (!statusMeta) {
-      statusMeta = document.createElement('meta');
-      statusMeta.setAttribute('name', 'apple-mobile-web-app-status-bar-style');
-      document.head.appendChild(statusMeta);
+    if (statusMeta) {
+      statusMeta.setAttribute('content', theme === 'dark' || isAnyOverlayOpen ? 'black-translucent' : 'default');
     }
-    statusMeta.setAttribute('content', theme === 'dark' || isAnyOverlayOpen ? 'black-translucent' : 'default');
-  }, [theme, isAnyOverlayOpen, subOverlayState.scannerOpen]);
+  }, [theme, isAnyOverlayOpen, subOverlayState.scannerOpen, showSplash]);
 
   const handleSelectTheme = useCallback(
     (nextTheme) => {
@@ -733,10 +748,10 @@ export default function App() {
     >
       <BpThemeStyles />
 
-      {/* КАСТОМНЫЙ БЕСШОВНЫЙ SPLASH SCREEN (Зафиксирован тёмный фон #111813 и обновлены шрифты) */}
+      {/* КАСТОМНЫЙ БЕСШОВНЫЙ SPLASH SCREEN */}
       {showSplash && (
         <div
-          className={`fixed inset-0 z-[100] flex flex-col items-center justify-center pointer-events-none transition-opacity duration-300 ease-in-out ${
+          className={`fixed inset-0 z-[100] pointer-events-none transition-opacity duration-300 ease-in-out ${
             splashFade ? 'opacity-0' : 'opacity-100'
           }`}
           style={{ backgroundColor: '#111813' }}
@@ -748,29 +763,64 @@ export default function App() {
             }
           `}</style>
           
-          <div className="flex flex-col items-center relative" style={{ width: '100%', maxWidth: '390px', height: '100vh', maxHeight: '844px', justifyContent: 'center' }}>
+          <div className="relative w-full h-full max-w-[440px] mx-auto">
+            {/* Точный размер и позиция логотипа из Figma */}
             <img
               src="/favicon.ico"
               alt="Logo"
-              className="w-[124px] h-[124px] absolute"
-              style={{ top: '40.17%', transform: 'translateY(-50%)', filter: 'drop-shadow(0 8px 24px rgba(0,0,0,0.12))' }}
+              className="absolute left-1/2 -translate-x-1/2"
+              style={{ 
+                top: '40.17%', 
+                width: '148px', 
+                height: '148px', 
+                filter: 'drop-shadow(0 8px 24px rgba(0,0,0,0.12))' 
+              }}
             />
+
+            {/* Заголовок */}
             <div
-              className="text-center absolute w-full"
-              style={{ top: '65.05%', animation: 'bp-splash-text-reveal 0.8s cubic-bezier(0.22, 1, 0.36, 1) forwards' }}
+              className="absolute w-full text-center left-0"
+              style={{ 
+                top: '65.05%', 
+                animation: 'bp-splash-text-reveal 0.8s cubic-bezier(0.22, 1, 0.36, 1) forwards' 
+              }}
             >
-              <h1
-                className="font-medium text-[#F1F3EF]"
-                style={{ fontSize: '32px', lineHeight: '39px', letterSpacing: 'normal' }}
+              <div
+                style={{
+                  fontFamily: '"Inter", sans-serif',
+                  fontWeight: 500,
+                  fontSize: '32px',
+                  lineHeight: '39px',
+                  color: '#F1F3EF',
+                  margin: 0,
+                  letterSpacing: 'normal'
+                }}
               >
                 Давление
-              </h1>
-              <p
-                className="font-normal text-[#ADB6B0] mt-1.5"
-                style={{ fontSize: '14px', lineHeight: '17px', letterSpacing: 'normal' }}
+              </div>
+            </div>
+
+            {/* Подзаголовок (появляется с микрозадержкой) */}
+            <div
+              className="absolute w-full text-center left-0 opacity-0"
+              style={{ 
+                top: '70.26%', 
+                animation: 'bp-splash-text-reveal 0.8s cubic-bezier(0.22, 1, 0.36, 1) 0.15s forwards' 
+              }}
+            >
+              <div
+                style={{
+                  fontFamily: '"Inter", sans-serif',
+                  fontWeight: 400,
+                  fontSize: '14px',
+                  lineHeight: '17px',
+                  color: '#ADB6B0',
+                  margin: 0,
+                  letterSpacing: 'normal'
+                }}
               >
                 Мой дневник замеров
-              </p>
+              </div>
             </div>
           </div>
         </div>
