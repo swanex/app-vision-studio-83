@@ -1160,18 +1160,18 @@ export default function App() {
                     </div>
 
                     <div className="mt-3 flex items-end justify-between relative min-h-[42px]">
-                      <div
-                        className={`min-w-0 transition-all duration-200 ${
-                          isConfirmOpen ? 'max-w-[calc(100%-156px)] pr-2' : 'max-w-[calc(100%-44px)] pr-2'
-                        }`}
-                      >
-                        {item.note ? (
-                          <div className="text-[16px] font-medium text-[var(--text-Subtle)] leading-snug truncate">
-                            {item.note}
-                          </div>
-                        ) : null}
-                        <div className={`text-[15px] font-medium text-[var(--text-faint)] leading-snug truncate flex items-center gap-2 ${item.note ? 'mt-1' : ''}`}>
-                          <span>{formatHumanDate(item.date)} в {item.time}</span>
+<div
+  className={`min-w-0 transition-all duration-200 ${
+    isConfirmOpen ? 'max-w-[calc(100%-156px)] pr-2' : 'max-w-[calc(100%-44px)] pr-2'
+  }`}
+>
+  {/* Всегда рендерим этот блок, чтобы карточка не схлопывалась без комментария */}
+  <div className="text-[16px] font-medium text-[var(--text-Subtle)] leading-snug truncate min-h-[22px]">
+    {item.note || ''}
+  </div>
+  
+  <div className="text-[15px] font-medium text-[var(--text-faint)] leading-snug truncate flex items-center gap-2 mt-1">
+    <span>{formatHumanDate(item.date)} в {item.time}</span>
                           {sCount > 1 && (
                             <span className="text-[11px] font-bold text-[var(--text-muted)] bg-[var(--surface-secondary)] px-2 py-[3px] rounded-full inline-flex items-center leading-none">
                               ср. из {sCount}
