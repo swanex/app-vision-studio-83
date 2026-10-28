@@ -1398,6 +1398,7 @@ export default function App() {
           isOpen={activeSheet === 'data'}
           onClose={() => setActiveSheet(null)}
           currentUser={currentUser}
+          resolvedAvatar={resolvedAvatar} // <--- ДОБАВИТЬ ЭТУ СТРОКУ
           records={records}
           theme={theme}
           onSelectTheme={handleSelectTheme}
@@ -1411,8 +1412,7 @@ export default function App() {
           onTouchStart={handleSheetTouchStart}
           onTouchMove={handleSheetTouchMove}
           onTouchEnd={handleSheetTouchEnd}
-        />
-      </div>
+        />      </div>
     </div>
   );
 }
