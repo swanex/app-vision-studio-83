@@ -1082,6 +1082,7 @@ export const SettingsSheet = ({
   isOpen,
   onClose,
   currentUser,
+  resolvedAvatar, // <--- ДОБАВИТЬ ЭТОТ ПРОП СЮДА
   records,
   theme,
   onSelectTheme,
@@ -1167,10 +1168,19 @@ export const SettingsSheet = ({
           </button>
         </div>
 
-        {/* Профиль по центру */}
+{/* Профиль по центру */}
         <div className="flex flex-col items-center justify-center pt-2 pb-6">
-          <div className="w-[56px] h-[56px] rounded-full border-[1.5px] border-[var(--text-primary)] flex items-center justify-center text-[var(--text-primary)] mb-2.5">
-            <User className="w-7 h-7" strokeWidth={1.5} />
+          <div className="w-[56px] h-[56px] rounded-full border-[1.5px] border-[var(--text-primary)] flex items-center justify-center text-[var(--text-primary)] mb-2.5 overflow-hidden bg-[var(--surface-input)]">
+            {resolvedAvatar ? (
+              <img
+                src={resolvedAvatar}
+                alt={currentUser?.display_name || 'Профиль'}
+                draggable={false}
+                className="w-full h-full object-cover pointer-events-none"
+              />
+            ) : (
+              <User className="w-7 h-7" strokeWidth={1.5} />
+            )}
           </div>
           <div className="text-[13px] font-semibold text-[var(--text-muted)] mb-0.5">
             {currentUser ? 'Профиль' : 'Демо режим'}
