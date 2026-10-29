@@ -450,7 +450,7 @@ export const AddRecordSheet = ({
             <button
               type="button"
               onClick={handleScanButtonClick}
-              className={`relative w-full h-[60px] rounded-full border bg-transparent font-bold text-[18px] flex items-center justify-center transition cursor-pointer ${
+              className={`w-full h-[60px] rounded-full border bg-transparent font-bold text-[18px] flex items-center justify-center gap-2.5 transition cursor-pointer ${
                 currentUser
                   ? 'text-[var(--import-btn-text)] active:scale-[0.99]'
                   : 'text-[var(--scan-btn-disabled-text)]'
@@ -465,12 +465,10 @@ export const AddRecordSheet = ({
                 <span className="w-full text-center">Только в режиме пользователя</span>
               ) : (
                 <>
-                  <div className="flex items-center gap-2.5">
-                    <ScanFrameIcon className="w-6 h-6 shrink-0" />
-                    <span>Сканировать прибор</span>
-                  </div>
+                  <ScanFrameIcon className="w-6 h-6 shrink-0" />
+                  <span>Сканировать прибор</span>
                   {showScanBadge && (
-                    <span className="absolute right-4 w-[26px] h-[26px] rounded-full border-[1.5px] border-current text-[13px] font-black flex items-center justify-center leading-none opacity-80 shrink-0">
+                    <span className="w-[26px] h-[26px] rounded-full border-[1.5px] border-current text-[13px] font-black flex items-center justify-center leading-none opacity-80 shrink-0 mt-[1px]">
                       ×{scanBadgeValue}
                     </span>
                   )}
@@ -482,23 +480,18 @@ export const AddRecordSheet = ({
               {currentUser && timerProgress > 0 && timerProgress < 100 && (
                 <div 
                   className="absolute left-0 top-0 bottom-0 bg-[var(--tag-bg)] z-[-1]"
-                  style={{ 
-                    width: `${timerProgress}%`, 
-                    transition: 'width 1s linear'
-                  }} 
+                  style={{ width: `${timerProgress}%`, transition: 'width 1s linear' }} 
                 />
               )}
               
-              <span className="text-[18px] font-bold text-[var(--text-primary)] pointer-events-none relative z-10">
+              <span className="text-[16px] font-bold text-[var(--text-label-strong)] pointer-events-none relative z-10">
                 Время замера
               </span>
               
               <button
                 type="button"
                 onClick={() => {
-                  if (document.activeElement instanceof HTMLElement) {
-                    document.activeElement.blur();
-                  }
+                  if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
                   setTempTime(timeInput);
                   setTimePickerOpen(true);
                 }}
