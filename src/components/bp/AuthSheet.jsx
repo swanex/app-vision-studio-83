@@ -173,6 +173,9 @@ export const AuthSheet = ({
       <form
         ref={authSheetRef}
         autoComplete="off"
+        autoCorrect="off"
+        autoCapitalize="off"
+        spellCheck="false"
         onSubmit={(e) => e.preventDefault()}
         onTouchStart={onTouchStart}
         onTouchMove={onTouchMove}
@@ -252,10 +255,10 @@ export const AuthSheet = ({
                 </span>
                 <input
                   type="text"
-                  name="nofill_bp_login_alias"
+                  name={`login_alias_${Math.random().toString(36).substring(7)}`}
                   inputMode="text"
                   enterKeyHint="next"
-                  autoComplete="new-password"
+                  autoComplete="off"
                   autoCorrect="off"
                   autoCapitalize="off"
                   spellCheck={false}
@@ -283,10 +286,10 @@ export const AuthSheet = ({
                 </span>
                 <input
                   type="text"
-                  name="nofill_bp_login_code"
+                  name={`login_pin_${Math.random().toString(36).substring(7)}`}
                   inputMode="numeric"
                   enterKeyHint="done"
-                  autoComplete="new-password"
+                  autoComplete="off"
                   autoCorrect="off"
                   autoCapitalize="off"
                   spellCheck={false}
@@ -337,11 +340,12 @@ export const AuthSheet = ({
                 </span>
                 <input
                   type="text"
-                  name="nofill_bp_reg_label"
+                  name={`reg_name_${Math.random().toString(36).substring(7)}`}
                   inputMode="text"
                   enterKeyHint="next"
-                  autoComplete="new-password"
+                  autoComplete="off"
                   autoCorrect="off"
+                  autoCapitalize="off"
                   spellCheck={false}
                   data-lpignore="true"
                   data-1p-ignore="true"
@@ -365,10 +369,10 @@ export const AuthSheet = ({
                 </span>
                 <input
                   type="text"
-                  name="nofill_bp_reg_alias"
+                  name={`reg_alias_${Math.random().toString(36).substring(7)}`}
                   inputMode="text"
                   enterKeyHint="next"
-                  autoComplete="new-password"
+                  autoComplete="off"
                   autoCorrect="off"
                   autoCapitalize="off"
                   spellCheck={false}
@@ -396,10 +400,10 @@ export const AuthSheet = ({
                 </span>
                 <input
                   type="text"
-                  name="nofill_bp_reg_code"
+                  name={`reg_pin_${Math.random().toString(36).substring(7)}`}
                   inputMode="numeric"
                   enterKeyHint="done"
-                  autoComplete="new-password"
+                  autoComplete="off"
                   autoCorrect="off"
                   autoCapitalize="off"
                   spellCheck={false}
