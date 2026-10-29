@@ -23,7 +23,12 @@ export const AddRecordSheet = ({
   const [diaInput, setDiaInput] = useState('');
   const [pulseInput, setPulseInput] = useState('');
   const [noteInput, setNoteInput] = useState('');
-  const [dateInput, setDateInput] = useState(() => new Date().toISOString().slice(0, 10));
+  
+  // Инициализируем строго локальной датой, а не UTC
+  const [dateInput, setDateInput] = useState(() => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  });
   const [timeInput, setTimeInput] = useState('09:30');
 
   const [baseSeries, setBaseSeries] = useState(null);
@@ -67,11 +72,17 @@ export const AddRecordSheet = ({
     }
 
     const now = new Date();
-    const todayIso = now.toISOString().slice(0, 10);
+    // Собираем локальную дату для установки в инпут
+    const yyyy = now.getFullYear();
+    const mm = String(now.getMonth() + 1).padStart(2, '0');
+    const dd = String(now.getDate()).padStart(2, '0');
+    const todayIso = `${yyyy}-${mm}-${dd}`;
+    
     setDateInput(todayIso);
+    
     const hh = String(now.getHours()).padStart(2, '0');
-    const mm = String(now.getMinutes()).padStart(2, '0');
-    const defaultTime = `${hh}:${mm}`;
+    const min = String(now.getMinutes()).padStart(2, '0');
+    const defaultTime = `${hh}:${min}`;
     setTimeInput(defaultTime);
 
     const t = setTimeout(() => {
@@ -450,7 +461,7 @@ export const AddRecordSheet = ({
             <button
               type="button"
               onClick={handleScanButtonClick}
-              className={`w-full h-[60px] rounded-full border bg-transparent font-bold text-[18px] flex items-center justify-center transition cursor-pointer ${
+              className={`w-full h-[52px] rounded-full border bg-transparent font-bold text-[16px] flex items-center justify-center gap-2.5 transition cursor-pointer ${
                 currentUser
                   ? 'text-[var(--import-btn-text)] active:scale-[0.99]'
                   : 'text-[var(--scan-btn-disabled-text)]'
@@ -462,44 +473,49 @@ export const AddRecordSheet = ({
               }}
             >
               {scanDemoNotice ? (
-                <span className="w-full text-center">Только в режиме пользователя</span>
+                <span>Только в режиме пользователя</span>
               ) : (
-                <div className="relative flex items-center justify-center w-full">
-                  <div className="flex items-center gap-2.5">
-                    <ScanFrameIcon className="w-6 h-6 shrink-0" />
+                <>
+                  <ScanFrameIcon className="w-5 h-5 shrink-0" />
+                  <div className="flex items-center gap-1.5">
                     <span>Сканировать прибор</span>
+                    {showScanBadge && scanBadgeValue > 1 && (
+                      <span className="w-[22px] h-[22px] rounded-full border-[1.5px] border-current text-[11px] font-black flex items-center justify-center leading-none opacity-80 shrink-0 mt-[1px]">
+                        ×{scanBadgeValue}
+                      </span>
+                    )}
                   </div>
-                  {showScanBadge && (
-                    <span className="absolute right-4 w-[26px] h-[26px] rounded-full border-[1.5px] border-current text-[13px] font-black flex items-center justify-center leading-none opacity-80 shrink-0">
-                      ×{scanBadgeValue}
-                    </span>
-                  )}
-                </div>
+                </>
               )}
             </button>
 
-            <div className="bg-[var(--surface-input)] rounded-[24px] h-[60px] pl-4 pr-2 flex items-center justify-between relative overflow-hidden z-0">
+            <div className="bg-[var(--surface-input)] rounded-[26px] h-[72px] px-5 flex items-center justify-between relative overflow-hidden z-0">
               {currentUser && timerProgress > 0 && timerProgress < 100 && (
                 <div 
                   className="absolute left-0 top-0 bottom-0 bg-[var(--tag-bg)] z-[-1]"
-                  style={{ width: `${timerProgress}%`, transition: 'width 1s linear' }} 
+                  style={{ 
+                    width: `${timerProgress}%`, 
+                    transition: 'width 1s linear'
+                  }} 
                 />
               )}
               
-              <span className="text-[18px] font-bold text-[var(--text-label-strong)] pointer-events-none relative z-10">
+              <span className="text-[18px] font-bold text-[var(--text-primary)] pointer-events-none relative z-10">
                 Время замера
               </span>
               
               <button
                 type="button"
                 onClick={() => {
-                  if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
+                  if (document.activeElement instanceof HTMLElement) {
+                    document.activeElement.blur();
+                  }
                   setTempTime(timeInput);
                   setTimePickerOpen(true);
                 }}
-                className="flex items-center justify-center gap-1.5 bg-[var(--surface-tertiary)] rounded-full w-[138px] h-[44px] cursor-pointer active:scale-95 transition relative z-10"
+                className="flex items-center gap-2 bg-[var(--surface-tertiary)] rounded-[20px] pl-4 pr-3 py-2.5 cursor-pointer active:scale-95 transition relative z-10 shadow-sm"
               >
-                <span className="text-[22px] font-extrabold text-[var(--text-primary)] leading-none tabular-nums mt-[1px]">
+                <span className="text-[22px] font-extrabold text-[var(--text-primary)] leading-none tabular-nums">
                   {timeInput}
                 </span>
                 <ChevronDown className="w-5 h-5 text-[var(--text-Subtle)] shrink-0 stroke-[2.5]" />
@@ -539,7 +555,7 @@ export const AddRecordSheet = ({
               </div>
             )}
 
-            <div className="bg-[var(--surface-input)] rounded-[16px] h-[60px] pl-4 pr-5 flex items-center">
+            <div className="bg-[var(--surface-input)] rounded-[24px] px-5 py-[18px]">
               <input
                 ref={noteRef}
                 type="text"
@@ -570,7 +586,7 @@ export const AddRecordSheet = ({
               ref={saveCtaRef}
               type="button"
               onClick={handleSaveClick}
-              className="w-full py-[20px] rounded-full bg-[var(--cta-bg)] text-[var(--cta-text)] text-[20px] font-bold flex items-center justify-center gap-2.5 active:scale-[0.99] transition cursor-pointer mt-1"
+              className="w-full py-[20px] rounded-[28px] bg-[var(--cta-bg)] text-[var(--cta-text)] text-[20px] font-bold flex items-center justify-center gap-2.5 active:scale-[0.99] transition cursor-pointer mt-1"
             >
               <span>Сохранить замер</span>
               {showSaveBadge && (
