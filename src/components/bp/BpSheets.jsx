@@ -887,7 +887,7 @@ export const AddRecordSheet = ({
               </div>
             </div>
 
-            <button
+<button
               type="button"
               onClick={handleScanButtonClick}
               className={`w-full h-[52px] rounded-full border bg-transparent font-bold text-[16px] flex items-center justify-center gap-2.5 transition cursor-pointer ${
@@ -906,14 +906,12 @@ export const AddRecordSheet = ({
               ) : (
                 <>
                   <ScanFrameIcon className="w-5 h-5 shrink-0" />
-                  <div className="flex items-center gap-1.5">
-                    <span>Сканировать прибор</span>
-                    {scanBadgeCount > 1 && (
-                      <span className="w-6 h-6 rounded-full border-[1.5px] border-current text-[12px] font-black inline-flex items-center justify-center leading-none opacity-80">
-                        ×{scanBadgeCount}
-                      </span>
-                    )}
-                  </div>
+                  <span>Сканировать прибор</span>
+                  {scanBadgeCount > 1 && (
+                    <span className="w-6 h-6 rounded-full border-[1.5px] border-current text-[12px] font-black flex items-center justify-center leading-none opacity-80 shrink-0">
+                      ×{scanBadgeCount}
+                    </span>
+                  )}
                 </>
               )}
             </button>
