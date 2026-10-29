@@ -346,7 +346,7 @@ const syncUnsentRecords = useCallback(async (activeUser, serverData) => {
 
       if (unsent.length > 0) {
         // Отправляем неотправленные записи в фоне
-        Promise.all(unsent.map(record => apiSaveRecord(activeUser, record)))
+        Promise.all([apiUpsertRecords(activeUser, unsent)])
           .then(() => console.log('Синхронизировано неотправленных записей:', unsent.length))
           .catch(err => console.error('Ошибка фоновой синхронизации:', err));
       }
