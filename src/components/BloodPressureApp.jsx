@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import {
   AreaChart,
@@ -8,6 +9,7 @@ import {
   Tooltip,
   ResponsiveContainer
 } from 'recharts';
+
 import {
   Plus,
   Heart,
@@ -57,18 +59,21 @@ import {
   BpThemeStyles
 } from './bp/BpIconsAndWidgets';
 
-import { AuthSheet, AddRecordSheet, SettingsSheet } from './bp/BpSheets';
+import { AuthSheet } from './bp/AuthSheet';
+import { AddRecordSheet } from './bp/AddRecordSheet';
+import { SettingsSheet } from './bp/SettingsSheet';
+
 
 export default function App() {
   const [buildNumber] = useState(() => {
     try {
       const saved = parseInt(localStorage.getItem(BUILD_STORAGE_KEY) || '0', 10);
       // Принудительно устанавливаем актуальную версию, чтобы не было отката
-      const resolved = Math.max(49, isNaN(saved) ? 0 : saved);
+      const resolved = Math.max(50, isNaN(saved) ? 0 : saved);
       localStorage.setItem(BUILD_STORAGE_KEY, String(resolved));
       return resolved;
     } catch {
-      return 49;
+      return 50;
     }
   });
   const appVersionString = `${APP_BASE_VERSION}.${buildNumber}`;
@@ -332,31 +337,59 @@ export default function App() {
     }, 650);
   }, []);
 
-  const fetchFromCloud = useCallback(
-    async (userOverride) => {
-      const activeUser = userOverride !== undefined ? userOverride : currentUser;
-      if (!activeUser) {
-        emulateCloudSync();
-        return;
-      }
 
-      setCloudStatus('syncing');
-      try {
-        const data = await apiFetchUserRecords(activeUser);
-        if (Array.isArray(data)) {
-          setRawCloudCount(data.length);
-          const unique = deduplicateRecords(data);
-          setRecords(unique);
+const fetchFromCloud = useCallback(async (activeUser, silent = false) => {
+    if (!activeUser || cloudStatus === 'demo') return;
+    if (!silent) setCloudStatus('syncing');
+
+    try {
+      const serverData = await apiFetchUserRecords(activeUser);
+      if (Array.isArray(serverData)) {
+        // Двухсторонний merge: берём всё, что есть локально, и добавляем новое с сервера
+        setRecords((prevRecords) => {
+          const merged = [...prevRecords];
+          
+          serverData.forEach(serverRecord => {
+            const exists = merged.find(r => r.id === serverRecord.id);
+            if (!exists) {
+              merged.push(serverRecord);
+            }
+          });
+
+          const unique = deduplicateRecords(merged);
           localStorage.setItem(`bp_records_cache_${activeUser.username}`, JSON.stringify(unique));
-          setCloudStatus('online');
-        }
-      } catch (err) {
-        console.error(err);
-        setCloudStatus('error');
+          return unique;
+        });
+        
+        // Пытаемся отправить в облако те записи, которые есть локально, но нет на сервере
+        syncUnsentRecords(activeUser, serverData);
+        
+        if (!silent) setCloudStatus('success');
+      } else {
+        if (!silent) setCloudStatus('error');
       }
-    },
-    [currentUser, emulateCloudSync]
-  );
+    } catch (e) {
+      console.error(e);
+      if (!silent) setCloudStatus('error');
+    }
+  }, [cloudStatus, syncUnsentRecords]);
+
+const syncUnsentRecords = useCallback(async (activeUser, serverData) => {
+    setRecords((currentRecords) => {
+      const unsent = currentRecords.filter(
+        local => !serverData.find(server => server.id === local.id)
+      );
+
+      if (unsent.length > 0) {
+        // Отправляем неотправленные записи в фоне
+        Promise.all(unsent.map(record => apiSaveRecord(activeUser, record)))
+          .then(() => console.log('Синхронизировано неотправленных записей:', unsent.length))
+          .catch(err => console.error('Ошибка фоновой синхронизации:', err));
+      }
+      return currentRecords;
+    });
+  }, []);
+
 
   useEffect(() => {
     if (currentUser) {
