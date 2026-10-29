@@ -482,7 +482,11 @@ export const AddRecordSheet = ({
   const [dateInput, setDateInput] = useState(() => new Date().toISOString().slice(0, 10));
   const [timeInput, setTimeInput] = useState('09:30');
 
-  const [seriesState, setSeriesState] = useState(null);
+  // Базовая серия из 5-минутного окна (если открыли шторку для продолжения)
+  const [baseSeries, setBaseSeries] = useState(null);
+  
+  // Храним сырые сканы текущей сессии, чтобы не искажать инпуты!
+  const [pendingScans, setPendingScans] = useState([]);
 
   const [inputsUnlocked, setInputsUnlocked] = useState(false);
   const [scannerOpen, setScannerOpen] = useState(false);
@@ -510,7 +514,8 @@ export const AddRecordSheet = ({
       setScannerOpen(false);
       setScanDemoNotice(false);
       setTimePickerOpen(false);
-      setSeriesState(null);
+      setBaseSeries(null);
+      setPendingScans([]);
       if (pulseBlurTimerRef.current) clearTimeout(pulseBlurTimerRef.current);
       return;
     }
@@ -543,9 +548,9 @@ export const AddRecordSheet = ({
           const diffMinutes = (cH * 60 + cM) - (lH * 60 + lM);
 
           if (diffMinutes >= 0 && diffMinutes <= 5) {
-            setSeriesState({
+            setBaseSeries({
               targetId: latest.id,
-              count: latestSeriesCount + 1,
+              count: latestSeriesCount,
               sys: latest.sys,
               dia: latest.dia,
               pulse: latest.pulse,
@@ -562,31 +567,6 @@ export const AddRecordSheet = ({
     return () => clearTimeout(t);
   }, [isOpen, records]);
 
-  const applyReadingToSeries = useCallback((newSys, newDia, newPulse) => {
-    setSysInput((prevSys) => {
-      const sNum = parseInt(prevSys, 10);
-      if (isNaN(sNum) || !seriesState) return String(newSys);
-      const k = seriesState.count - 1;
-      return String(Math.round((sNum * k + newSys) / seriesState.count));
-    });
-
-    setDiaInput((prevDia) => {
-      const dNum = parseInt(prevDia, 10);
-      if (isNaN(dNum) || !seriesState) return String(newDia);
-      const k = seriesState.count - 1;
-      return String(Math.round((dNum * k + newDia) / seriesState.count));
-    });
-
-    if (newPulse) {
-      setPulseInput((prevPulse) => {
-        const pNum = parseInt(prevPulse, 10);
-        if (isNaN(pNum) || !seriesState) return String(newPulse);
-        const k = seriesState.count - 1;
-        return String(Math.round((pNum * k + newPulse) / seriesState.count));
-      });
-    }
-  }, [seriesState]);
-
   const handleScannerDetected = useCallback(({ sys, dia, pulse }) => {
     if (pulseBlurTimerRef.current) clearTimeout(pulseBlurTimerRef.current);
     sysRef.current?.blur();
@@ -598,34 +578,27 @@ export const AddRecordSheet = ({
     const dVal = parseInt(dia, 10);
     const pVal = pulse ? parseInt(pulse, 10) : null;
 
-    if (sysInput && diaInput && !seriesState) {
-      const existingCount = 2;
-      setSeriesState({
-        targetId: null,
-        count: existingCount,
-        sys: parseInt(sysInput, 10),
-        dia: parseInt(diaInput, 10),
-        pulse: pulseInput ? parseInt(pulseInput, 10) : null
-      });
-      setSysInput(String(Math.round((parseInt(sysInput, 10) + sVal) / 2)));
-      setDiaInput(String(Math.round((parseInt(diaInput, 10) + dVal) / 2)));
-      if (pVal && pulseInput) {
-        setPulseInput(String(Math.round((parseInt(pulseInput, 10) + pVal) / 2)));
-      }
-    } else if (seriesState) {
-      const nextCount = seriesState.count + 1;
-      setSeriesState((prev) => ({ ...prev, count: nextCount }));
-      applyReadingToSeries(sVal, dVal, pVal);
-    } else {
-      setSysInput(sys);
-      setDiaInput(dia);
-      setPulseInput(pulse || '');
+    // Если поля уже заполнены (прошлый замер), откладываем их в память сессии
+    if (sysInput && diaInput) {
+      setPendingScans((prev) => [
+        ...prev,
+        {
+          sys: parseInt(sysInput, 10),
+          dia: parseInt(diaInput, 10),
+          pulse: pulseInput ? parseInt(pulseInput, 10) : null
+        }
+      ]);
     }
+
+    // Показываем в полях НОВЫЙ сырой замер (чтобы пользователь мог его проверить)
+    setSysInput(String(sVal));
+    setDiaInput(String(dVal));
+    setPulseInput(pVal ? String(pVal) : '');
 
     setScannerOpen(false);
     setTimeout(() => setFlashHighlight(true), 50);
     setTimeout(() => setFlashHighlight(false), 1250);
-  }, [applyReadingToSeries, diaInput, pulseInput, seriesState, sysInput]);
+  }, [sysInput, diaInput, pulseInput]);
 
   if (!isOpen) return null;
 
@@ -702,12 +675,38 @@ export const AddRecordSheet = ({
       document.activeElement.blur();
     }
 
+    let totalCount = baseSeries ? baseSeries.count : 0;
+    let sumSys = baseSeries ? baseSeries.sys * baseSeries.count : 0;
+    let sumDia = baseSeries ? baseSeries.dia * baseSeries.count : 0;
+    let sumPulse = baseSeries && baseSeries.pulse ? baseSeries.pulse * baseSeries.count : 0;
+    let pulseCount = baseSeries && baseSeries.pulse ? baseSeries.count : 0;
+
+    // Добавляем все отложенные сканы из этой сессии
+    pendingScans.forEach((scan) => {
+      totalCount += 1;
+      sumSys += scan.sys;
+      sumDia += scan.dia;
+      if (scan.pulse) {
+        sumPulse += scan.pulse;
+        pulseCount += 1;
+      }
+    });
+
+    // Добавляем текущие инпуты
+    totalCount += 1;
+    sumSys += s;
+    sumDia += d;
+    if (p) {
+      sumPulse += p;
+      pulseCount += 1;
+    }
+
     const savedData = {
-      targetId: seriesState?.targetId || null,
-      seriesCount: seriesState?.count || 1,
-      sys: s,
-      dia: d,
-      pulse: p,
+      targetId: baseSeries?.targetId || null,
+      seriesCount: totalCount,
+      sys: Math.round(sumSys / totalCount),
+      dia: Math.round(sumDia / totalCount),
+      pulse: pulseCount > 0 ? Math.round(sumPulse / pulseCount) : null,
       note: noteInput.trim(),
       date: dateInput,
       time: timeInput
@@ -717,26 +716,24 @@ export const AddRecordSheet = ({
     setDiaInput('');
     setPulseInput('');
     setNoteInput('');
-    setSeriesState(null);
+    setBaseSeries(null);
+    setPendingScans([]);
     onClose();
 
     await onSaveRecord(savedData);
   };
 
-  // Вычисляем логику бейджей в зависимости от заполненности полей и наличия серии
+  // ---- ТОЧНАЯ ЛОГИКА БЕЙДЖЕЙ ----
   const hasInputs = Boolean(sysInput && diaInput);
-  
-  let scanBadgeCount = 1;
-  if (hasInputs) {
-    scanBadgeCount = (seriesState?.count || 1) + 1;
-  } else {
-    scanBadgeCount = seriesState?.count || 1;
-  }
+  const currentUnsavedCount = pendingScans.length + (hasInputs ? 1 : 0);
+  const totalSeriesCount = (baseSeries?.count || 0) + currentUnsavedCount;
 
-  let saveBadgeCount = 1;
-  if (hasInputs && seriesState) {
-    saveBadgeCount = seriesState.count;
-  }
+  const showScanBadge = totalSeriesCount > 0;
+  const scanBadgeValue = totalSeriesCount + 1;
+
+  // Показывать бейдж сохранения только если есть что сохранять прямо сейчас
+  const showSaveBadge = currentUnsavedCount > 0 && totalSeriesCount > 1;
+  const saveBadgeValue = totalSeriesCount;
 
   return (
     <>
@@ -887,7 +884,7 @@ export const AddRecordSheet = ({
               </div>
             </div>
 
-<button
+            <button
               type="button"
               onClick={handleScanButtonClick}
               className={`w-full h-[52px] rounded-full border bg-transparent font-bold text-[16px] flex items-center justify-center gap-2.5 transition cursor-pointer ${
@@ -907,9 +904,9 @@ export const AddRecordSheet = ({
                 <>
                   <ScanFrameIcon className="w-5 h-5 shrink-0" />
                   <span>Сканировать прибор</span>
-                  {scanBadgeCount > 1 && (
-                    <span className="w-6 h-6 rounded-full border-[1.5px] border-current text-[12px] font-black flex items-center justify-center leading-none opacity-80 shrink-0">
-                      ×{scanBadgeCount}
+                  {showScanBadge && (
+                    <span className="w-[22px] h-[22px] rounded-full border-[1.5px] border-current text-[11px] font-black flex items-center justify-center leading-none opacity-80 shrink-0 mt-[1px]">
+                      ×{scanBadgeValue}
                     </span>
                   )}
                 </>
@@ -1005,9 +1002,9 @@ export const AddRecordSheet = ({
               className="w-full py-[20px] rounded-[28px] bg-[var(--cta-bg)] text-[var(--cta-text)] text-[20px] font-bold flex items-center justify-center gap-2.5 active:scale-[0.99] transition cursor-pointer mt-1"
             >
               <span>Сохранить замер</span>
-              {saveBadgeCount > 1 && (
-                <span className="w-6 h-6 rounded-full bg-white/20 text-white text-[12px] font-black inline-flex items-center justify-center leading-none">
-                  ×{saveBadgeCount}
+              {showSaveBadge && (
+                <span className="w-[26px] h-[26px] rounded-full bg-white/20 text-white text-[13px] font-black flex items-center justify-center leading-none mt-[1px]">
+                  ×{saveBadgeValue}
                 </span>
               )}
             </button>
