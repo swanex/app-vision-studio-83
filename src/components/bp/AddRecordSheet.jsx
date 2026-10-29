@@ -450,7 +450,7 @@ export const AddRecordSheet = ({
             <button
               type="button"
               onClick={handleScanButtonClick}
-              className={`w-full h-[60px] rounded-full border bg-transparent font-bold text-[18px] flex items-center justify-center gap-2.5 transition cursor-pointer ${
+              className={`w-full h-[60px] rounded-full border bg-transparent font-bold text-[18px] flex items-center justify-center transition cursor-pointer ${
                 currentUser
                   ? 'text-[var(--import-btn-text)] active:scale-[0.99]'
                   : 'text-[var(--scan-btn-disabled-text)]'
@@ -464,15 +464,17 @@ export const AddRecordSheet = ({
               {scanDemoNotice ? (
                 <span className="w-full text-center">Только в режиме пользователя</span>
               ) : (
-                <>
-                  <ScanFrameIcon className="w-6 h-6 shrink-0" />
-                  <span>Сканировать прибор</span>
+                <div className="relative flex items-center justify-center w-full">
+                  <div className="flex items-center gap-2.5">
+                    <ScanFrameIcon className="w-6 h-6 shrink-0" />
+                    <span>Сканировать прибор</span>
+                  </div>
                   {showScanBadge && (
-                    <span className="w-[26px] h-[26px] rounded-full border-[1.5px] border-current text-[13px] font-black flex items-center justify-center leading-none opacity-80 shrink-0 mt-[1px]">
+                    <span className="absolute right-4 w-[26px] h-[26px] rounded-full border-[1.5px] border-current text-[13px] font-black flex items-center justify-center leading-none opacity-80 shrink-0">
                       ×{scanBadgeValue}
                     </span>
                   )}
-                </>
+                </div>
               )}
             </button>
 
@@ -484,7 +486,7 @@ export const AddRecordSheet = ({
                 />
               )}
               
-              <span className="text-[16px] font-bold text-[var(--text-label-strong)] pointer-events-none relative z-10">
+              <span className="text-[18px] font-bold text-[var(--text-label-strong)] pointer-events-none relative z-10">
                 Время замера
               </span>
               
@@ -560,7 +562,7 @@ export const AddRecordSheet = ({
                 value={noteInput}
                 onChange={(e) => setNoteInput(e.target.value)}
                 placeholder="Комментарий к замеру"
-                className="w-full text-[18px] font-bold text-[var(--text-primary)] placeholder-[var(--placeholder-color)] focus:outline-none bg-transparent select-text"
+                className="w-full text-[16px] font-bold text-[var(--text-primary)] placeholder-[var(--placeholder-color)] focus:outline-none bg-transparent select-text"
               />
             </div>
 
