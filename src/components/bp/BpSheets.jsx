@@ -482,11 +482,12 @@ export const AddRecordSheet = ({
   const [dateInput, setDateInput] = useState(() => new Date().toISOString().slice(0, 10));
   const [timeInput, setTimeInput] = useState('09:30');
 
-  // Базовая серия из 5-минутного окна (если открыли шторку для продолжения)
   const [baseSeries, setBaseSeries] = useState(null);
-  
-  // Храним сырые сканы текущей сессии, чтобы не искажать инпуты!
   const [pendingScans, setPendingScans] = useState([]);
+  
+  // Стейты для визуального таймера окна (5 минут)
+  const [seriesStartTime, setSeriesStartTime] = useState(null);
+  const [timerProgress, setTimerProgress] = useState(0);
 
   const [inputsUnlocked, setInputsUnlocked] = useState(false);
   const [scannerOpen, setScannerOpen] = useState(false);
@@ -516,6 +517,8 @@ export const AddRecordSheet = ({
       setTimePickerOpen(false);
       setBaseSeries(null);
       setPendingScans([]);
+      setSeriesStartTime(null);
+      setTimerProgress(0);
       if (pulseBlurTimerRef.current) clearTimeout(pulseBlurTimerRef.current);
       return;
     }
@@ -559,6 +562,8 @@ export const AddRecordSheet = ({
             if (latest.note && !noteInput) {
               setNoteInput(latest.note);
             }
+            // Вычисляем виртуальную точку старта, чтобы прогресс-бар уже был частично заполнен
+            setSeriesStartTime(Date.now() - (diffMinutes * 60 * 1000));
           }
         }
       }
@@ -566,6 +571,25 @@ export const AddRecordSheet = ({
 
     return () => clearTimeout(t);
   }, [isOpen, records]);
+
+  // Эффект для плавной отрисовки таймера в блоке "Время замера"
+  useEffect(() => {
+    if (!isOpen || !currentUser || !seriesStartTime) {
+      setTimerProgress(0);
+      return;
+    }
+    
+    const updateProgress = () => {
+      const elapsed = Date.now() - seriesStartTime;
+      const total = 5 * 60 * 1000; // 5 минут
+      const p = Math.min(100, (elapsed / total) * 100);
+      setTimerProgress(p);
+    };
+    
+    updateProgress();
+    const intervalId = setInterval(updateProgress, 1000);
+    return () => clearInterval(intervalId);
+  }, [isOpen, currentUser, seriesStartTime]);
 
   const handleScannerDetected = useCallback(({ sys, dia, pulse }) => {
     if (pulseBlurTimerRef.current) clearTimeout(pulseBlurTimerRef.current);
@@ -578,7 +602,6 @@ export const AddRecordSheet = ({
     const dVal = parseInt(dia, 10);
     const pVal = pulse ? parseInt(pulse, 10) : null;
 
-    // Если поля уже заполнены (прошлый замер), откладываем их в память сессии
     if (sysInput && diaInput) {
       setPendingScans((prev) => [
         ...prev,
@@ -590,10 +613,12 @@ export const AddRecordSheet = ({
       ]);
     }
 
-    // Показываем в полях НОВЫЙ сырой замер (чтобы пользователь мог его проверить)
     setSysInput(String(sVal));
     setDiaInput(String(dVal));
     setPulseInput(pVal ? String(pVal) : '');
+    
+    // Сбрасываем таймер на 0, давая еще 5 минут после нового скана
+    setSeriesStartTime(Date.now());
 
     setScannerOpen(false);
     setTimeout(() => setFlashHighlight(true), 50);
@@ -681,7 +706,6 @@ export const AddRecordSheet = ({
     let sumPulse = baseSeries && baseSeries.pulse ? baseSeries.pulse * baseSeries.count : 0;
     let pulseCount = baseSeries && baseSeries.pulse ? baseSeries.count : 0;
 
-    // Добавляем все отложенные сканы из этой сессии
     pendingScans.forEach((scan) => {
       totalCount += 1;
       sumSys += scan.sys;
@@ -692,7 +716,6 @@ export const AddRecordSheet = ({
       }
     });
 
-    // Добавляем текущие инпуты
     totalCount += 1;
     sumSys += s;
     sumDia += d;
@@ -718,12 +741,13 @@ export const AddRecordSheet = ({
     setNoteInput('');
     setBaseSeries(null);
     setPendingScans([]);
+    setSeriesStartTime(null);
+    setTimerProgress(0);
     onClose();
 
     await onSaveRecord(savedData);
   };
 
-  // ---- ТОЧНАЯ ЛОГИКА БЕЙДЖЕЙ ----
   const hasInputs = Boolean(sysInput && diaInput);
   const currentUnsavedCount = pendingScans.length + (hasInputs ? 1 : 0);
   const totalSeriesCount = (baseSeries?.count || 0) + currentUnsavedCount;
@@ -731,7 +755,6 @@ export const AddRecordSheet = ({
   const showScanBadge = totalSeriesCount > 0;
   const scanBadgeValue = totalSeriesCount + 1;
 
-  // Показывать бейдж сохранения только если есть что сохранять прямо сейчас
   const showSaveBadge = currentUnsavedCount > 0 && totalSeriesCount > 1;
   const saveBadgeValue = totalSeriesCount;
 
@@ -913,10 +936,22 @@ export const AddRecordSheet = ({
               )}
             </button>
 
-            <div className="bg-[var(--surface-input)] rounded-[26px] h-[72px] px-5 flex items-center justify-between">
-              <span className="text-[18px] font-bold text-[var(--text-primary)]">
+            <div className="bg-[var(--surface-input)] rounded-[26px] h-[72px] px-5 flex items-center justify-between relative overflow-hidden z-0">
+              {/* Прогресс-бар окна замеров */}
+              {currentUser && timerProgress > 0 && timerProgress < 100 && (
+                <div 
+                  className="absolute left-0 top-0 bottom-0 bg-[var(--tag-bg)] z-[-1]"
+                  style={{ 
+                    width: `${timerProgress}%`, 
+                    transition: 'width 1s linear'
+                  }} 
+                />
+              )}
+              
+              <span className="text-[18px] font-bold text-[var(--text-primary)] pointer-events-none relative z-10">
                 Время замера
               </span>
+              
               <button
                 type="button"
                 onClick={() => {
@@ -926,7 +961,7 @@ export const AddRecordSheet = ({
                   setTempTime(timeInput);
                   setTimePickerOpen(true);
                 }}
-                className="flex items-center gap-2 bg-[var(--surface-tertiary)] rounded-[20px] pl-4 pr-3 py-2.5 cursor-pointer active:scale-95 transition"
+                className="flex items-center gap-2 bg-[var(--surface-tertiary)] rounded-[20px] pl-4 pr-3 py-2.5 cursor-pointer active:scale-95 transition relative z-10 shadow-sm"
               >
                 <span className="text-[22px] font-extrabold text-[var(--text-primary)] leading-none tabular-nums">
                   {timeInput}
