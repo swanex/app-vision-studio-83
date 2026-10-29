@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import {
   AreaChart,
@@ -69,11 +68,11 @@ export default function App() {
     try {
       const saved = parseInt(localStorage.getItem(BUILD_STORAGE_KEY) || '0', 10);
       // Принудительно устанавливаем актуальную версию, чтобы не было отката
-      const resolved = Math.max(50, isNaN(saved) ? 0 : saved);
+      const resolved = Math.max(51, isNaN(saved) ? 0 : saved);
       localStorage.setItem(BUILD_STORAGE_KEY, String(resolved));
       return resolved;
     } catch {
-      return 50;
+      return 51;
     }
   });
   const appVersionString = `${APP_BASE_VERSION}.${buildNumber}`;
@@ -337,8 +336,7 @@ export default function App() {
     }, 650);
   }, []);
 
-
-const syncUnsentRecords = useCallback(async (activeUser, serverData) => {
+  const syncUnsentRecords = useCallback(async (activeUser, serverData) => {
     setRecords((currentRecords) => {
       const unsent = currentRecords.filter(
         local => !serverData.find(server => server.id === local.id)
@@ -354,8 +352,8 @@ const syncUnsentRecords = useCallback(async (activeUser, serverData) => {
     });
   }, []);
 
-const fetchFromCloud = useCallback(async (activeUser, silent = false) => {
-    if (!activeUser || cloudStatus === 'demo') return;
+  const fetchFromCloud = useCallback(async (activeUser, silent = false) => {
+    if (!activeUser) return;
     if (!silent) setCloudStatus('syncing');
 
     try {
@@ -380,7 +378,7 @@ const fetchFromCloud = useCallback(async (activeUser, silent = false) => {
         // Пытаемся отправить в облако те записи, которые есть локально, но нет на сервере
         syncUnsentRecords(activeUser, serverData);
         
-        if (!silent) setCloudStatus('success');
+        if (!silent) setCloudStatus('online');
       } else {
         if (!silent) setCloudStatus('error');
       }
@@ -388,8 +386,7 @@ const fetchFromCloud = useCallback(async (activeUser, silent = false) => {
       console.error(e);
       if (!silent) setCloudStatus('error');
     }
-  }, [cloudStatus, syncUnsentRecords]);
-
+  }, [syncUnsentRecords]);
 
   useEffect(() => {
     if (currentUser) {
@@ -1431,7 +1428,7 @@ const fetchFromCloud = useCallback(async (activeUser, silent = false) => {
           isOpen={activeSheet === 'data'}
           onClose={() => setActiveSheet(null)}
           currentUser={currentUser}
-          resolvedAvatar={resolvedAvatar} // <--- ДОБАВИТЬ ЭТУ СТРОКУ
+          resolvedAvatar={resolvedAvatar}
           records={records}
           theme={theme}
           onSelectTheme={handleSelectTheme}
