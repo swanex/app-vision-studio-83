@@ -562,7 +562,7 @@ export const AddRecordSheet = ({
             if (latest.note && !noteInput) {
               setNoteInput(latest.note);
             }
-            // Вычисляем виртуальную точку старта, чтобы прогресс-бар уже был частично заполнен
+            // Устанавливаем точку старта, учитывая уже прошедшее время
             setSeriesStartTime(Date.now() - (diffMinutes * 60 * 1000));
           }
         }
@@ -572,8 +572,9 @@ export const AddRecordSheet = ({
     return () => clearTimeout(t);
   }, [isOpen, records]);
 
-  // Эффект для плавной отрисовки таймера в блоке "Время замера"
+  // Эффект для обновления прогресс-бара каждую секунду
   useEffect(() => {
+    // В демо-режиме (без currentUser) таймер не работает
     if (!isOpen || !currentUser || !seriesStartTime) {
       setTimerProgress(0);
       return;
@@ -617,7 +618,7 @@ export const AddRecordSheet = ({
     setDiaInput(String(dVal));
     setPulseInput(pVal ? String(pVal) : '');
     
-    // Сбрасываем таймер на 0, давая еще 5 минут после нового скана
+    // После сканирования сбрасываем таймер для нового 5-минутного окна
     setSeriesStartTime(Date.now());
 
     setScannerOpen(false);
@@ -936,8 +937,8 @@ export const AddRecordSheet = ({
               )}
             </button>
 
+            {/* Блок Времени с Прогресс-баром */}
             <div className="bg-[var(--surface-input)] rounded-[26px] h-[72px] px-5 flex items-center justify-between relative overflow-hidden z-0">
-              {/* Прогресс-бар окна замеров */}
               {currentUser && timerProgress > 0 && timerProgress < 100 && (
                 <div 
                   className="absolute left-0 top-0 bottom-0 bg-[var(--tag-bg)] z-[-1]"
@@ -1130,6 +1131,8 @@ export const AddRecordSheet = ({
     </>
   );
 };
+
+
 // 3. ШТОРКА НАСТРОЕК (ОБНОВЛЕННЫЙ ДИЗАЙН)
 export const SettingsSheet = ({
   isOpen,
