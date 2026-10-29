@@ -447,11 +447,10 @@ export const AddRecordSheet = ({
               </div>
             </div>
 
-            {/* Изменено: h-[58px], отступ 16px от левого края (pl-4), rounded-full */}
             <button
               type="button"
               onClick={handleScanButtonClick}
-              className={`w-full h-[58px] rounded-full border bg-transparent font-bold text-[18px] flex items-center justify-between pl-4 pr-4 transition cursor-pointer ${
+              className={`relative w-full h-[60px] rounded-full border bg-transparent font-bold text-[18px] flex items-center justify-center transition cursor-pointer ${
                 currentUser
                   ? 'text-[var(--import-btn-text)] active:scale-[0.99]'
                   : 'text-[var(--scan-btn-disabled-text)]'
@@ -471,7 +470,7 @@ export const AddRecordSheet = ({
                     <span>Сканировать прибор</span>
                   </div>
                   {showScanBadge && (
-                    <span className="w-[26px] h-[26px] rounded-full border-[1.5px] border-current text-[13px] font-black flex items-center justify-center leading-none opacity-80 shrink-0">
+                    <span className="absolute right-4 w-[26px] h-[26px] rounded-full border-[1.5px] border-current text-[13px] font-black flex items-center justify-center leading-none opacity-80 shrink-0">
                       ×{scanBadgeValue}
                     </span>
                   )}
@@ -479,8 +478,7 @@ export const AddRecordSheet = ({
               )}
             </button>
 
-            {/* Изменено: h-[60px], pl-4 (16px), rounded-[16px] */}
-            <div className="bg-[var(--surface-input)] rounded-[16px] h-[60px] pl-4 pr-2 flex items-center justify-between relative overflow-hidden z-0">
+            <div className="bg-[var(--surface-input)] rounded-[24px] h-[60px] pl-4 pr-2 flex items-center justify-between relative overflow-hidden z-0">
               {currentUser && timerProgress > 0 && timerProgress < 100 && (
                 <div 
                   className="absolute left-0 top-0 bottom-0 bg-[var(--tag-bg)] z-[-1]"
@@ -504,9 +502,9 @@ export const AddRecordSheet = ({
                   setTempTime(timeInput);
                   setTimePickerOpen(true);
                 }}
-                className="flex items-center gap-1.5 bg-[var(--surface-tertiary)] rounded-[12px] pl-3 pr-2 py-1.5 cursor-pointer active:scale-95 transition relative z-10 shadow-sm"
+                className="flex items-center justify-center gap-1.5 bg-[var(--surface-tertiary)] rounded-full w-[138px] h-[44px] cursor-pointer active:scale-95 transition relative z-10"
               >
-                <span className="text-[20px] font-extrabold text-[var(--text-primary)] leading-none tabular-nums">
+                <span className="text-[22px] font-extrabold text-[var(--text-primary)] leading-none tabular-nums mt-[1px]">
                   {timeInput}
                 </span>
                 <ChevronDown className="w-5 h-5 text-[var(--text-Subtle)] shrink-0 stroke-[2.5]" />
@@ -546,8 +544,7 @@ export const AddRecordSheet = ({
               </div>
             )}
 
-            {/* Изменено: pl-4 (16px), rounded-[16px] */}
-            <div className="bg-[var(--surface-input)] rounded-[16px] pl-4 pr-5 py-[18px]">
+            <div className="bg-[var(--surface-input)] rounded-[16px] h-[60px] pl-4 pr-5 flex items-center">
               <input
                 ref={noteRef}
                 type="text"
@@ -574,7 +571,6 @@ export const AddRecordSheet = ({
               />
             </div>
 
-            {/* Сохранить: rounded-full */}
             <button
               ref={saveCtaRef}
               type="button"
