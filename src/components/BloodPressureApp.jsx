@@ -338,6 +338,22 @@ export default function App() {
   }, []);
 
 
+const syncUnsentRecords = useCallback(async (activeUser, serverData) => {
+    setRecords((currentRecords) => {
+      const unsent = currentRecords.filter(
+        local => !serverData.find(server => server.id === local.id)
+      );
+
+      if (unsent.length > 0) {
+        // Отправляем неотправленные записи в фоне
+        Promise.all([apiUpsertRecords(activeUser, unsent)])
+          .then(() => console.log('Синхронизировано неотправленных записей:', unsent.length))
+          .catch(err => console.error('Ошибка фоновой синхронизации:', err));
+      }
+      return currentRecords;
+    });
+  }, []);
+
 const fetchFromCloud = useCallback(async (activeUser, silent = false) => {
     if (!activeUser || cloudStatus === 'demo') return;
     if (!silent) setCloudStatus('syncing');
@@ -373,22 +389,6 @@ const fetchFromCloud = useCallback(async (activeUser, silent = false) => {
       if (!silent) setCloudStatus('error');
     }
   }, [cloudStatus, syncUnsentRecords]);
-
-const syncUnsentRecords = useCallback(async (activeUser, serverData) => {
-    setRecords((currentRecords) => {
-      const unsent = currentRecords.filter(
-        local => !serverData.find(server => server.id === local.id)
-      );
-
-      if (unsent.length > 0) {
-        // Отправляем неотправленные записи в фоне
-        Promise.all(unsent.map(record => apiSaveRecord(activeUser, record)))
-          .then(() => console.log('Синхронизировано неотправленных записей:', unsent.length))
-          .catch(err => console.error('Ошибка фоновой синхронизации:', err));
-      }
-      return currentRecords;
-    });
-  }, []);
 
 
   useEffect(() => {
