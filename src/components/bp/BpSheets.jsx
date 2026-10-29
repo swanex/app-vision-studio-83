@@ -723,15 +723,19 @@ export const AddRecordSheet = ({
     await onSaveRecord(savedData);
   };
 
-  // Вычисляем, какой бейдж показать на кнопке "Сканировать"
+  // Вычисляем логику бейджей в зависимости от заполненности полей и наличия серии
   const hasInputs = Boolean(sysInput && diaInput);
+  
   let scanBadgeCount = 1;
   if (hasInputs) {
     scanBadgeCount = (seriesState?.count || 1) + 1;
   } else {
-    if (seriesState) {
-      scanBadgeCount = seriesState.count;
-    }
+    scanBadgeCount = seriesState?.count || 1;
+  }
+
+  let saveBadgeCount = 1;
+  if (hasInputs && seriesState) {
+    saveBadgeCount = seriesState.count;
   }
 
   return (
@@ -1003,9 +1007,9 @@ export const AddRecordSheet = ({
               className="w-full py-[20px] rounded-[28px] bg-[var(--cta-bg)] text-[var(--cta-text)] text-[20px] font-bold flex items-center justify-center gap-2.5 active:scale-[0.99] transition cursor-pointer mt-1"
             >
               <span>Сохранить замер</span>
-              {seriesState && seriesState.count > 1 && (
+              {saveBadgeCount > 1 && (
                 <span className="w-6 h-6 rounded-full bg-white/20 text-white text-[12px] font-black inline-flex items-center justify-center leading-none">
-                  ×{seriesState.count}
+                  ×{saveBadgeCount}
                 </span>
               )}
             </button>
