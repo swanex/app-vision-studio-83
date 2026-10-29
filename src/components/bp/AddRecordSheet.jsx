@@ -489,33 +489,28 @@ export const AddRecordSheet = ({
               )}
             </button>
 
-            <div className="bg-[var(--surface-input)] rounded-[26px] h-[72px] px-5 flex items-center justify-between relative overflow-hidden z-0">
+<div className="bg-[var(--surface-input)] rounded-[24px] h-[60px] pl-4 pr-2 flex items-center justify-between relative overflow-hidden z-0">
               {currentUser && timerProgress > 0 && timerProgress < 100 && (
                 <div 
                   className="absolute left-0 top-0 bottom-0 bg-[var(--tag-bg)] z-[-1]"
-                  style={{ 
-                    width: `${timerProgress}%`, 
-                    transition: 'width 1s linear'
-                  }} 
+                  style={{ width: `${timerProgress}%`, transition: 'width 1s linear' }} 
                 />
               )}
               
-              <span className="text-[18px] font-bold text-[var(--text-primary)] pointer-events-none relative z-10">
+              <span className="text-[18px] font-bold text-[var(--text-label-strong)] pointer-events-none relative z-10">
                 Время замера
               </span>
               
               <button
                 type="button"
                 onClick={() => {
-                  if (document.activeElement instanceof HTMLElement) {
-                    document.activeElement.blur();
-                  }
+                  if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
                   setTempTime(timeInput);
                   setTimePickerOpen(true);
                 }}
-                className="flex items-center gap-2 bg-[var(--surface-tertiary)] rounded-[20px] pl-4 pr-3 py-2.5 cursor-pointer active:scale-95 transition relative z-10 shadow-sm"
+                className="flex items-center justify-center gap-1.5 bg-[var(--surface-tertiary)] rounded-full w-[138px] h-[44px] cursor-pointer active:scale-95 transition relative z-10"
               >
-                <span className="text-[22px] font-extrabold text-[var(--text-primary)] leading-none tabular-nums">
+                <span className="text-[22px] font-extrabold text-[var(--text-primary)] leading-none tabular-nums mt-[1px]">
                   {timeInput}
                 </span>
                 <ChevronDown className="w-5 h-5 text-[var(--text-Subtle)] shrink-0 stroke-[2.5]" />
