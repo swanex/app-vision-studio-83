@@ -23,8 +23,6 @@ export const AddRecordSheet = ({
   const [diaInput, setDiaInput] = useState('');
   const [pulseInput, setPulseInput] = useState('');
   const [noteInput, setNoteInput] = useState('');
-  
-  // Инициализируем строго локальной датой, а не UTC
   const [dateInput, setDateInput] = useState(() => {
     const d = new Date();
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
@@ -72,14 +70,12 @@ export const AddRecordSheet = ({
     }
 
     const now = new Date();
-    // Собираем локальную дату для установки в инпут
     const yyyy = now.getFullYear();
     const mm = String(now.getMonth() + 1).padStart(2, '0');
     const dd = String(now.getDate()).padStart(2, '0');
     const todayIso = `${yyyy}-${mm}-${dd}`;
-    
     setDateInput(todayIso);
-    
+
     const hh = String(now.getHours()).padStart(2, '0');
     const min = String(now.getMinutes()).padStart(2, '0');
     const defaultTime = `${hh}:${min}`;
@@ -321,6 +317,9 @@ export const AddRecordSheet = ({
         <form
           ref={addSheetRef}
           autoComplete="off"
+          autoCorrect="off"
+          autoCapitalize="off"
+          spellCheck="false"
           onSubmit={(e) => e.preventDefault()}
           onTouchStart={(e) => {
             if (!scannerOpen) onTouchStart(e);
@@ -369,13 +368,13 @@ export const AddRecordSheet = ({
                 <input
                   ref={sysRef}
                   type="text"
-                  name="nofill_bp_val_1"
+                  name={`nofill_sys_${Math.random().toString(36).substring(7)}`}
                   inputMode="numeric"
                   enterKeyHint="next"
                   readOnly={!inputsUnlocked}
                   onFocus={() => setInputsUnlocked(true)}
                   onKeyDown={handleInputEnterBlur}
-                  autoComplete="new-password"
+                  autoComplete="off"
                   autoCorrect="off"
                   autoCapitalize="off"
                   spellCheck={false}
@@ -402,13 +401,13 @@ export const AddRecordSheet = ({
                 <input
                   ref={diaRef}
                   type="text"
-                  name="nofill_bp_val_2"
+                  name={`nofill_dia_${Math.random().toString(36).substring(7)}`}
                   inputMode="numeric"
                   enterKeyHint="next"
                   readOnly={!inputsUnlocked}
                   onFocus={() => setInputsUnlocked(true)}
                   onKeyDown={handleInputEnterBlur}
-                  autoComplete="new-password"
+                  autoComplete="off"
                   autoCorrect="off"
                   autoCapitalize="off"
                   spellCheck={false}
@@ -435,13 +434,13 @@ export const AddRecordSheet = ({
                 <input
                   ref={pulseRef}
                   type="text"
-                  name="nofill_bp_val_3"
+                  name={`nofill_pulse_${Math.random().toString(36).substring(7)}`}
                   inputMode="numeric"
                   enterKeyHint="done"
                   readOnly={!inputsUnlocked}
                   onFocus={() => setInputsUnlocked(true)}
                   onKeyDown={handleInputEnterBlur}
-                  autoComplete="new-password"
+                  autoComplete="off"
                   autoCorrect="off"
                   autoCapitalize="off"
                   spellCheck={false}
@@ -461,7 +460,7 @@ export const AddRecordSheet = ({
             <button
               type="button"
               onClick={handleScanButtonClick}
-              className={`w-full h-[52px] rounded-full border bg-transparent font-bold text-[16px] flex items-center justify-center gap-2.5 transition cursor-pointer ${
+              className={`relative w-full h-[60px] rounded-full border bg-transparent font-bold text-[18px] flex items-center justify-center transition cursor-pointer ${
                 currentUser
                   ? 'text-[var(--import-btn-text)] active:scale-[0.99]'
                   : 'text-[var(--scan-btn-disabled-text)]'
@@ -473,23 +472,23 @@ export const AddRecordSheet = ({
               }}
             >
               {scanDemoNotice ? (
-                <span>Только в режиме пользователя</span>
+                <span className="w-full text-center">Только в режиме пользователя</span>
               ) : (
-                <>
-                  <ScanFrameIcon className="w-5 h-5 shrink-0" />
-                  <div className="flex items-center gap-1.5">
+                <div className="relative flex items-center justify-center w-full">
+                  <div className="flex items-center gap-2.5">
+                    <ScanFrameIcon className="w-6 h-6 shrink-0" />
                     <span>Сканировать прибор</span>
-                    {showScanBadge && scanBadgeValue > 1 && (
-                      <span className="w-[22px] h-[22px] rounded-full border-[1.5px] border-current text-[11px] font-black flex items-center justify-center leading-none opacity-80 shrink-0 mt-[1px]">
-                        ×{scanBadgeValue}
-                      </span>
-                    )}
                   </div>
-                </>
+                  {showScanBadge && (
+                    <span className="absolute right-4 w-[26px] h-[26px] rounded-full border-[1.5px] border-current text-[13px] font-black flex items-center justify-center leading-none opacity-80 shrink-0 mt-[1px]">
+                      ×{scanBadgeValue}
+                    </span>
+                  )}
+                </div>
               )}
             </button>
 
-<div className="bg-[var(--surface-input)] rounded-[24px] h-[60px] pl-4 pr-2 flex items-center justify-between relative overflow-hidden z-0">
+            <div className="bg-[var(--surface-input)] rounded-[24px] h-[60px] pl-4 pr-2 flex items-center justify-between relative overflow-hidden z-0">
               {currentUser && timerProgress > 0 && timerProgress < 100 && (
                 <div 
                   className="absolute left-0 top-0 bottom-0 bg-[var(--tag-bg)] z-[-1]"
@@ -550,11 +549,11 @@ export const AddRecordSheet = ({
               </div>
             )}
 
-            <div className="bg-[var(--surface-input)] rounded-[24px] px-5 py-[18px]">
+            <div className="bg-[var(--surface-input)] rounded-[16px] h-[60px] pl-4 pr-5 flex items-center">
               <input
                 ref={noteRef}
                 type="text"
-                name="nofill_bp_custom_memo"
+                name={`nofill_memo_${Math.random().toString(36).substring(7)}`}
                 enterKeyHint="done"
                 readOnly={!inputsUnlocked}
                 onFocus={() => {
@@ -562,8 +561,9 @@ export const AddRecordSheet = ({
                   scrollTargetIntoSheetView(saveCtaRef);
                 }}
                 onKeyDown={handleInputEnterBlur}
-                autoComplete="new-password"
+                autoComplete="off"
                 autoCorrect="off"
+                autoCapitalize="off"
                 spellCheck={false}
                 data-lpignore="true"
                 data-1p-ignore="true"
@@ -581,7 +581,7 @@ export const AddRecordSheet = ({
               ref={saveCtaRef}
               type="button"
               onClick={handleSaveClick}
-              className="w-full py-[20px] rounded-[28px] bg-[var(--cta-bg)] text-[var(--cta-text)] text-[20px] font-bold flex items-center justify-center gap-2.5 active:scale-[0.99] transition cursor-pointer mt-1"
+              className="w-full py-[20px] rounded-full bg-[var(--cta-bg)] text-[var(--cta-text)] text-[20px] font-bold flex items-center justify-center gap-2.5 active:scale-[0.99] transition cursor-pointer mt-1"
             >
               <span>Сохранить замер</span>
               {showSaveBadge && (
