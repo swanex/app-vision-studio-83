@@ -68,7 +68,7 @@ export default function App() {
     try {
       const saved = parseInt(localStorage.getItem(BUILD_STORAGE_KEY) || '0', 10);
       // Принудительно устанавливаем актуальную версию, чтобы не было отката
-      const resolved = Math.max(51, isNaN(saved) ? 0 : saved);
+      const resolved = Math.max(52, isNaN(saved) ? 0 : saved);
       localStorage.setItem(BUILD_STORAGE_KEY, String(resolved));
       return resolved;
     } catch {
@@ -352,33 +352,31 @@ export default function App() {
     });
   }, []);
 
-  const fetchFromCloud = useCallback(async (activeUser, silent = false) => {
+const fetchFromCloud = useCallback(async (activeUser, silent = false) => {
     if (!activeUser) return;
     if (!silent) setCloudStatus('syncing');
 
     try {
       const serverData = await apiFetchUserRecords(activeUser);
       if (Array.isArray(serverData)) {
-        // Двухсторонний merge: берём всё, что есть локально, и добавляем новое с сервера
+        // Двухсторонний merge: не затираем, а дополняем локальные данные серверными
         setRecords((prevRecords) => {
           const merged = [...prevRecords];
-          
           serverData.forEach(serverRecord => {
-            const exists = merged.find(r => r.id === serverRecord.id);
-            if (!exists) {
+            // Если записи с таким id еще нет, добавляем её
+            if (!merged.find(r => r.id === serverRecord.id)) {
               merged.push(serverRecord);
             }
           });
-
           const unique = deduplicateRecords(merged);
           localStorage.setItem(`bp_records_cache_${activeUser.username}`, JSON.stringify(unique));
           return unique;
         });
         
-        // Пытаемся отправить в облако те записи, которые есть локально, но нет на сервере
+        // Фоновая отправка локальных записей (тех, что не пришли с сервера)
         syncUnsentRecords(activeUser, serverData);
         
-        if (!silent) setCloudStatus('online');
+        if (!silent) setCloudStatus('online'); // Заменили success на online для корректной иконки
       } else {
         if (!silent) setCloudStatus('error');
       }
@@ -386,7 +384,7 @@ export default function App() {
       console.error(e);
       if (!silent) setCloudStatus('error');
     }
-  }, [syncUnsentRecords]);
+  }, [syncUnsentRecords]); // <-- Убрали cloudStatus из зависимостей, чтобы избежать цикла
 
   useEffect(() => {
     if (currentUser) {
