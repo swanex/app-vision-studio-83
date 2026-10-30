@@ -398,13 +398,27 @@ const fetchFromCloud = useCallback(async (activeUser, silent = false) => {
     setConfirmDeleteId(null);
   }, [activeTab]);
 
-  const handleAuthSuccess = useCallback(
+const handleAuthSuccess = useCallback(
     async (userObj, mode, shouldUploadLegacyAvatar, legacyAvatar) => {
       saveSessionLocally(userObj);
+      
+      // ЗАЩИТА ОТ ДЕМО-ЗОМБИ:
+      // Перед логином проверяем, не баловался ли человек в демо-режиме
+      setRecords((currentRecords) => {
+        // Если все текущие записи в памяти — это демо (id начинается на 'demo-')
+        const hasOnlyDemoRecords = currentRecords.length > 0 && currentRecords.every(r => r.id.startsWith('demo-'));
+        
+        if (hasOnlyDemoRecords) {
+           return []; // Очищаем стейт, чтобы не залить 100 демо-записей в облако пользователя
+        }
+        return currentRecords; // Если есть реальные оффлайн-замеры, оставляем их для слияния
+      });
+
       if (mode === 'login') {
         if (shouldUploadLegacyAvatar && legacyAvatar) {
           updateProfileInCloud(userObj, { avatar: legacyAvatar });
         }
+        // Запускаем fetchFromCloud только после очистки стейта
         await fetchFromCloud(userObj);
       } else {
         setRecords([]);
