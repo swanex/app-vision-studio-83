@@ -62,6 +62,9 @@ import { AuthSheet } from './bp/AuthSheet';
 import { AddRecordSheet } from './bp/AddRecordSheet';
 import { SettingsSheet } from './bp/SettingsSheet';
 
+import { GradientPressureChart } from './bp/GradientPressureChart';
+import { getUserPressureThresholds } from './bp/pressureThresholds';
+
 
 export default function App() {
   const [buildNumber] = useState(() => {
@@ -1093,88 +1096,96 @@ const handleAuthSuccess = useCallback(
                   </>
                 )}
 
-                {chartData.length > 0 ? (
-                  <ResponsiveContainer width="100%" height="100%" className="relative z-0">
-                    <AreaChart data={chartData} margin={{ top: 12, right: 0, left: -26, bottom: 0 }}>
-                      <defs>
-                        <linearGradient id="sysFill" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="var(--chart-sys-grad-start)" stopOpacity={theme === 'dark' ? 0.35 : 0.8} />
-                          <stop offset="95%" stopColor="var(--chart-sys-grad-end)" stopOpacity={0.05} />
-                        </linearGradient>
-                        <linearGradient id="diaFill" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="var(--chart-dia-grad-start)" stopOpacity={theme === 'dark' ? 0.32 : 0.75} />
-                          <stop offset="95%" stopColor="var(--chart-dia-grad-end)" stopOpacity={0.05} />
-                        </linearGradient>
-                      </defs>
-                      <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" />
-                      <XAxis
-                        dataKey="shortLabel"
-                        axisLine={false}
-                        tickLine={false}
-                        tick={{ fontSize: 13, fill: 'var(--text-muted)' }}
-                        minTickGap={34}
-                      />
-                      <YAxis
-                        domain={[60, 152]}
-                        axisLine={false}
-                        tickLine={false}
-                        tick={{ fontSize: 13, fill: 'var(--text-muted)' }}
-                        ticks={[75, 100, 125]}
-                      />
-                      <Tooltip
-                        wrapperStyle={{ zIndex: 100 }}
-                        content={({ active, payload }) => {
-                          if (!active || !payload || !payload.length) return null;
-                          const item = payload[0].payload;
-                          return (
-                            <div className="bg-[var(--tooltip-bg)] text-[var(--tooltip-text)] rounded-[20px] px-4 py-3">
-                              <div className="text-xs text-[var(--tooltip-sub)] mb-0.5">
-                                {formatHumanDate(item.date)} · {item.time}
-                              </div>
-                              <div className="text-lg font-bold">
-                                {item.sys}/{item.dia}{' '}
-                                {item.pulse && (
-                                  <span className="text-sm font-normal text-[#D6EBB4] ml-1">
-                                    ♥ {item.pulse}
-                                  </span>
+{chartData.length > 0 ? (
+                  currentUser?.username === 'test' ? (
+                    <GradientPressureChart
+                      chartData={chartData}
+                      theme={theme}
+                      thresholds={getUserPressureThresholds(currentUser)}
+                      onInitialAnimationEnd={handleChartInitialAnimationEnd}
+                    />
+                  ) : (
+                    <ResponsiveContainer width="100%" height="100%" className="relative z-0">
+                      <AreaChart data={chartData} margin={{ top: 12, right: 0, left: -26, bottom: 0 }}>
+                        <defs>
+                          <linearGradient id="sysFill" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="5%" stopColor="var(--chart-sys-grad-start)" stopOpacity={theme === 'dark' ? 0.35 : 0.8} />
+                            <stop offset="95%" stopColor="var(--chart-sys-grad-end)" stopOpacity={0.05} />
+                          </linearGradient>
+                          <linearGradient id="diaFill" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="5%" stopColor="var(--chart-dia-grad-start)" stopOpacity={theme === 'dark' ? 0.32 : 0.75} />
+                            <stop offset="95%" stopColor="var(--chart-dia-grad-end)" stopOpacity={0.05} />
+                          </linearGradient>
+                        </defs>
+                        <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" />
+                        <XAxis
+                          dataKey="shortLabel"
+                          axisLine={false}
+                          tickLine={false}
+                          tick={{ fontSize: 13, fill: 'var(--text-muted)' }}
+                          minTickGap={34}
+                        />
+                        <YAxis
+                          domain={[60, 152]}
+                          axisLine={false}
+                          tickLine={false}
+                          tick={{ fontSize: 13, fill: 'var(--text-muted)' }}
+                          ticks={[75, 100, 125]}
+                        />
+                        <Tooltip
+                          wrapperStyle={{ zIndex: 100 }}
+                          content={({ active, payload }) => {
+                            if (!active || !payload || !payload.length) return null;
+                            const item = payload[0].payload;
+                            return (
+                              <div className="bg-[var(--tooltip-bg)] text-[var(--tooltip-text)] rounded-[20px] px-4 py-3">
+                                <div className="text-xs text-[var(--tooltip-sub)] mb-0.5">
+                                  {formatHumanDate(item.date)} · {item.time}
+                                </div>
+                                <div className="text-lg font-bold">
+                                  {item.sys}/{item.dia}{' '}
+                                  {item.pulse && (
+                                    <span className="text-sm font-normal text-[#D6EBB4] ml-1">
+                                      ♥ {item.pulse}
+                                    </span>
+                                  )}
+                                </div>
+                                {item.note && (
+                                  <div className="text-xs text-[var(--tooltip-note)] mt-1 max-w-[200px] leading-snug">
+                                    {item.note}
+                                  </div>
                                 )}
                               </div>
-                              {item.note && (
-                                <div className="text-xs text-[var(--tooltip-note)] mt-1 max-w-[200px] leading-snug">
-                                  {item.note}
-                                </div>
-                              )}
-                            </div>
-                          );
-                        }}
-                      />
-                      <Area
-                        type="monotone"
-                        dataKey="sys"
-                        stroke="var(--upper-pressure)"
-                        strokeWidth={2.4}
-                        fill="url(#sysFill)"
-                        animationDuration={380}
-                        onAnimationEnd={handleChartInitialAnimationEnd}
-                        activeDot={{ r: 5, fill: 'var(--upper-pressure)', stroke: 'var(--dot-stroke)', strokeWidth: 2 }}
-                      />
-                      <Area
-                        type="monotone"
-                        dataKey="dia"
-                        stroke="var(--lower-pressure)"
-                        strokeWidth={2.4}
-                        fill="url(#diaFill)"
-                        animationDuration={380}
-                        activeDot={{ r: 5, fill: 'var(--lower-pressure)', stroke: 'var(--dot-stroke)', strokeWidth: 2 }}
-                      />
-                    </AreaChart>
-                  </ResponsiveContainer>
+                            );
+                          }}
+                        />
+                        <Area
+                          type="monotone"
+                          dataKey="sys"
+                          stroke="var(--upper-pressure)"
+                          strokeWidth={2.4}
+                          fill="url(#sysFill)"
+                          animationDuration={380}
+                          onAnimationEnd={handleChartInitialAnimationEnd}
+                          activeDot={{ r: 5, fill: 'var(--upper-pressure)', stroke: 'var(--dot-stroke)', strokeWidth: 2 }}
+                        />
+                        <Area
+                          type="monotone"
+                          dataKey="dia"
+                          stroke="var(--lower-pressure)"
+                          strokeWidth={2.4}
+                          fill="url(#diaFill)"
+                          animationDuration={380}
+                          activeDot={{ r: 5, fill: 'var(--lower-pressure)', stroke: 'var(--dot-stroke)', strokeWidth: 2 }}
+                        />
+                      </AreaChart>
+                    </ResponsiveContainer>
+                  )
                 ) : (
                   <div className="h-full flex items-center justify-center text-center px-6 text-sm text-[var(--text-faint)]">
                     Нажмите «+» внизу экрана, чтобы добавить первый замер
                   </div>
                 )}
-              </div>
 
               <div className="mt-4 flex items-center justify-between gap-2.5">
                 <button
