@@ -387,7 +387,7 @@ const fetchFromCloud = useCallback(async (activeUser, silent = false) => {
       console.error(e);
       if (!silent) setCloudStatus('error');
     }
-  }, [syncUnsentRecords]); // <-- Убрали cloudStatus из зависимостей, чтобы избежать цикла
+  }, [syncUnsentRecords]);
 
   useEffect(() => {
     if (currentUser) {
@@ -1096,7 +1096,7 @@ const handleAuthSuccess = useCallback(
                   </>
                 )}
 
-{chartData.length > 0 ? (
+                {chartData.length > 0 ? (
                   currentUser?.username === 'test' ? (
                     <GradientPressureChart
                       chartData={chartData}
@@ -1186,6 +1186,7 @@ const handleAuthSuccess = useCallback(
                     Нажмите «+» внизу экрана, чтобы добавить первый замер
                   </div>
                 )}
+              </div>
 
               <div className="mt-4 flex items-center justify-between gap-2.5">
                 <button
@@ -1447,7 +1448,7 @@ const handleAuthSuccess = useCallback(
           onOverlayStateChange={setSubOverlayState}
         />
 
-<SettingsSheet
+        <SettingsSheet
           isOpen={activeSheet === 'data'}
           onClose={() => setActiveSheet(null)}
           currentUser={currentUser}
@@ -1465,7 +1466,8 @@ const handleAuthSuccess = useCallback(
           onTouchStart={handleSheetTouchStart}
           onTouchMove={handleSheetTouchMove}
           onTouchEnd={handleSheetTouchEnd}
-        />      </div>
+        />
+      </div>
     </div>
   );
 }
