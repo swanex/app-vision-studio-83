@@ -20,9 +20,7 @@ import {
   Moon,
   Camera,
   ChevronRight,
-  User,
-  MoveUp, // Короткая стрелка вверх
-  MoveDown // Короткая стрелка вниз
+  User
 } from 'lucide-react';
 
 import {
@@ -70,7 +68,21 @@ import {
   STROKE_GRADIENT_PALETTE
 } from './bp/pressureThresholds';
 
-// Иконки для обновленных нижних карточек
+// Кастомные короткие стрелки для бейджей (на базе пропорций SVG из макета)
+const BadgeArrowDown = ({ className }) => (
+  <svg width="14" height="14" viewBox="0 0 14 14" fill="none" className={className}>
+    <path d="M7 4V11" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+    <path d="M4 8L7 11L10 8" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+  </svg>
+);
+
+const BadgeArrowUp = ({ className }) => (
+  <svg width="14" height="14" viewBox="0 0 14 14" fill="none" className={className}>
+    <path d="M7 10V3" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+    <path d="M4 6L7 3L10 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+  </svg>
+);
+
 const LatestStopwatchIcon = () => (
   <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
     <rect x="9" y="2" width="6" height="2" rx="1" fill="#B5B4A6" />
@@ -96,16 +108,15 @@ const NormalHeartCheckIcon = () => (
   </svg>
 );
 
-// Вспомогательный компонент для бейджа статуса (поддерживает иконки-стрелочки)
 const StatusBadge = ({ badge }) => {
   return (
     <span
-      className="h-[26px] px-3 rounded-full text-[12px] font-bold inline-flex items-center justify-center shrink-0 leading-none gap-0.5"
+      className="h-[26px] px-3 rounded-full text-[12px] font-bold inline-flex items-center justify-center shrink-0 leading-none gap-[1px]"
       style={{ backgroundColor: badge.bg, color: badge.textCol }}
     >
       <span>{badge.text}</span>
-      {badge.icon === 'up' && <MoveUp className="w-3.5 h-3.5" strokeWidth={3} />}
-      {badge.icon === 'down' && <MoveDown className="w-3.5 h-3.5" strokeWidth={3} />}
+      {badge.icon === 'up' && <BadgeArrowUp className="w-3.5 h-3.5 mt-[1px]" />}
+      {badge.icon === 'down' && <BadgeArrowDown className="w-3.5 h-3.5 mt-[1px]" />}
     </span>
   );
 };
@@ -115,11 +126,11 @@ export default function App() {
   const [buildNumber] = useState(() => {
     try {
       const saved = parseInt(localStorage.getItem(BUILD_STORAGE_KEY) || '0', 10);
-      const resolved = Math.max(54, isNaN(saved) ? 0 : saved);
+      const resolved = Math.max(55, isNaN(saved) ? 0 : saved);
       localStorage.setItem(BUILD_STORAGE_KEY, String(resolved));
       return resolved;
     } catch {
-      return 54;
+      return 55;
     }
   });
   const appVersionString = `${APP_BASE_VERSION}.${buildNumber}`;
@@ -1126,7 +1137,6 @@ export default function App() {
                   onInitialComplete={handleInitialAvgComplete}
                 />
                 
-                {/* Используем новый StatusBadge, поддерживающий иконки */}
                 <div
                   className={`transition-opacity duration-300 ${
                     badgeVisible || initialAvgDoneRef.current ? 'opacity-100' : 'opacity-0'
@@ -1263,7 +1273,6 @@ export default function App() {
                 )}
               </div>
 
-              {/* Кнопки фильтров */}
               <div className="mt-4 flex items-center justify-between gap-2.5">
                 <button
                   onClick={() => setDayTimeFilter('all')}
@@ -1351,8 +1360,7 @@ export default function App() {
                       <br />
                       замер
                     </div>
-                    {/* Кругляш изменен на w-[40px] h-[40px] */}
-                    <div className="w-[40px] h-[40px] rounded-full bg-[var(--stat-icon-circle-bg)] flex items-center justify-center shrink-0">
+                    <div className="w-10 h-10 rounded-full bg-[var(--stat-icon-circle-bg)] flex items-center justify-center shrink-0">
                       <LatestStopwatchIcon />
                     </div>
                   </div>
@@ -1393,8 +1401,7 @@ export default function App() {
                       <br />
                       в норме
                     </div>
-                    {/* Кругляш изменен на w-[40px] h-[40px] */}
-                    <div className="w-[40px] h-[40px] rounded-full bg-[var(--stat-icon-circle-bg)] flex items-center justify-center shrink-0">
+                    <div className="w-10 h-10 rounded-full bg-[var(--stat-icon-circle-bg)] flex items-center justify-center shrink-0">
                       <NormalHeartCheckIcon />
                     </div>
                   </div>
@@ -1417,8 +1424,7 @@ export default function App() {
                       <br />
                       замер
                     </div>
-                    {/* Кругляш изменен на w-[40px] h-[40px] */}
-                    <div className="w-[40px] h-[40px] rounded-full bg-[var(--stat-icon-circle-bg)] flex items-center justify-center text-[var(--text-primary)] shrink-0">
+                    <div className="w-10 h-10 rounded-full bg-[var(--stat-icon-circle-bg)] flex items-center justify-center text-[var(--text-primary)] shrink-0">
                       <Activity className="w-[22px] h-[22px]" strokeWidth={2.2} />
                     </div>
                   </div>
@@ -1439,8 +1445,7 @@ export default function App() {
                       <br />
                       пульс
                     </div>
-                    {/* Кругляш изменен на w-[40px] h-[40px] */}
-                    <div className="w-[40px] h-[40px] rounded-full bg-[var(--stat-icon-circle-bg)] flex items-center justify-center text-[var(--text-primary)] shrink-0">
+                    <div className="w-10 h-10 rounded-full bg-[var(--stat-icon-circle-bg)] flex items-center justify-center text-[var(--text-primary)] shrink-0">
                       <Heart className="w-[22px] h-[22px]" strokeWidth={2.2} />
                     </div>
                   </div>
@@ -1491,7 +1496,6 @@ export default function App() {
                         )}
                       </div>
 
-                      {/* Обновленный StatusBadge с поддержкой иконок */}
                       <StatusBadge badge={badge} />
                     </div>
 
