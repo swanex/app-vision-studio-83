@@ -39,39 +39,44 @@ export const DEFAULT_PRESSURE_THRESHOLDS = {
 // Точные цвета бейджей статусов и карточки нормы из макета Figma
 export const STATUS_BADGE_PALETTE = {
   low: {
-    text: 'Низкое ↓',
-    lightBg: '#AA87FF',
-    lightText: '#141A16',
+    text: 'Низкое', // Иконка со стрелкой теперь рендерится отдельно в компоненте AnimatedStatusBadge / History
+    lightBg: '#A98BFF',
+    lightText: '#2B1766', // Глубокий индиго
     darkBg: '#46307A',
-    darkText: '#EAE2FF'
+    darkText: '#EAE2FF',
+    icon: 'down'
   },
   belowNormal: {
     text: 'Ниже нормы',
     lightBg: '#DACFF1',
     lightText: '#141A16',
     darkBg: '#32284A',
-    darkText: '#DACFF1'
+    darkText: '#DACFF1',
+    icon: null
   },
   normal: {
     text: 'В норме',
     lightBg: '#DCEBFE',
     lightText: '#141A16',
     darkBg: '#223247',
-    darkText: '#DCEBFE'
+    darkText: '#DCEBFE',
+    icon: null
   },
   aboveNormal: {
     text: 'Выше нормы',
     lightBg: '#F2E5D5',
     lightText: '#141A16',
     darkBg: '#3E342A',
-    darkText: '#F2E5D5'
+    darkText: '#F2E5D5',
+    icon: null
   },
   high: {
-    text: 'Высокое ↑',
-    lightBg: '#FCAD62',
-    lightText: '#141A16',
+    text: 'Высокое', // Иконка со стрелкой теперь рендерится отдельно
+    lightBg: '#FFB066',
+    lightText: '#5C2D00', // Плотный коричневый
     darkBg: '#5C3818',
-    darkText: '#FFD6AD'
+    darkText: '#FFD6AD',
+    icon: 'up'
   }
 };
 
@@ -135,7 +140,8 @@ export const evaluatePressureStatus = (
       isNormal: false,
       text: 'Нет данных',
       bg: theme === 'dark' ? '#252F28' : '#E4E4E4',
-      textCol: theme === 'dark' ? '#96A099' : '#7A827D'
+      textCol: theme === 'dark' ? '#96A099' : '#7A827D',
+      icon: null
     };
   }
 
@@ -154,7 +160,8 @@ export const evaluatePressureStatus = (
     isNormal,
     text: entry.text,
     bg: theme === 'dark' ? entry.darkBg : entry.lightBg,
-    textCol: theme === 'dark' ? entry.darkText : entry.lightText
+    textCol: theme === 'dark' ? entry.darkText : entry.lightText,
+    icon: entry.icon
   });
 
   // 1. Высокое ↑ (выход на уровень гипертонии: >= 140 или >= 90)
