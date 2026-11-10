@@ -20,7 +20,9 @@ import {
   Moon,
   Camera,
   ChevronRight,
-  User
+  User,
+  MoveUp, // Короткая стрелка вверх
+  MoveDown // Короткая стрелка вниз
 } from 'lucide-react';
 
 import {
@@ -68,7 +70,7 @@ import {
   STROKE_GRADIENT_PALETTE
 } from './bp/pressureThresholds';
 
-// Иконки для обновленных нижних карточек (Секундомер и Сердце с галочкой)
+// Иконки для обновленных нижних карточек
 const LatestStopwatchIcon = () => (
   <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
     <rect x="9" y="2" width="6" height="2" rx="1" fill="#B5B4A6" />
@@ -94,15 +96,30 @@ const NormalHeartCheckIcon = () => (
   </svg>
 );
 
+// Вспомогательный компонент для бейджа статуса (поддерживает иконки-стрелочки)
+const StatusBadge = ({ badge }) => {
+  return (
+    <span
+      className="h-[26px] px-3 rounded-full text-[12px] font-bold inline-flex items-center justify-center shrink-0 leading-none gap-0.5"
+      style={{ backgroundColor: badge.bg, color: badge.textCol }}
+    >
+      <span>{badge.text}</span>
+      {badge.icon === 'up' && <MoveUp className="w-3.5 h-3.5" strokeWidth={3} />}
+      {badge.icon === 'down' && <MoveDown className="w-3.5 h-3.5" strokeWidth={3} />}
+    </span>
+  );
+};
+
+
 export default function App() {
   const [buildNumber] = useState(() => {
     try {
       const saved = parseInt(localStorage.getItem(BUILD_STORAGE_KEY) || '0', 10);
-      const resolved = Math.max(53, isNaN(saved) ? 0 : saved);
+      const resolved = Math.max(54, isNaN(saved) ? 0 : saved);
       localStorage.setItem(BUILD_STORAGE_KEY, String(resolved));
       return resolved;
     } catch {
-      return 53;
+      return 54;
     }
   });
   const appVersionString = `${APP_BASE_VERSION}.${buildNumber}`;
@@ -189,11 +206,9 @@ export default function App() {
   const [badgeVisible, setBadgeVisible] = useState(false);
   const [legendVisible, setLegendVisible] = useState(false);
 
-  // Флаг тестового контура для пользователя test
   const isTestUser = currentUser?.username === 'test';
   const userThresholds = useMemo(() => getUserPressureThresholds(currentUser), [currentUser]);
 
-  // Единый резолвер статуса (для test — новая цветовая схема и пороги, для остальных — текущая)
   const resolveRecordStatus = useCallback(
     (sys, dia) => {
       if (isTestUser) {
@@ -1110,10 +1125,15 @@ export default function App() {
                   isInitialDone={initialAvgDoneRef.current}
                   onInitialComplete={handleInitialAvgComplete}
                 />
-                <AnimatedStatusBadge
-                  badge={avgBadge}
-                  visible={badgeVisible || initialAvgDoneRef.current}
-                />
+                
+                {/* Используем новый StatusBadge, поддерживающий иконки */}
+                <div
+                  className={`transition-opacity duration-300 ${
+                    badgeVisible || initialAvgDoneRef.current ? 'opacity-100' : 'opacity-0'
+                  }`}
+                >
+                   <StatusBadge badge={avgBadge} />
+                </div>
               </div>
 
               <div className="mb-4">
@@ -1243,7 +1263,7 @@ export default function App() {
                 )}
               </div>
 
-              {/* Кнопки фильтров Все / Утро / Вечер (для test — светло-серые с контурными серыми иконками) */}
+              {/* Кнопки фильтров */}
               <div className="mt-4 flex items-center justify-between gap-2.5">
                 <button
                   onClick={() => setDayTimeFilter('all')}
@@ -1306,10 +1326,8 @@ export default function App() {
               </div>
             </section>
 
-            {/* Нижние карточки: для test — обновленные цвета и карточка "Замеров в норме" */}
             {isTestUser ? (
               <section className="grid grid-cols-2 gap-3.5 pt-1">
-                {/* Карточка 1: Последний замер */}
                 <div
                   className="rounded-[28px] p-5 flex flex-col justify-between h-[152px]"
                   style={{
@@ -1333,13 +1351,13 @@ export default function App() {
                       <br />
                       замер
                     </div>
-                    <div className="w-[44px] h-[44px] rounded-full bg-[var(--stat-icon-circle-bg)] flex items-center justify-center shrink-0">
+                    {/* Кругляш изменен на w-[40px] h-[40px] */}
+                    <div className="w-[40px] h-[40px] rounded-full bg-[var(--stat-icon-circle-bg)] flex items-center justify-center shrink-0">
                       <LatestStopwatchIcon />
                     </div>
                   </div>
                 </div>
 
-                {/* Карточка 2: Замеров в норме (M из N + полоса прогресса) */}
                 <div
                   className="rounded-[28px] p-5 flex flex-col justify-between h-[152px]"
                   style={{
@@ -1353,7 +1371,6 @@ export default function App() {
                       <span>{stats.totalCount}</span>
                     </div>
 
-                    {/* Полоса M/N: темный сегмент на долю M/N, остаток белый */}
                     <div
                       className="w-full h-[8px] rounded-full overflow-hidden mt-3 flex"
                       style={{
@@ -1376,7 +1393,8 @@ export default function App() {
                       <br />
                       в норме
                     </div>
-                    <div className="w-[44px] h-[44px] rounded-full bg-[var(--stat-icon-circle-bg)] flex items-center justify-center shrink-0">
+                    {/* Кругляш изменен на w-[40px] h-[40px] */}
+                    <div className="w-[40px] h-[40px] rounded-full bg-[var(--stat-icon-circle-bg)] flex items-center justify-center shrink-0">
                       <NormalHeartCheckIcon />
                     </div>
                   </div>
@@ -1399,7 +1417,8 @@ export default function App() {
                       <br />
                       замер
                     </div>
-                    <div className="w-[44px] h-[44px] rounded-full bg-[var(--stat-icon-circle-bg)] flex items-center justify-center text-[var(--text-primary)] shrink-0">
+                    {/* Кругляш изменен на w-[40px] h-[40px] */}
+                    <div className="w-[40px] h-[40px] rounded-full bg-[var(--stat-icon-circle-bg)] flex items-center justify-center text-[var(--text-primary)] shrink-0">
                       <Activity className="w-[22px] h-[22px]" strokeWidth={2.2} />
                     </div>
                   </div>
@@ -1420,7 +1439,8 @@ export default function App() {
                       <br />
                       пульс
                     </div>
-                    <div className="w-[44px] h-[44px] rounded-full bg-[var(--stat-icon-circle-bg)] flex items-center justify-center text-[var(--text-primary)] shrink-0">
+                    {/* Кругляш изменен на w-[40px] h-[40px] */}
+                    <div className="w-[40px] h-[40px] rounded-full bg-[var(--stat-icon-circle-bg)] flex items-center justify-center text-[var(--text-primary)] shrink-0">
                       <Heart className="w-[22px] h-[22px]" strokeWidth={2.2} />
                     </div>
                   </div>
@@ -1471,12 +1491,8 @@ export default function App() {
                         )}
                       </div>
 
-                      <span
-                        className="h-[26px] px-3 rounded-full text-[12px] font-bold inline-flex items-center justify-center shrink-0 leading-none"
-                        style={{ backgroundColor: badge.bg, color: badge.textCol }}
-                      >
-                        {badge.text}
-                      </span>
+                      {/* Обновленный StatusBadge с поддержкой иконок */}
+                      <StatusBadge badge={badge} />
                     </div>
 
                     <div className="mt-3 flex items-end justify-between relative min-h-[42px]">
