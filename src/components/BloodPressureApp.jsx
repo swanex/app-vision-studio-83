@@ -68,7 +68,7 @@ import {
   STROKE_GRADIENT_PALETTE
 } from './bp/pressureThresholds';
 
-// Кастомные короткие стрелки для бейджей (на базе пропорций SVG из макета)
+// Кастомные короткие стрелки для бейджей (на базе пропорций SVG из макета) - толщина 1.5
 const BadgeArrowDown = ({ className }) => (
   <svg width="14" height="14" viewBox="0 0 14 14" fill="none" className={className}>
     <path d="M7 4V11" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
@@ -126,11 +126,11 @@ export default function App() {
   const [buildNumber] = useState(() => {
     try {
       const saved = parseInt(localStorage.getItem(BUILD_STORAGE_KEY) || '0', 10);
-      const resolved = Math.max(55, isNaN(saved) ? 0 : saved);
+      const resolved = Math.max(53, isNaN(saved) ? 0 : saved); // Версия поднята
       localStorage.setItem(BUILD_STORAGE_KEY, String(resolved));
       return resolved;
     } catch {
-      return 55;
+      return 53;
     }
   });
   const appVersionString = `${APP_BASE_VERSION}.${buildNumber}`;
@@ -217,7 +217,8 @@ export default function App() {
   const [badgeVisible, setBadgeVisible] = useState(false);
   const [legendVisible, setLegendVisible] = useState(false);
 
-  const isTestUser = currentUser?.username === 'test';
+  // Для версии 1.0.53 ВСЕ пользователи используют новые градиенты и логику
+  const isTestUser = true; 
   const userThresholds = useMemo(() => getUserPressureThresholds(currentUser), [currentUser]);
 
   const resolveRecordStatus = useCallback(
@@ -1273,6 +1274,7 @@ export default function App() {
                 )}
               </div>
 
+              {/* Кнопки фильтров */}
               <div className="mt-4 flex items-center justify-between gap-2.5">
                 <button
                   onClick={() => setDayTimeFilter('all')}
@@ -1348,13 +1350,13 @@ export default function App() {
                       {latestRec ? `${latestRec.sys}/${latestRec.dia}` : '–'}
                     </div>
                     <div
-  className="text-[14px] font-bold mt-1.5"
-  style={{ color: theme === 'dark' ? 'var(--text-muted)' : '#7A7D7A' }}
->
-  {latestRec 
-    ? new Intl.DateTimeFormat('ru-RU', { day: 'numeric', month: 'long' }).format(new Date(latestRec.date)) 
-    : '–'}
-</div>
+                      className="text-[14px] font-bold mt-1.5"
+                      style={{ color: theme === 'dark' ? 'var(--text-muted)' : '#7A7D7A' }}
+                    >
+                      {latestRec 
+                        ? new Intl.DateTimeFormat('ru-RU', { day: 'numeric', month: 'long' }).format(new Date(latestRec.date)) 
+                        : '–'}
+                    </div>
                   </div>
                   <div className="flex items-end justify-between">
                     <div className="text-[14px] font-bold leading-tight text-[var(--text-primary)]">
@@ -1417,10 +1419,10 @@ export default function App() {
                       {latestRec ? `${latestRec.sys}/${latestRec.dia}` : '–'}
                     </div>
                     <div className="text-[14px] font-bold text-[var(--card-latest-date)] mt-1.5">
-  {latestRec 
-    ? new Intl.DateTimeFormat('ru-RU', { day: 'numeric', month: 'long' }).format(new Date(latestRec.date)) 
-    : '–'}
-</div>
+                      {latestRec 
+                        ? new Intl.DateTimeFormat('ru-RU', { day: 'numeric', month: 'long' }).format(new Date(latestRec.date)) 
+                        : '–'}
+                    </div>
                   </div>
                   <div className="flex items-end justify-between">
                     <div className="text-[14px] font-bold leading-tight text-[var(--text-primary)]">
