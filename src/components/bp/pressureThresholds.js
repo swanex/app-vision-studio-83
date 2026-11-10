@@ -1,5 +1,4 @@
-// Конфигурация пороговых значений, целевой нормы и цветовых схем графика (ESC/ESH + Figma Spec)
-// Все пороги вынесены в единый конфигурационный объект для будущего управления из настроек профиля.
+// Конфигурация пороговых значений, целевой нормы и цветовых схем графика и бейджей (Figma Spec V3)
 
 export const DEFAULT_PRESSURE_THRESHOLDS = {
   // Целевая норма (отображается двумя пунктирными линиями и цифрами слева на графике)
@@ -8,10 +7,13 @@ export const DEFAULT_PRESSURE_THRESHOLDS = {
     dia: 80
   },
   // Верхнее (систолическое) давление:
-  // 100..129 — зеленый коридор ("В норме")
-  // > 129 — начало перехода в желто-оранжевый (130..139 "Повышенное", >= 140 "Высокое")
-  // < 100 — начало перехода в фиолетовый ("Низкое")
+  // 100..129 — "В норме" (зеленый коридор)
+  // 130..139 — "Выше нормы"
+  // >= 140   — "Высокое ↑"
+  // 90..99   — "Ниже нормы"
+  // < 90     — "Низкое ↓"
   systolic: {
+    veryLow: 90,
     low: 100,
     normalMax: 129,
     high: 140,
@@ -19,10 +21,13 @@ export const DEFAULT_PRESSURE_THRESHOLDS = {
     lowFullColorAt: 88
   },
   // Нижнее (диастолическое) давление:
-  // 60..84 — бирюзово-голубой коридор ("В норме")
-  // > 84 — начало перехода в желто-оранжевый (85..89 "Повышенное", >= 90 "Высокое")
-  // < 60 — начало перехода в фиолетовый ("Низкое")
+  // 60..84 — "В норме" (бирюзово-голубой коридор)
+  // 85..89 — "Выше нормы"
+  // >= 90  — "Высокое ↑"
+  // 55..59 — "Ниже нормы"
+  // < 55   — "Низкое ↓"
   diastolic: {
+    veryLow: 55,
     low: 60,
     normalMax: 84,
     high: 90,
@@ -31,7 +36,46 @@ export const DEFAULT_PRESSURE_THRESHOLDS = {
   }
 };
 
-// Сочная палитра линий и заливок из раскладки Figma
+// Точные цвета бейджей статусов и карточки нормы из макета Figma
+export const STATUS_BADGE_PALETTE = {
+  low: {
+    text: 'Низкое ↓',
+    lightBg: '#AA87FF',
+    lightText: '#141A16',
+    darkBg: '#46307A',
+    darkText: '#EAE2FF'
+  },
+  belowNormal: {
+    text: 'Ниже нормы',
+    lightBg: '#DACFF1',
+    lightText: '#141A16',
+    darkBg: '#32284A',
+    darkText: '#DACFF1'
+  },
+  normal: {
+    text: 'В норме',
+    lightBg: '#DCEBFE',
+    lightText: '#141A16',
+    darkBg: '#223247',
+    darkText: '#DCEBFE'
+  },
+  aboveNormal: {
+    text: 'Выше нормы',
+    lightBg: '#F2E5D5',
+    lightText: '#141A16',
+    darkBg: '#3E342A',
+    darkText: '#F2E5D5'
+  },
+  high: {
+    text: 'Высокое ↑',
+    lightBg: '#FCAD62',
+    lightText: '#141A16',
+    darkBg: '#5C3818',
+    darkText: '#FFD6AD'
+  }
+};
+
+// Сочная палитра линий и заливок графика из раскладки Figma
 export const STROKE_GRADIENT_PALETTE = {
   systolic: {
     highPeak: '#FDAD62',      // 0% — оранжевый пик
@@ -51,8 +95,6 @@ export const STROKE_GRADIENT_PALETTE = {
 
 /**
  * Возвращает индивидуальные пороги и целевую норму пользователя.
- * Если в профиле пользователя (user.pressureThresholds) будут заданы персональные настройки,
- * они безопасно переопределят дефолтные константы.
  */
 export const getUserPressureThresholds = (user) => {
   if (!user?.pressureThresholds) {
@@ -77,7 +119,7 @@ export const getUserPressureThresholds = (user) => {
 };
 
 /**
- * ЕДИНАЯ ФУНКЦИЯ ОПРЕДЕЛЕНИЯ СТАТУСА ДАВЛЕНИЯ
+ * ЕДИНАЯ ФУНКЦИЯ ОПРЕДЕЛЕНИЯ СТАТУСА ДАВЛЕНИЯ (5 уровней)
  * Синхронизирована с порогами цветового кодирования графика (100..129 и 60..84).
  * Используется для главной карточки, карточки "Замеров в норме" и списка Истории.
  */
@@ -97,61 +139,50 @@ export const evaluatePressureStatus = (
     };
   }
 
+  const sysVeryLow = thresholds?.systolic?.veryLow ?? DEFAULT_PRESSURE_THRESHOLDS.systolic.veryLow;
   const sysLow = thresholds?.systolic?.low ?? DEFAULT_PRESSURE_THRESHOLDS.systolic.low;
   const sysNormalMax = thresholds?.systolic?.normalMax ?? DEFAULT_PRESSURE_THRESHOLDS.systolic.normalMax;
   const sysHigh = thresholds?.systolic?.high ?? DEFAULT_PRESSURE_THRESHOLDS.systolic.high;
 
+  const diaVeryLow = thresholds?.diastolic?.veryLow ?? DEFAULT_PRESSURE_THRESHOLDS.diastolic.veryLow;
   const diaLow = thresholds?.diastolic?.low ?? DEFAULT_PRESSURE_THRESHOLDS.diastolic.low;
   const diaNormalMax = thresholds?.diastolic?.normalMax ?? DEFAULT_PRESSURE_THRESHOLDS.diastolic.normalMax;
   const diaHigh = thresholds?.diastolic?.high ?? DEFAULT_PRESSURE_THRESHOLDS.diastolic.high;
 
-  // 1. Высокое (выход на уровень гипертонии: >= 140 или >= 90)
+  const pick = (entry, key, isNormal = false) => ({
+    key,
+    isNormal,
+    text: entry.text,
+    bg: theme === 'dark' ? entry.darkBg : entry.lightBg,
+    textCol: theme === 'dark' ? entry.darkText : entry.lightText
+  });
+
+  // 1. Высокое ↑ (выход на уровень гипертонии: >= 140 или >= 90)
   if (sys >= sysHigh || dia >= diaHigh) {
-    return {
-      key: 'high',
-      isNormal: false,
-      text: 'Высокое',
-      bg: theme === 'dark' ? '#4A3520' : '#FCE0BD',
-      textCol: theme === 'dark' ? '#FDAD62' : '#181C24'
-    };
+    return pick(STATUS_BADGE_PALETTE.high, 'high', false);
   }
 
-  // 2. Низкое (ниже нижнего порога нормы: < 100 или < 60)
-  if (sys < sysLow || dia < diaLow) {
-    return {
-      key: 'low',
-      isNormal: false,
-      text: 'Низкое',
-      bg: theme === 'dark' ? '#32264D' : '#DCD2F2',
-      textCol: theme === 'dark' ? '#C4B0FF' : '#181C24'
-    };
+  // 2. Низкое ↓ (выраженная гипотония: < 90 или < 55)
+  if (sys < sysVeryLow || dia < diaVeryLow) {
+    return pick(STATUS_BADGE_PALETTE.low, 'low', false);
   }
 
-  // 3. Повышенное (выше зеленого/голубого коридора: 130..139 или 85..89)
+  // 3. Выше нормы (выше зеленого/голубого коридора: 130..139 или 85..89)
   if (sys > sysNormalMax || dia > diaNormalMax) {
-    return {
-      key: 'elevated',
-      isNormal: false,
-      text: 'Повышенное',
-      bg: theme === 'dark' ? '#3E342A' : '#F2E6D8',
-      textCol: theme === 'dark' ? '#EBC89E' : '#181C24'
-    };
+    return pick(STATUS_BADGE_PALETTE.aboveNormal, 'aboveNormal', false);
   }
 
-  // 4. В норме (строго внутри коридора 100..129 и 60..84)
-  return {
-    key: 'normal',
-    isNormal: true,
-    text: 'В норме',
-    bg: theme === 'dark' ? '#223042' : '#E4EEFC',
-    textCol: theme === 'dark' ? '#BDD6FA' : '#181C24'
-  };
+  // 4. Ниже нормы (умеренное снижение: 90..99 или 55..59)
+  if (sys < sysLow || dia < diaLow) {
+    return pick(STATUS_BADGE_PALETTE.belowNormal, 'belowNormal', false);
+  }
+
+  // 5. В норме (строго внутри коридора 100..129 и 60..84)
+  return pick(STATUS_BADGE_PALETTE.normal, 'normal', true);
 };
 
 /**
  * Рассчитывает точные процентные позиции Gradient Stops относительно вертикальной шкалы Y.
- * Так как ось Y в SVG направлена сверху вниз (0% — верх графика yMax, 100% — низ графика yMin),
- * значение давления переводится в координату по формуле: (yMax - value) / (yMax - yMin).
  */
 export const computeStrokeGradientStops = ({
   yMin,
@@ -168,13 +199,11 @@ export const computeStrokeGradientStops = ({
     return `${(((yMax - clamped) / span) * 100).toFixed(2)}%`;
   };
 
-  // Точка полного раскрытия оранжевого пика выше верхнего порога
   const highExtremeVal = Math.min(
     yMax,
     typeof highFullColorAt === 'number' ? highFullColorAt : highThreshold + 14
   );
 
-  // Точка полного раскрытия фиолетового спада ниже нижнего порога
   const lowExtremeVal = Math.max(
     yMin,
     typeof lowFullColorAt === 'number' ? lowFullColorAt : lowThreshold - 10
