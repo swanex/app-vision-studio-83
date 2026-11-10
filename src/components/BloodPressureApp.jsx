@@ -1343,7 +1343,7 @@ export default function App() {
                 <div
                   className="rounded-[28px] p-5 flex flex-col justify-between h-[152px]"
                   style={{
-                    backgroundColor: theme === 'dark' ? '#1E2936' : '#E4EEFC'
+                    backgroundColor: theme === 'dark' ? '#223247' : '#DCEBFE'
                   }}
                 >
                   <div>
