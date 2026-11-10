@@ -71,15 +71,15 @@ import {
 // Кастомные короткие стрелки для бейджей (на базе пропорций SVG из макета)
 const BadgeArrowDown = ({ className }) => (
   <svg width="14" height="14" viewBox="0 0 14 14" fill="none" className={className}>
-    <path d="M7 4V11" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-    <path d="M4 8L7 11L10 8" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+    <path d="M7 4V11" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+    <path d="M4 8L7 11L10 8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
   </svg>
 );
 
 const BadgeArrowUp = ({ className }) => (
   <svg width="14" height="14" viewBox="0 0 14 14" fill="none" className={className}>
-    <path d="M7 10V3" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-    <path d="M4 6L7 3L10 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+    <path d="M7 10V3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+    <path d="M4 6L7 3L10 6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
   </svg>
 );
 
@@ -1348,11 +1348,13 @@ export default function App() {
                       {latestRec ? `${latestRec.sys}/${latestRec.dia}` : '–'}
                     </div>
                     <div
-                      className="text-[14px] font-bold mt-1.5"
-                      style={{ color: theme === 'dark' ? 'var(--text-muted)' : '#7A7D7A' }}
-                    >
-                      {latestRec ? formatHumanDate(latestRec.date) : '–'}
-                    </div>
+  className="text-[14px] font-bold mt-1.5"
+  style={{ color: theme === 'dark' ? 'var(--text-muted)' : '#7A7D7A' }}
+>
+  {latestRec 
+    ? new Intl.DateTimeFormat('ru-RU', { day: 'numeric', month: 'long' }).format(new Date(latestRec.date)) 
+    : '–'}
+</div>
                   </div>
                   <div className="flex items-end justify-between">
                     <div className="text-[14px] font-bold leading-tight text-[var(--text-primary)]">
@@ -1415,8 +1417,10 @@ export default function App() {
                       {latestRec ? `${latestRec.sys}/${latestRec.dia}` : '–'}
                     </div>
                     <div className="text-[14px] font-bold text-[var(--card-latest-date)] mt-1.5">
-                      {latestRec ? formatHumanDate(latestRec.date) : '–'}
-                    </div>
+  {latestRec 
+    ? new Intl.DateTimeFormat('ru-RU', { day: 'numeric', month: 'long' }).format(new Date(latestRec.date)) 
+    : '–'}
+</div>
                   </div>
                   <div className="flex items-end justify-between">
                     <div className="text-[14px] font-bold leading-tight text-[var(--text-primary)]">
