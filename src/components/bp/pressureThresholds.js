@@ -1,60 +1,85 @@
-// Конфигурация пороговых значений, целевой нормы и цветовых схем графика (Figma Spec V2)
+// Конфигурация пороговых значений, целевой нормы и цветовых схем графика (ESC/ESH + Figma Spec)
+// Все пороги вынесены в единый конфигурационный объект для будущего управления из настроек профиля.
 
 export const DEFAULT_PRESSURE_THRESHOLDS = {
-  // Целевая норма (отображается пунктиром и цифрами слева на графике)
+  // Целевая норма (отображается двумя пунктирными линиями и цифрами слева на графике)
   targetNorm: {
     sys: 120,
     dia: 80
   },
-  // Пороги для градиентного окрашивания линий и определения статуса "В норме"
+  // Верхнее (систолическое) давление:
+  // 100..129 — зеленый коридор ("В норме")
+  // > 129 — начало перехода в желто-оранжевый (130..139 "Повышенное", >= 140 "Высокое")
+  // < 100 — начало перехода в фиолетовый ("Низкое")
   systolic: {
-    low: 90,
-    high: 140
+    low: 100,
+    normalMax: 129,
+    high: 140,
+    highFullColorAt: 145,
+    lowFullColorAt: 88
   },
+  // Нижнее (диастолическое) давление:
+  // 60..84 — бирюзово-голубой коридор ("В норме")
+  // > 84 — начало перехода в желто-оранжевый (85..89 "Повышенное", >= 90 "Высокое")
+  // < 60 — начало перехода в фиолетовый ("Низкое")
   diastolic: {
     low: 60,
-    high: 85
+    normalMax: 84,
+    high: 90,
+    highFullColorAt: 92,
+    lowFullColorAt: 53
   }
 };
 
-// Новая сочная палитра из раскладки Figma
+// Сочная палитра линий и заливок из раскладки Figma
 export const STROKE_GRADIENT_PALETTE = {
   systolic: {
     highPeak: '#FDAD62',      // 0% — оранжевый пик
-    upperNormal: '#4FAE25',   // 30% — сочный зеленый
-    lowerNormal: '#4FAE25',   // 70% — сочный зеленый
+    upperNormal: '#4FAE25',   // верхняя граница зеленого коридора (129)
+    lowerNormal: '#4FAE25',   // нижняя граница зеленого коридора (100)
     lowValley: '#8754FF',     // 100% — фиолетовый спад
-    fillColor: '#4FAE25'      // Базовый цвет заливки (40% -> 0%)
+    fillColor: '#4FAE25'      // базовый цвет заливки (40% -> 0%)
   },
   diastolic: {
     highPeak: '#FDAD62',      // 0% — оранжевый пик
-    upperNormal: '#21B5B7',   // 30% — сочный бирюзово-голубой
-    lowerNormal: '#21B5B7',   // 70% — сочный бирюзово-голубой
+    upperNormal: '#21B5B7',   // верхняя граница бирюзово-голубого коридора (84)
+    lowerNormal: '#21B5B7',   // нижняя граница бирюзово-голубого коридора (60)
     lowValley: '#8754FF',     // 100% — фиолетовый спад
-    fillColor: '#21B5B7'      // Базовый цвет заливки (40% -> 0%)
+    fillColor: '#21B5B7'      // базовый цвет заливки (40% -> 0%)
   }
 };
 
 /**
- * Возвращает индивидуальные пороги и норму пользователя (задел под настройку в профиле)
+ * Возвращает индивидуальные пороги и целевую норму пользователя.
+ * Если в профиле пользователя (user.pressureThresholds) будут заданы персональные настройки,
+ * они безопасно переопределят дефолтные константы.
  */
 export const getUserPressureThresholds = (user) => {
-  if (user?.pressureThresholds) {
-    return {
-      ...DEFAULT_PRESSURE_THRESHOLDS,
-      ...user.pressureThresholds,
-      targetNorm: {
-        ...DEFAULT_PRESSURE_THRESHOLDS.targetNorm,
-        ...(user.pressureThresholds.targetNorm || {})
-      }
-    };
+  if (!user?.pressureThresholds) {
+    return DEFAULT_PRESSURE_THRESHOLDS;
   }
-  return DEFAULT_PRESSURE_THRESHOLDS;
+  return {
+    ...DEFAULT_PRESSURE_THRESHOLDS,
+    ...user.pressureThresholds,
+    targetNorm: {
+      ...DEFAULT_PRESSURE_THRESHOLDS.targetNorm,
+      ...(user.pressureThresholds.targetNorm || {})
+    },
+    systolic: {
+      ...DEFAULT_PRESSURE_THRESHOLDS.systolic,
+      ...(user.pressureThresholds.systolic || {})
+    },
+    diastolic: {
+      ...DEFAULT_PRESSURE_THRESHOLDS.diastolic,
+      ...(user.pressureThresholds.diastolic || {})
+    }
+  };
 };
 
 /**
  * ЕДИНАЯ ФУНКЦИЯ ОПРЕДЕЛЕНИЯ СТАТУСА ДАВЛЕНИЯ
- * Используется на главном экране, в карточке "Замеров в норме" и в Истории.
+ * Синхронизирована с порогами цветового кодирования графика (100..129 и 60..84).
+ * Используется для главной карточки, карточки "Замеров в норме" и списка Истории.
  */
 export const evaluatePressureStatus = (
   sys,
@@ -72,13 +97,16 @@ export const evaluatePressureStatus = (
     };
   }
 
-  const sysLow = thresholds?.systolic?.low ?? 90;
-  const sysHigh = thresholds?.systolic?.high ?? 140;
-  const diaLow = thresholds?.diastolic?.low ?? 60;
-  const diaHigh = thresholds?.diastolic?.high ?? 85;
+  const sysLow = thresholds?.systolic?.low ?? DEFAULT_PRESSURE_THRESHOLDS.systolic.low;
+  const sysNormalMax = thresholds?.systolic?.normalMax ?? DEFAULT_PRESSURE_THRESHOLDS.systolic.normalMax;
+  const sysHigh = thresholds?.systolic?.high ?? DEFAULT_PRESSURE_THRESHOLDS.systolic.high;
 
-  // 1. Высокое (выход за верхний порог: >= 140 или > 85)
-  if (sys >= sysHigh || dia > diaHigh) {
+  const diaLow = thresholds?.diastolic?.low ?? DEFAULT_PRESSURE_THRESHOLDS.diastolic.low;
+  const diaNormalMax = thresholds?.diastolic?.normalMax ?? DEFAULT_PRESSURE_THRESHOLDS.diastolic.normalMax;
+  const diaHigh = thresholds?.diastolic?.high ?? DEFAULT_PRESSURE_THRESHOLDS.diastolic.high;
+
+  // 1. Высокое (выход на уровень гипертонии: >= 140 или >= 90)
+  if (sys >= sysHigh || dia >= diaHigh) {
     return {
       key: 'high',
       isNormal: false,
@@ -88,7 +116,7 @@ export const evaluatePressureStatus = (
     };
   }
 
-  // 2. Низкое (ниже нижнего порога: < 90 или < 60)
+  // 2. Низкое (ниже нижнего порога нормы: < 100 или < 60)
   if (sys < sysLow || dia < diaLow) {
     return {
       key: 'low',
@@ -99,8 +127,8 @@ export const evaluatePressureStatus = (
     };
   }
 
-  // 3. Повышенное (предгипертония внутри верхней границы: 130..139)
-  if (sys >= 130) {
+  // 3. Повышенное (выше зеленого/голубого коридора: 130..139 или 85..89)
+  if (sys > sysNormalMax || dia > diaNormalMax) {
     return {
       key: 'elevated',
       isNormal: false,
@@ -110,7 +138,7 @@ export const evaluatePressureStatus = (
     };
   }
 
-  // 4. В норме (нейтральный голубой шильдик)
+  // 4. В норме (строго внутри коридора 100..129 и 60..84)
   return {
     key: 'normal',
     isNormal: true,
@@ -121,15 +149,18 @@ export const evaluatePressureStatus = (
 };
 
 /**
- * Рассчитывает процентные позиции Gradient Stops относительно вертикальной шкалы Y.
+ * Рассчитывает точные процентные позиции Gradient Stops относительно вертикальной шкалы Y.
+ * Так как ось Y в SVG направлена сверху вниз (0% — верх графика yMax, 100% — низ графика yMin),
+ * значение давления переводится в координату по формуле: (yMax - value) / (yMax - yMin).
  */
 export const computeStrokeGradientStops = ({
   yMin,
   yMax,
   lowThreshold,
   highThreshold,
-  palette,
-  transitionSpan = 16
+  lowFullColorAt,
+  highFullColorAt,
+  palette
 }) => {
   const span = Math.max(1, yMax - yMin);
   const toPercent = (val) => {
@@ -137,8 +168,17 @@ export const computeStrokeGradientStops = ({
     return `${(((yMax - clamped) / span) * 100).toFixed(2)}%`;
   };
 
-  const highExtremeVal = Math.min(yMax, highThreshold + transitionSpan);
-  const lowExtremeVal = Math.max(yMin, lowThreshold - transitionSpan);
+  // Точка полного раскрытия оранжевого пика выше верхнего порога
+  const highExtremeVal = Math.min(
+    yMax,
+    typeof highFullColorAt === 'number' ? highFullColorAt : highThreshold + 14
+  );
+
+  // Точка полного раскрытия фиолетового спада ниже нижнего порога
+  const lowExtremeVal = Math.max(
+    yMin,
+    typeof lowFullColorAt === 'number' ? lowFullColorAt : lowThreshold - 10
+  );
 
   return [
     { offset: toPercent(highExtremeVal), color: palette.highPeak },
