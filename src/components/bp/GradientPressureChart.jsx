@@ -15,9 +15,8 @@ import {
   computeStrokeGradientStops
 } from './pressureThresholds';
 
-// Геометрия вертикальной области построения Recharts при h-[150px] и margin.top = 12
 const PLOT_AREA_Y_TOP = 12;
-const PLOT_AREA_Y_BOTTOM = 120; // 150px (высота контейнера) - 30px (высота XAxis)
+const PLOT_AREA_Y_BOTTOM = 120;
 
 export const GradientPressureChart = ({
   chartData,
@@ -25,10 +24,13 @@ export const GradientPressureChart = ({
   thresholds = DEFAULT_PRESSURE_THRESHOLDS,
   onInitialAnimationEnd
 }) => {
-  // Гарантируем, что шкала Y вмещает экстремальные пики/провалы без обрезания верхушек
+  const normSys = thresholds?.targetNorm?.sys ?? 120;
+  const normDia = thresholds?.targetNorm?.dia ?? 80;
+
+  // Гарантируем, что шкала Y вмещает и пики/провалы, и линии нормы
   const [yMin, yMax] = useMemo(() => {
-    let minVal = 60;
-    let maxVal = 152;
+    let minVal = Math.min(60, normDia - 15);
+    let maxVal = Math.max(152, normSys + 25);
     if (Array.isArray(chartData) && chartData.length > 0) {
       chartData.forEach((d) => {
         if (typeof d.dia === 'number' && d.dia < minVal + 4) {
@@ -40,7 +42,7 @@ export const GradientPressureChart = ({
       });
     }
     return [minVal, maxVal];
-  }, [chartData]);
+  }, [chartData, normSys, normDia]);
 
   const sysStops = useMemo(
     () =>
@@ -70,27 +72,36 @@ export const GradientPressureChart = ({
 
   return (
     <ResponsiveContainer width="100%" height="100%" className="relative z-0">
-      <AreaChart data={chartData} margin={{ top: 12, right: 0, left: -26, bottom: 0 }}>
+      <AreaChart data={chartData} margin={{ top: 12, right: 0, left: -24, bottom: 0 }}>
         <defs>
-          {/* Исходные градиенты заливки (Fill) — без малейших изменений */}
-          <linearGradient id="sysFill" x1="0" y1="0" x2="0" y2="1">
+          {/* Новые сочные градиенты заливки (Fill: 40% -> 0% по схеме Figma) */}
+          <linearGradient id="sysFillV2" x1="0" y1="0" x2="0" y2="1">
             <stop
-              offset="5%"
-              stopColor="var(--chart-sys-grad-start)"
-              stopOpacity={theme === 'dark' ? 0.35 : 0.8}
+              offset="0%"
+              stopColor={STROKE_GRADIENT_PALETTE.systolic.fillColor}
+              stopOpacity={theme === 'dark' ? 0.32 : 0.4}
             />
-            <stop offset="95%" stopColor="var(--chart-sys-grad-end)" stopOpacity={0.05} />
-          </linearGradient>
-          <linearGradient id="diaFill" x1="0" y1="0" x2="0" y2="1">
             <stop
-              offset="5%"
-              stopColor="var(--chart-dia-grad-start)"
-              stopOpacity={theme === 'dark' ? 0.32 : 0.75}
+              offset="100%"
+              stopColor={STROKE_GRADIENT_PALETTE.systolic.fillColor}
+              stopOpacity={0}
             />
-            <stop offset="95%" stopColor="var(--chart-dia-grad-end)" stopOpacity={0.05} />
           </linearGradient>
 
-          {/* Новые вертикальные градиенты обводки (Stroke) в координатах шкалы Y */}
+          <linearGradient id="diaFillV2" x1="0" y1="0" x2="0" y2="1">
+            <stop
+              offset="0%"
+              stopColor={STROKE_GRADIENT_PALETTE.diastolic.fillColor}
+              stopOpacity={theme === 'dark' ? 0.3 : 0.4}
+            />
+            <stop
+              offset="100%"
+              stopColor={STROKE_GRADIENT_PALETTE.diastolic.fillColor}
+              stopOpacity={0}
+            />
+          </linearGradient>
+
+          {/* Вертикальные градиенты обводки (Stroke) в координатах шкалы Y */}
           <linearGradient
             id="systolicStrokeGradient"
             gradientUnits="userSpaceOnUse"
@@ -118,7 +129,14 @@ export const GradientPressureChart = ({
           </linearGradient>
         </defs>
 
-        <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" />
+        {/* Только 2 горизонтальные пунктирные линии (на уровне нормы 120 и 80), без вертикальных */}
+        <CartesianGrid
+          vertical={false}
+          horizontal={true}
+          strokeDasharray="3 3"
+          stroke="var(--chart-grid)"
+        />
+
         <XAxis
           dataKey="shortLabel"
           axisLine={false}
@@ -126,13 +144,16 @@ export const GradientPressureChart = ({
           tick={{ fontSize: 13, fill: 'var(--text-muted)' }}
           minTickGap={34}
         />
+
         <YAxis
           domain={[yMin, yMax]}
           axisLine={false}
           tickLine={false}
           tick={{ fontSize: 13, fill: 'var(--text-muted)' }}
-          ticks={[75, 100, 125]}
+          ticks={[normDia, normSys]}
+          interval={0}
         />
+
         <Tooltip
           wrapperStyle={{ zIndex: 100 }}
           content={({ active, payload }) => {
@@ -160,17 +181,18 @@ export const GradientPressureChart = ({
             );
           }}
         />
+
         <Area
           type="monotone"
           dataKey="sys"
           stroke="url(#systolicStrokeGradient)"
-          strokeWidth={2.4}
-          fill="url(#sysFill)"
+          strokeWidth={2.6}
+          fill="url(#sysFillV2)"
           animationDuration={380}
           onAnimationEnd={onInitialAnimationEnd}
           activeDot={{
             r: 5,
-            fill: 'var(--upper-pressure)',
+            fill: STROKE_GRADIENT_PALETTE.systolic.upperNormal,
             stroke: 'var(--dot-stroke)',
             strokeWidth: 2
           }}
@@ -179,12 +201,12 @@ export const GradientPressureChart = ({
           type="monotone"
           dataKey="dia"
           stroke="url(#diastolicStrokeGradient)"
-          strokeWidth={2.4}
-          fill="url(#diaFill)"
+          strokeWidth={2.6}
+          fill="url(#diaFillV2)"
           animationDuration={380}
           activeDot={{
             r: 5,
-            fill: 'var(--lower-pressure)',
+            fill: STROKE_GRADIENT_PALETTE.diastolic.upperNormal,
             stroke: 'var(--dot-stroke)',
             strokeWidth: 2
           }}

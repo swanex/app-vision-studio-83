@@ -25,7 +25,6 @@ import {
 
 import {
   APP_BASE_VERSION,
-  CODE_ITERATION_NUMBER,
   BUILD_STORAGE_KEY,
   SESSION_STORAGE_KEY,
   LEGACY_AVATAR_KEY,
@@ -63,29 +62,55 @@ import { AddRecordSheet } from './bp/AddRecordSheet';
 import { SettingsSheet } from './bp/SettingsSheet';
 
 import { GradientPressureChart } from './bp/GradientPressureChart';
-import { getUserPressureThresholds } from './bp/pressureThresholds';
+import {
+  getUserPressureThresholds,
+  evaluatePressureStatus,
+  STROKE_GRADIENT_PALETTE
+} from './bp/pressureThresholds';
 
+// Иконки для обновленных нижних карточек (Секундомер и Сердце с галочкой)
+const LatestStopwatchIcon = () => (
+  <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+    <rect x="9" y="2" width="6" height="2" rx="1" fill="#B5B4A6" />
+    <circle cx="12" cy="13" r="8" fill="#B5B4A6" />
+    <path d="M12 9V13" stroke="#FFFFFF" strokeWidth="2" strokeLinecap="round" />
+  </svg>
+);
+
+const NormalHeartCheckIcon = () => (
+  <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+    <path
+      d="M12 20.5C12 20.5 3.5 15.2 3.5 8.9C3.5 6.1 5.7 4 8.4 4C10.1 4 11.4 4.9 12 6.1C12.6 4.9 13.9 4 15.6 4C18.3 4 20.5 6.1 20.5 8.9C20.5 10.6 19.8 12.2 18.7 13.6"
+      fill="#8FA8BE"
+    />
+    <circle cx="17.2" cy="17.2" r="4.8" fill="#8FA8BE" stroke="#FFFFFF" strokeWidth="1.6" />
+    <path
+      d="M15.3 17.2L16.6 18.5L19.2 15.9"
+      stroke="#FFFFFF"
+      strokeWidth="1.7"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+  </svg>
+);
 
 export default function App() {
   const [buildNumber] = useState(() => {
     try {
       const saved = parseInt(localStorage.getItem(BUILD_STORAGE_KEY) || '0', 10);
-      // Принудительно устанавливаем актуальную версию, чтобы не было отката
-      const resolved = Math.max(52, isNaN(saved) ? 0 : saved);
+      const resolved = Math.max(53, isNaN(saved) ? 0 : saved);
       localStorage.setItem(BUILD_STORAGE_KEY, String(resolved));
       return resolved;
     } catch {
-      return 51;
+      return 53;
     }
   });
   const appVersionString = `${APP_BASE_VERSION}.${buildNumber}`;
 
-  // Состояния для кастомного сплэш-экрана
   const [showSplash, setShowSplash] = useState(true);
   const [splashFade, setSplashFade] = useState(false);
 
   useEffect(() => {
-    // Бесшовный таймер: начало растворения на 1.6с, удаление на 2.0с
     const t1 = setTimeout(() => setSplashFade(true), 1600);
     const t2 = setTimeout(() => setShowSplash(false), 2000);
     return () => {
@@ -164,6 +189,25 @@ export default function App() {
   const [badgeVisible, setBadgeVisible] = useState(false);
   const [legendVisible, setLegendVisible] = useState(false);
 
+  // Флаг тестового контура для пользователя test
+  const isTestUser = currentUser?.username === 'test';
+  const userThresholds = useMemo(() => getUserPressureThresholds(currentUser), [currentUser]);
+
+  // Единый резолвер статуса (для test — новая цветовая схема и пороги, для остальных — текущая)
+  const resolveRecordStatus = useCallback(
+    (sys, dia) => {
+      if (isTestUser) {
+        return evaluatePressureStatus(sys, dia, userThresholds, theme);
+      }
+      const legacy = getStatusLabel(sys, dia);
+      return {
+        ...legacy,
+        isNormal: legacy.text === 'В норме'
+      };
+    },
+    [isTestUser, userThresholds, theme]
+  );
+
   useEffect(() => {
     if (typeof document === 'undefined') return;
     const html = document.documentElement;
@@ -206,7 +250,6 @@ export default function App() {
     const html = document.documentElement;
     const body = document.body;
 
-    // ПОКА СПЛЭШ ОТКРЫТ — принудительно держим всю систему (статус-бар, фон) в темном цвете #111813
     if (showSplash) {
       html.style.backgroundColor = '#111813';
       if (body) body.style.backgroundColor = '#111813';
@@ -225,10 +268,9 @@ export default function App() {
       if (statusMeta) {
         statusMeta.setAttribute('content', 'black-translucent');
       }
-      return; // Блокируем применение светлой темы, пока не исчезнет сплэш!
+      return;
     }
 
-    // ПОСЛЕ ИСЧЕЗНОВЕНИЯ СПЛЭША — применяем реальную тему приложения
     const baseBgHex = theme === 'dark' ? '#111813' : '#F2F3F0';
 
     const statusBarHex = subOverlayState.scannerOpen
@@ -342,52 +384,51 @@ export default function App() {
   const syncUnsentRecords = useCallback(async (activeUser, serverData) => {
     setRecords((currentRecords) => {
       const unsent = currentRecords.filter(
-        local => !serverData.find(server => server.id === local.id)
+        (local) => !serverData.find((server) => server.id === local.id)
       );
 
       if (unsent.length > 0) {
-        // Отправляем неотправленные записи в фоне
         Promise.all([apiUpsertRecords(activeUser, unsent)])
           .then(() => console.log('Синхронизировано неотправленных записей:', unsent.length))
-          .catch(err => console.error('Ошибка фоновой синхронизации:', err));
+          .catch((err) => console.error('Ошибка фоновой синхронизации:', err));
       }
       return currentRecords;
     });
   }, []);
 
-const fetchFromCloud = useCallback(async (activeUser, silent = false) => {
-    if (!activeUser) return;
-    if (!silent) setCloudStatus('syncing');
+  const fetchFromCloud = useCallback(
+    async (activeUser, silent = false) => {
+      if (!activeUser) return;
+      if (!silent) setCloudStatus('syncing');
 
-    try {
-      const serverData = await apiFetchUserRecords(activeUser);
-      if (Array.isArray(serverData)) {
-        // Двухсторонний merge: не затираем, а дополняем локальные данные серверными
-        setRecords((prevRecords) => {
-          const merged = [...prevRecords];
-          serverData.forEach(serverRecord => {
-            // Если записи с таким id еще нет, добавляем её
-            if (!merged.find(r => r.id === serverRecord.id)) {
-              merged.push(serverRecord);
-            }
+      try {
+        const serverData = await apiFetchUserRecords(activeUser);
+        if (Array.isArray(serverData)) {
+          setRecords((prevRecords) => {
+            const merged = [...prevRecords];
+            serverData.forEach((serverRecord) => {
+              if (!merged.find((r) => r.id === serverRecord.id)) {
+                merged.push(serverRecord);
+              }
+            });
+            const unique = deduplicateRecords(merged);
+            localStorage.setItem(`bp_records_cache_${activeUser.username}`, JSON.stringify(unique));
+            return unique;
           });
-          const unique = deduplicateRecords(merged);
-          localStorage.setItem(`bp_records_cache_${activeUser.username}`, JSON.stringify(unique));
-          return unique;
-        });
-        
-        // Фоновая отправка локальных записей (тех, что не пришли с сервера)
-        syncUnsentRecords(activeUser, serverData);
-        
-        if (!silent) setCloudStatus('online'); // Заменили success на online для корректной иконки
-      } else {
+
+          syncUnsentRecords(activeUser, serverData);
+
+          if (!silent) setCloudStatus('online');
+        } else {
+          if (!silent) setCloudStatus('error');
+        }
+      } catch (e) {
+        console.error(e);
         if (!silent) setCloudStatus('error');
       }
-    } catch (e) {
-      console.error(e);
-      if (!silent) setCloudStatus('error');
-    }
-  }, [syncUnsentRecords]);
+    },
+    [syncUnsentRecords]
+  );
 
   useEffect(() => {
     if (currentUser) {
@@ -401,27 +442,24 @@ const fetchFromCloud = useCallback(async (activeUser, silent = false) => {
     setConfirmDeleteId(null);
   }, [activeTab]);
 
-const handleAuthSuccess = useCallback(
+  const handleAuthSuccess = useCallback(
     async (userObj, mode, shouldUploadLegacyAvatar, legacyAvatar) => {
       saveSessionLocally(userObj);
-      
-      // ЗАЩИТА ОТ ДЕМО-ЗОМБИ:
-      // Перед логином проверяем, не баловался ли человек в демо-режиме
+
       setRecords((currentRecords) => {
-        // Если все текущие записи в памяти — это демо (id начинается на 'demo-')
-        const hasOnlyDemoRecords = currentRecords.length > 0 && currentRecords.every(r => r.id.startsWith('demo-'));
-        
+        const hasOnlyDemoRecords =
+          currentRecords.length > 0 && currentRecords.every((r) => r.id.startsWith('demo-'));
+
         if (hasOnlyDemoRecords) {
-           return []; // Очищаем стейт, чтобы не залить 100 демо-записей в облако пользователя
+          return [];
         }
-        return currentRecords; // Если есть реальные оффлайн-замеры, оставляем их для слияния
+        return currentRecords;
       });
 
       if (mode === 'login') {
         if (shouldUploadLegacyAvatar && legacyAvatar) {
           updateProfileInCloud(userObj, { avatar: legacyAvatar });
         }
-        // Запускаем fetchFromCloud только после очистки стейта
         await fetchFromCloud(userObj);
       } else {
         setRecords([]);
@@ -532,7 +570,9 @@ const handleAuthSuccess = useCallback(
         workingRecords = workingRecords.filter((r) => r.id !== targetId);
       }
 
-      const baseId = targetId ? targetId.replace(/-s\d+$/, '') : `${recordIdPrefix}-${date}-${time.replace(':', '')}-${uniqueTimeId}`;
+      const baseId = targetId
+        ? targetId.replace(/-s\d+$/, '')
+        : `${recordIdPrefix}-${date}-${time.replace(':', '')}-${uniqueTimeId}`;
       const finalId = seriesCount > 1 ? `${baseId}-s${seriesCount}` : baseId;
 
       const newItem = {
@@ -680,6 +720,8 @@ const handleAuthSuccess = useCallback(
         avgSys: 0,
         avgDia: 0,
         avgPulse: '–',
+        normalCount: 0,
+        totalCount: 0,
         firstDate: null,
         lastDate: null,
         latest: sortedRecords[sortedRecords.length - 1] || null
@@ -689,6 +731,7 @@ const handleAuthSuccess = useCallback(
     let diaSum = 0;
     let pulseSum = 0;
     let pulseCnt = 0;
+    let normalCnt = 0;
 
     filteredRecords.forEach((r) => {
       sysSum += r.sys;
@@ -697,6 +740,9 @@ const handleAuthSuccess = useCallback(
         pulseSum += r.pulse;
         pulseCnt += 1;
       }
+      if (resolveRecordStatus(r.sys, r.dia).isNormal) {
+        normalCnt += 1;
+      }
     });
 
     const cnt = filteredRecords.length;
@@ -704,11 +750,13 @@ const handleAuthSuccess = useCallback(
       avgSys: Math.round(sysSum / cnt),
       avgDia: Math.round(diaSum / cnt),
       avgPulse: pulseCnt > 0 ? Math.round(pulseSum / pulseCnt) : '–',
+      normalCount: normalCnt,
+      totalCount: cnt,
       firstDate: filteredRecords[0].date,
       lastDate: filteredRecords[cnt - 1].date,
       latest: sortedRecords[sortedRecords.length - 1]
     };
-  }, [filteredRecords, sortedRecords]);
+  }, [filteredRecords, sortedRecords, resolveRecordStatus]);
 
   const handleExportCSV = useCallback(() => {
     const header = 'Дата;Время;Верхнее;Нижнее;Пульс;Заметка\n';
@@ -758,7 +806,7 @@ const handleAuthSuccess = useCallback(
   }, [sortedRecords, searchQuery]);
 
   const latestRec = stats.latest;
-  const avgBadge = getStatusLabel(stats.avgSys, stats.avgDia);
+  const avgBadge = resolveRecordStatus(stats.avgSys, stats.avgDia);
   const greetingText = getGreetingByHour();
 
   const periodRangeLabel = useMemo(() => {
@@ -779,6 +827,9 @@ const handleAuthSuccess = useCallback(
     return null;
   }, [currentUser]);
 
+  const normalRatioPercent =
+    stats.totalCount > 0 ? Math.round((stats.normalCount / stats.totalCount) * 100) : 0;
+
   return (
     <div
       data-theme={theme}
@@ -793,7 +844,6 @@ const handleAuthSuccess = useCallback(
     >
       <BpThemeStyles />
 
-      {/* КАСТОМНЫЙ БЕСШОВНЫЙ SPLASH SCREEN */}
       {showSplash && (
         <div
           className={`fixed inset-0 z-[100] pointer-events-none transition-opacity duration-300 ease-in-out ${
@@ -807,27 +857,25 @@ const handleAuthSuccess = useCallback(
               to { opacity: 1; transform: translateY(0); }
             }
           `}</style>
-          
+
           <div className="relative w-full h-full max-w-[440px] mx-auto">
-            {/* Точный размер и позиция логотипа из Figma */}
             <img
               src="/favicon.ico"
               alt="Logo"
               className="absolute left-1/2 -translate-x-1/2"
-              style={{ 
-                top: '40.17%', 
-                width: '148px', 
-                height: '148px', 
-                filter: 'drop-shadow(0 8px 24px rgba(0,0,0,0.12))' 
+              style={{
+                top: '40.17%',
+                width: '148px',
+                height: '148px',
+                filter: 'drop-shadow(0 8px 24px rgba(0,0,0,0.12))'
               }}
             />
 
-            {/* Заголовок */}
             <div
               className="absolute w-full text-center left-0"
-              style={{ 
-                top: '65.05%', 
-                animation: 'bp-splash-text-reveal 0.8s cubic-bezier(0.22, 1, 0.36, 1) forwards' 
+              style={{
+                top: '65.05%',
+                animation: 'bp-splash-text-reveal 0.8s cubic-bezier(0.22, 1, 0.36, 1) forwards'
               }}
             >
               <div
@@ -845,12 +893,11 @@ const handleAuthSuccess = useCallback(
               </div>
             </div>
 
-            {/* Подзаголовок (появляется с микрозадержкой) */}
             <div
               className="absolute w-full text-center left-0 opacity-0"
-              style={{ 
-                top: '70.26%', 
-                animation: 'bp-splash-text-reveal 0.8s cubic-bezier(0.22, 1, 0.36, 1) 0.15s forwards' 
+              style={{
+                top: '70.26%',
+                animation: 'bp-splash-text-reveal 0.8s cubic-bezier(0.22, 1, 0.36, 1) 0.15s forwards'
               }}
             >
               <div
@@ -1081,7 +1128,11 @@ const handleAuthSuccess = useCallback(
                       className={`absolute right-[2px] top-[12px] text-[11px] font-bold pointer-events-none z-10 bp-legend-opacity ${
                         legendVisible || legendShownRef.current ? 'opacity-100' : 'opacity-0'
                       }`}
-                      style={{ color: 'var(--upper-pressure)' }}
+                      style={{
+                        color: isTestUser
+                          ? STROKE_GRADIENT_PALETTE.systolic.upperNormal
+                          : 'var(--upper-pressure)'
+                      }}
                     >
                       Верхнее
                     </div>
@@ -1089,7 +1140,11 @@ const handleAuthSuccess = useCallback(
                       className={`absolute right-[2px] top-[100px] text-[11px] font-bold pointer-events-none z-10 bp-legend-opacity ${
                         legendVisible || legendShownRef.current ? 'opacity-100' : 'opacity-0'
                       }`}
-                      style={{ color: 'var(--lower-pressure)' }}
+                      style={{
+                        color: isTestUser
+                          ? STROKE_GRADIENT_PALETTE.diastolic.upperNormal
+                          : 'var(--lower-pressure)'
+                      }}
                     >
                       Нижнее
                     </div>
@@ -1097,11 +1152,11 @@ const handleAuthSuccess = useCallback(
                 )}
 
                 {chartData.length > 0 ? (
-                  currentUser?.username === 'test' ? (
+                  isTestUser ? (
                     <GradientPressureChart
                       chartData={chartData}
                       theme={theme}
-                      thresholds={getUserPressureThresholds(currentUser)}
+                      thresholds={userThresholds}
                       onInitialAnimationEnd={handleChartInitialAnimationEnd}
                     />
                   ) : (
@@ -1188,12 +1243,15 @@ const handleAuthSuccess = useCallback(
                 )}
               </div>
 
+              {/* Кнопки фильтров Все / Утро / Вечер (для test — светло-серые с контурными серыми иконками) */}
               <div className="mt-4 flex items-center justify-between gap-2.5">
                 <button
                   onClick={() => setDayTimeFilter('all')}
                   className={`flex-1 py-3 rounded-full text-[15px] font-bold transition cursor-pointer text-center ${
                     dayTimeFilter === 'all'
                       ? 'bg-[var(--filter-active-bg)] text-[var(--filter-active-text)]'
+                      : isTestUser
+                      ? 'bg-[var(--surface-tertiary)] text-[#6E7571] hover:opacity-90'
                       : 'bg-[var(--surface-tertiary)] text-[var(--text-primary)] hover:bg-[var(--surface-hover)]'
                   }`}
                 >
@@ -1205,10 +1263,21 @@ const handleAuthSuccess = useCallback(
                   className={`flex-1 py-3 rounded-full text-[15px] font-bold flex items-center justify-center gap-2 transition cursor-pointer ${
                     dayTimeFilter === 'morning'
                       ? 'bg-[var(--filter-active-bg)] text-[var(--filter-active-text)]'
+                      : isTestUser
+                      ? 'bg-[var(--surface-tertiary)] text-[#6E7571] hover:opacity-90'
                       : 'bg-[var(--surface-tertiary)] text-[var(--text-Subtle)] hover:bg-[var(--surface-hover)]'
                   }`}
                 >
-                  <Sun className="w-[18px] h-[18px] text-[#FE9A00] fill-[#FE9A00]" />
+                  {isTestUser ? (
+                    <Sun
+                      className={`w-[18px] h-[18px] ${
+                        dayTimeFilter === 'morning' ? 'text-current' : 'text-[#6E7571]'
+                      }`}
+                      strokeWidth={2}
+                    />
+                  ) : (
+                    <Sun className="w-[18px] h-[18px] text-[#FE9A00] fill-[#FE9A00]" />
+                  )}
                   <span>Утро</span>
                 </button>
 
@@ -1217,58 +1286,147 @@ const handleAuthSuccess = useCallback(
                   className={`flex-1 py-3 rounded-full text-[15px] font-bold flex items-center justify-center gap-2 transition cursor-pointer ${
                     dayTimeFilter === 'evening'
                       ? 'bg-[var(--filter-active-bg)] text-[var(--filter-active-text)]'
+                      : isTestUser
+                      ? 'bg-[var(--surface-tertiary)] text-[#6E7571] hover:opacity-90'
                       : 'bg-[var(--filter-evening-bg)] text-[var(--filter-evening-text)] hover:opacity-90'
                   }`}
                 >
-                  <Moon className="w-[18px] h-[18px] text-[#615FFF] fill-[#615FFF]" />
+                  {isTestUser ? (
+                    <Moon
+                      className={`w-[18px] h-[18px] ${
+                        dayTimeFilter === 'evening' ? 'text-current' : 'text-[#6E7571]'
+                      }`}
+                      strokeWidth={2}
+                    />
+                  ) : (
+                    <Moon className="w-[18px] h-[18px] text-[#615FFF] fill-[#615FFF]" />
+                  )}
                   <span>Вечер</span>
                 </button>
               </div>
             </section>
 
-            <section className="grid grid-cols-2 gap-3.5 pt-1">
-              <div className="rounded-[28px] bg-[var(--card-latest-bg)] p-5 flex flex-col justify-between h-[152px]">
-                <div>
-                  <div className="text-[36px] font-black tracking-tight leading-none text-[var(--text-primary)]">
-                    {latestRec ? `${latestRec.sys}/${latestRec.dia}` : '–'}
+            {/* Нижние карточки: для test — обновленные цвета и карточка "Замеров в норме" */}
+            {isTestUser ? (
+              <section className="grid grid-cols-2 gap-3.5 pt-1">
+                {/* Карточка 1: Последний замер */}
+                <div
+                  className="rounded-[28px] p-5 flex flex-col justify-between h-[152px]"
+                  style={{
+                    backgroundColor: theme === 'dark' ? 'var(--card-latest-bg)' : '#E5E4DF'
+                  }}
+                >
+                  <div>
+                    <div className="text-[36px] font-black tracking-tight leading-none text-[var(--text-primary)] tabular-nums">
+                      {latestRec ? `${latestRec.sys}/${latestRec.dia}` : '–'}
+                    </div>
+                    <div
+                      className="text-[14px] font-bold mt-1.5"
+                      style={{ color: theme === 'dark' ? 'var(--text-muted)' : '#7A7D7A' }}
+                    >
+                      {latestRec ? formatHumanDate(latestRec.date) : '–'}
+                    </div>
                   </div>
-                  <div className="text-[14px] font-bold text-[var(--card-latest-date)] mt-1.5">
-                    {latestRec ? formatHumanDate(latestRec.date) : '–'}
+                  <div className="flex items-end justify-between">
+                    <div className="text-[14px] font-bold leading-tight text-[var(--text-primary)]">
+                      Последний
+                      <br />
+                      замер
+                    </div>
+                    <div className="w-[44px] h-[44px] rounded-full bg-[var(--stat-icon-circle-bg)] flex items-center justify-center shrink-0">
+                      <LatestStopwatchIcon />
+                    </div>
                   </div>
                 </div>
-                <div className="flex items-end justify-between">
-                  <div className="text-[14px] font-bold leading-tight text-[var(--text-primary)]">
-                    Последний
-                    <br />
-                    замер
-                  </div>
-                  <div className="w-[44px] h-[44px] rounded-full bg-[var(--stat-icon-circle-bg)] flex items-center justify-center text-[var(--text-primary)] shrink-0">
-                    <Activity className="w-[22px] h-[22px]" strokeWidth={2.2} />
-                  </div>
-                </div>
-              </div>
 
-              <div className="bg-[var(--card-pulse-bg)] rounded-[28px] p-5 flex flex-col justify-between h-[152px]">
-                <div>
-                  <div className="text-[36px] font-black tracking-tight leading-none text-[var(--text-primary)]">
-                    {stats.avgPulse}
+                {/* Карточка 2: Замеров в норме (M из N + полоса прогресса) */}
+                <div
+                  className="rounded-[28px] p-5 flex flex-col justify-between h-[152px]"
+                  style={{
+                    backgroundColor: theme === 'dark' ? '#1E2936' : '#E4EEFC'
+                  }}
+                >
+                  <div>
+                    <div className="text-[36px] font-black tracking-tight leading-none text-[var(--text-primary)] tabular-nums flex items-baseline gap-1.5">
+                      <span>{stats.normalCount}</span>
+                      <span className="text-[20px] font-extrabold tracking-normal">из</span>
+                      <span>{stats.totalCount}</span>
+                    </div>
+
+                    {/* Полоса M/N: темный сегмент на долю M/N, остаток белый */}
+                    <div
+                      className="w-full h-[8px] rounded-full overflow-hidden mt-3 flex"
+                      style={{
+                        backgroundColor: theme === 'dark' ? 'rgba(255,255,255,0.18)' : '#FFFFFF'
+                      }}
+                    >
+                      <div
+                        className="h-full transition-all duration-300"
+                        style={{
+                          width: `${normalRatioPercent}%`,
+                          backgroundColor: theme === 'dark' ? '#F1F3EF' : '#181C24'
+                        }}
+                      />
+                    </div>
                   </div>
-                  <div className="text-[14px] text-[var(--text-Subtle)] font-bold mt-1.5">
-                    уд/мин
+
+                  <div className="flex items-end justify-between">
+                    <div className="text-[14px] font-bold leading-tight text-[var(--text-primary)]">
+                      Замеров
+                      <br />
+                      в норме
+                    </div>
+                    <div className="w-[44px] h-[44px] rounded-full bg-[var(--stat-icon-circle-bg)] flex items-center justify-center shrink-0">
+                      <NormalHeartCheckIcon />
+                    </div>
                   </div>
                 </div>
-                <div className="flex items-end justify-between">
-                  <div className="text-[14px] font-bold leading-tight text-[var(--text-primary)]">
-                    Средний
-                    <br />
-                    пульс
+              </section>
+            ) : (
+              <section className="grid grid-cols-2 gap-3.5 pt-1">
+                <div className="rounded-[28px] bg-[var(--card-latest-bg)] p-5 flex flex-col justify-between h-[152px]">
+                  <div>
+                    <div className="text-[36px] font-black tracking-tight leading-none text-[var(--text-primary)]">
+                      {latestRec ? `${latestRec.sys}/${latestRec.dia}` : '–'}
+                    </div>
+                    <div className="text-[14px] font-bold text-[var(--card-latest-date)] mt-1.5">
+                      {latestRec ? formatHumanDate(latestRec.date) : '–'}
+                    </div>
                   </div>
-                  <div className="w-[44px] h-[44px] rounded-full bg-[var(--stat-icon-circle-bg)] flex items-center justify-center text-[var(--text-primary)] shrink-0">
-                    <Heart className="w-[22px] h-[22px]" strokeWidth={2.2} />
+                  <div className="flex items-end justify-between">
+                    <div className="text-[14px] font-bold leading-tight text-[var(--text-primary)]">
+                      Последний
+                      <br />
+                      замер
+                    </div>
+                    <div className="w-[44px] h-[44px] rounded-full bg-[var(--stat-icon-circle-bg)] flex items-center justify-center text-[var(--text-primary)] shrink-0">
+                      <Activity className="w-[22px] h-[22px]" strokeWidth={2.2} />
+                    </div>
                   </div>
                 </div>
-              </div>
-            </section>
+
+                <div className="bg-[var(--card-pulse-bg)] rounded-[28px] p-5 flex flex-col justify-between h-[152px]">
+                  <div>
+                    <div className="text-[36px] font-black tracking-tight leading-none text-[var(--text-primary)]">
+                      {stats.avgPulse}
+                    </div>
+                    <div className="text-[14px] text-[var(--text-Subtle)] font-bold mt-1.5">
+                      уд/мин
+                    </div>
+                  </div>
+                  <div className="flex items-end justify-between">
+                    <div className="text-[14px] font-bold leading-tight text-[var(--text-primary)]">
+                      Средний
+                      <br />
+                      пульс
+                    </div>
+                    <div className="w-[44px] h-[44px] rounded-full bg-[var(--stat-icon-circle-bg)] flex items-center justify-center text-[var(--text-primary)] shrink-0">
+                      <Heart className="w-[22px] h-[22px]" strokeWidth={2.2} />
+                    </div>
+                  </div>
+                </div>
+              </section>
+            )}
           </main>
         )}
 
@@ -1276,7 +1434,7 @@ const handleAuthSuccess = useCallback(
         {activeTab === 'history' && (
           <main className="flex flex-col">
             {historyList.map((item) => {
-              const badge = getStatusLabel(item.sys, item.dia);
+              const badge = resolveRecordStatus(item.sys, item.dia);
               const isConfirmOpen = confirmDeleteId === item.id;
               const deletePhase = deletingPhaseById[item.id];
               const isFading = deletePhase === 'fade';
@@ -1322,12 +1480,11 @@ const handleAuthSuccess = useCallback(
                     </div>
 
                     <div className="mt-3 flex items-end justify-between relative min-h-[42px]">
-                     <div
+                      <div
                         className={`min-w-0 transition-all duration-200 ${
                           isConfirmOpen ? 'max-w-[calc(100%-156px)] pr-2' : 'max-w-[calc(100%-44px)] pr-2'
                         }`}
                       >
-                        {/* Фиксированная минимальная высота, чтобы кнопки удаления не ломали сетку */}
                         <div className="text-[16px] font-medium text-[var(--text-Subtle)] leading-snug truncate min-h-[22px]">
                           {item.note || ''}
                         </div>
