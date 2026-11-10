@@ -4,7 +4,7 @@ import {
   Area,
   XAxis,
   YAxis,
-  CartesianGrid,
+  ReferenceLine,
   Tooltip,
   ResponsiveContainer
 } from 'recharts';
@@ -15,6 +15,7 @@ import {
   computeStrokeGradientStops
 } from './pressureThresholds';
 
+// Геометрия вертикальной области построения Recharts при h-[150px] и margin.top = 12
 const PLOT_AREA_Y_TOP = 12;
 const PLOT_AREA_Y_BOTTOM = 120;
 
@@ -24,20 +25,40 @@ export const GradientPressureChart = ({
   thresholds = DEFAULT_PRESSURE_THRESHOLDS,
   onInitialAnimationEnd
 }) => {
-  const normSys = thresholds?.targetNorm?.sys ?? 120;
-  const normDia = thresholds?.targetNorm?.dia ?? 80;
+  const normSys = thresholds?.targetNorm?.sys ?? DEFAULT_PRESSURE_THRESHOLDS.targetNorm.sys;
+  const normDia = thresholds?.targetNorm?.dia ?? DEFAULT_PRESSURE_THRESHOLDS.targetNorm.dia;
 
-  // Гарантируем, что шкала Y вмещает и пики/провалы, и линии нормы
+  const sysLow = thresholds?.systolic?.low ?? DEFAULT_PRESSURE_THRESHOLDS.systolic.low;
+  const sysNormalMax =
+    thresholds?.systolic?.normalMax ??
+    thresholds?.systolic?.high ??
+    DEFAULT_PRESSURE_THRESHOLDS.systolic.normalMax;
+  const sysHighFull =
+    thresholds?.systolic?.highFullColorAt ?? DEFAULT_PRESSURE_THRESHOLDS.systolic.highFullColorAt;
+  const sysLowFull =
+    thresholds?.systolic?.lowFullColorAt ?? DEFAULT_PRESSURE_THRESHOLDS.systolic.lowFullColorAt;
+
+  const diaLow = thresholds?.diastolic?.low ?? DEFAULT_PRESSURE_THRESHOLDS.diastolic.low;
+  const diaNormalMax =
+    thresholds?.diastolic?.normalMax ??
+    thresholds?.diastolic?.high ??
+    DEFAULT_PRESSURE_THRESHOLDS.diastolic.normalMax;
+  const diaHighFull =
+    thresholds?.diastolic?.highFullColorAt ?? DEFAULT_PRESSURE_THRESHOLDS.diastolic.highFullColorAt;
+  const diaLowFull =
+    thresholds?.diastolic?.lowFullColorAt ?? DEFAULT_PRESSURE_THRESHOLDS.diastolic.lowFullColorAt;
+
+  // Гарантируем, что шкала Y вмещает и пики/провалы, и целевые линии нормы без обрезания
   const [yMin, yMax] = useMemo(() => {
-    let minVal = Math.min(60, normDia - 15);
-    let maxVal = Math.max(152, normSys + 25);
+    let minVal = Math.min(52, normDia - 25);
+    let maxVal = Math.max(152, normSys + 32);
     if (Array.isArray(chartData) && chartData.length > 0) {
       chartData.forEach((d) => {
         if (typeof d.dia === 'number' && d.dia < minVal + 4) {
-          minVal = Math.min(minVal, Math.floor((d.dia - 6) / 5) * 5);
+          minVal = Math.min(minVal, Math.floor((d.dia - 5) / 5) * 5);
         }
         if (typeof d.sys === 'number' && d.sys > maxVal - 4) {
-          maxVal = Math.max(maxVal, Math.ceil((d.sys + 6) / 5) * 5);
+          maxVal = Math.max(maxVal, Math.ceil((d.sys + 5) / 5) * 5);
         }
       });
     }
@@ -49,12 +70,13 @@ export const GradientPressureChart = ({
       computeStrokeGradientStops({
         yMin,
         yMax,
-        lowThreshold: thresholds.systolic.low,
-        highThreshold: thresholds.systolic.high,
-        palette: STROKE_GRADIENT_PALETTE.systolic,
-        transitionSpan: 15
+        lowThreshold: sysLow,
+        highThreshold: sysNormalMax,
+        lowFullColorAt: sysLowFull,
+        highFullColorAt: sysHighFull,
+        palette: STROKE_GRADIENT_PALETTE.systolic
       }),
-    [yMin, yMax, thresholds.systolic.low, thresholds.systolic.high]
+    [yMin, yMax, sysLow, sysNormalMax, sysLowFull, sysHighFull]
   );
 
   const diaStops = useMemo(
@@ -62,19 +84,20 @@ export const GradientPressureChart = ({
       computeStrokeGradientStops({
         yMin,
         yMax,
-        lowThreshold: thresholds.diastolic.low,
-        highThreshold: thresholds.diastolic.high,
-        palette: STROKE_GRADIENT_PALETTE.diastolic,
-        transitionSpan: 12
+        lowThreshold: diaLow,
+        highThreshold: diaNormalMax,
+        lowFullColorAt: diaLowFull,
+        highFullColorAt: diaHighFull,
+        palette: STROKE_GRADIENT_PALETTE.diastolic
       }),
-    [yMin, yMax, thresholds.diastolic.low, thresholds.diastolic.high]
+    [yMin, yMax, diaLow, diaNormalMax, diaLowFull, diaHighFull]
   );
 
   return (
     <ResponsiveContainer width="100%" height="100%" className="relative z-0">
       <AreaChart data={chartData} margin={{ top: 12, right: 0, left: -24, bottom: 0 }}>
         <defs>
-          {/* Новые сочные градиенты заливки (Fill: 40% -> 0% по схеме Figma) */}
+          {/* Сочные градиенты заливки (Fill: 40% -> 0% по схеме Figma) */}
           <linearGradient id="sysFillV2" x1="0" y1="0" x2="0" y2="1">
             <stop
               offset="0%"
@@ -111,7 +134,12 @@ export const GradientPressureChart = ({
             y2={PLOT_AREA_Y_BOTTOM}
           >
             {sysStops.map((stop, idx) => (
-              <stop key={`sys-stop-${idx}`} offset={stop.offset} stopColor={stop.color} stopOpacity={1} />
+              <stop
+                key={`sys-stop-${idx}`}
+                offset={stop.offset}
+                stopColor={stop.color}
+                stopOpacity={1}
+              />
             ))}
           </linearGradient>
 
@@ -124,17 +152,28 @@ export const GradientPressureChart = ({
             y2={PLOT_AREA_Y_BOTTOM}
           >
             {diaStops.map((stop, idx) => (
-              <stop key={`dia-stop-${idx}`} offset={stop.offset} stopColor={stop.color} stopOpacity={1} />
+              <stop
+                key={`dia-stop-${idx}`}
+                offset={stop.offset}
+                stopColor={stop.color}
+                stopOpacity={1}
+              />
             ))}
           </linearGradient>
         </defs>
 
-        {/* Только 2 горизонтальные пунктирные линии (на уровне нормы 120 и 80), без вертикальных */}
-        <CartesianGrid
-          vertical={false}
-          horizontal={true}
-          strokeDasharray="3 3"
+        {/* СТРОГО ДВЕ горизонтальные пунктирные линии на уровнях нормы (120 и 80), без крайних линий сверху/снизу */}
+        <ReferenceLine
+          y={normSys}
           stroke="var(--chart-grid)"
+          strokeDasharray="3 3"
+          ifOverflow="extendDomain"
+        />
+        <ReferenceLine
+          y={normDia}
+          stroke="var(--chart-grid)"
+          strokeDasharray="3 3"
+          ifOverflow="extendDomain"
         />
 
         <XAxis
