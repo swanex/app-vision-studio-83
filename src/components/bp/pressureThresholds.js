@@ -39,7 +39,7 @@ export const DEFAULT_PRESSURE_THRESHOLDS = {
 // Точные цвета бейджей статусов и карточки нормы из макета Figma
 export const STATUS_BADGE_PALETTE = {
   low: {
-    text: 'Низкое', // Иконка со стрелкой теперь рендерится отдельно в компоненте AnimatedStatusBadge / History
+    text: 'Низкое', // Иконка со стрелкой рендерится отдельно в компоненте
     lightBg: '#A98BFF',
     lightText: '#2B1766', // Глубокий индиго
     darkBg: '#46307A',
@@ -71,7 +71,7 @@ export const STATUS_BADGE_PALETTE = {
     icon: null
   },
   high: {
-    text: 'Высокое', // Иконка со стрелкой теперь рендерится отдельно
+    text: 'Высокое', // Иконка со стрелкой рендерится отдельно в компоненте
     lightBg: '#FFB066',
     lightText: '#5C2D00', // Плотный коричневый
     darkBg: '#5C3818',
@@ -126,7 +126,6 @@ export const getUserPressureThresholds = (user) => {
 /**
  * ЕДИНАЯ ФУНКЦИЯ ОПРЕДЕЛЕНИЯ СТАТУСА ДАВЛЕНИЯ (5 уровней)
  * Синхронизирована с порогами цветового кодирования графика (100..129 и 60..84).
- * Используется для главной карточки, карточки "Замеров в норме" и списка Истории.
  */
 export const evaluatePressureStatus = (
   sys,
@@ -189,7 +188,7 @@ export const evaluatePressureStatus = (
 };
 
 /**
- * Рассчитывает точные процентные позиции Gradient Stops относительно вертикальной шкалы Y.
+ * Рассчитывает точные процентные позиции Gradient Stops.
  */
 export const computeStrokeGradientStops = ({
   yMin,
